@@ -1,0 +1,59 @@
+inherit_from:
+  - .rubocop_todo.yml
+  - .rubocop_airbnb.yml
+
+require:
+  - rubocop-airbnb
+
+
+
+AllCops:
+  TargetRubyVersion: 3.2
+  NewCops: enable
+  Exclude:
+    - 'vendor/**/*'
+    - 'spec/fixtures/**/*'
+    - 'tmp/**/*'
+    - '.git/**/*'
+    - '.bundle/**/*'
+    - 'Gemfile.lock'
+
+# Project specific overrides
+Metrics/BlockLength:
+  Exclude:
+    - 'spec/**/*'
+    - '*.gemspec'
+    - 'Rakefile'
+    - 'bin/soba'
+
+Metrics/MethodLength:
+  Max: 20
+  Exclude:
+    - 'bin/soba'
+
+Metrics/ClassLength:
+  Max: 150
+
+Layout/LineLength:
+  Max: 120
+  Exclude:
+    - 'spec/**/*'
+
+# Allow Japanese comments in documentation
+Style/AsciiComments:
+  Enabled: false
+
+# For CLI application
+Style/GlobalVars:
+  Exclude:
+    - 'bin/soba'
+
+# For RSpec
+RSpec/MultipleExpectations:
+  Max: 3
+
+RSpec/ExampleLength:
+  Max: 15
+
+RSpec/NestedGroups:
+  Max: 4

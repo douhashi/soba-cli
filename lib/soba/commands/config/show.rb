@@ -7,7 +7,6 @@ module Soba
   module Commands
     module Config
       class Show
-        using BlankHelper
         def execute(config_path: nil)
           config = Soba::ConfigLoader.load(path: config_path)
 
@@ -30,7 +29,9 @@ module Soba
         private
 
         def mask_token(token)
-          return "Not set" if token.blank?
+          # rubocop:disable Rails/Blank, Airbnb/SimpleModifierConditional
+          return "Not set" if token.nil? || token.empty?
+          # rubocop:enable Rails/Blank, Airbnb/SimpleModifierConditional
 
           if token.length > 8
             "#{token[0..3]}...#{token[-4..]}"

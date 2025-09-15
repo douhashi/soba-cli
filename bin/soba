@@ -1,0 +1,88 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "bundler/setup"
+require "gli"
+require_relative "../lib/soba"
+
+include GLI::App
+
+program_desc "GitHub Issue to Claude Code workflow automation"
+version Soba::VERSION
+
+desc "Configuration file path"
+default_value "~/.soba/config.yml"
+flag [:c, :config]
+
+desc "Verbose output"
+switch [:v, :verbose]
+
+desc "Manage GitHub issues"
+command :issue do |c|
+  c.desc "List issues from repository"
+  c.arg_name "repository"
+  c.command :list do |list|
+    list.desc "Filter by state"
+    list.default_value "open"
+    list.flag [:s, :state], must_match: ["open", "closed", "all"]
+
+    list.action do |global_options, options, args|
+      if args.empty? || args[0].nil? || args[0].empty?
+        raise GLI::BadCommandLine, "repository is required"
+      end
+
+      require_relative "../lib/soba/commands/issue/list"
+      Soba::Commands::Issue::List.new.execute(
+        repository: args[0],
+        state: options[:state],
+        config: global_options[:config],
+      )
+    end
+  end
+
+  c.desc "Watch repository for issue changes"
+  c.arg_name "repository"
+  c.command :watch do |watch|
+    watch.desc "Polling interval in seconds"
+    watch.default_value 60
+    watch.flag [:i, :interval], type: Integer
+
+    watch.action do |global_options, options, args|
+      if args.empty? || args[0].nil? || args[0].empty?
+        raise GLI::BadCommandLine, "repository is required"
+      end
+
+      require_relative "../lib/soba/commands/issue/watch"
+      Soba::Commands::Issue::Watch.new.execute(
+        repository: args[0],
+        interval: options[:interval],
+        config: global_options[:config],
+      )
+    end
+  end
+end
+
+desc "Show configuration"
+command :config do |c|
+  c.action do |global_options, _options, _args|
+    require_relative "../lib/soba/commands/config/show"
+    Soba::Commands::Config::Show.new.execute(
+      config_path: global_options[:config],
+    )
+  end
+end
+
+pre do |global, _command, _options, _args|
+  if global[:verbose]
+    Soba.logger.level = :debug
+  end
+  true
+end
+
+on_error do |exception|
+  Soba.logger.error(exception.message)
+  Soba.logger.debug(exception.backtrace.join("\n")) if Soba.logger.debug?
+  false
+end
+
+exit run(ARGV)

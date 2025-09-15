@@ -11,6 +11,7 @@ gem "dry-auto_inject", "~> 1.0"
 
 # HTTP Client & GitHub API
 gem "faraday", "~> 2.9"
+gem "faraday-retry", "~> 2.2"
 gem "octokit", "~> 8.0"
 
 # Concurrency
@@ -21,6 +22,9 @@ gem "semantic_logger", "~> 4.15"
 
 # Configuration
 gem "dry-configurable", "~> 1.1"
+
+# Core Extensions (minimal)
+gem "activesupport", "~> 8.0", require: false
 
 group :development, :test do
   # Testing

@@ -11,7 +11,6 @@ program_desc "GitHub Issue to Claude Code workflow automation"
 version Soba::VERSION
 
 desc "Configuration file path"
-default_value "~/.soba/config.yml"
 flag [:c, :config]
 
 desc "Verbose output"

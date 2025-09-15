@@ -13,6 +13,7 @@ require_relative "soba/version"
 module Soba
   class Error < StandardError; end
   class ConfigError < Error; end
+  class ConfigurationError < Error; end
   class GitHubError < Error; end
 
   module Domain; end
@@ -31,6 +32,8 @@ module Soba
   end
 end
 
+require_relative "soba/configuration"
+require_relative "soba/config_loader"
 require_relative "soba/container"
 require_relative "soba/domain/issue"
 require_relative "soba/services/issue_monitor"

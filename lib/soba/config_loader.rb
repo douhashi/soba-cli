@@ -6,7 +6,7 @@ module Soba
   module ConfigLoader
     class << self
       def load(path: nil)
-        Configuration.load!(path)
+        Configuration.load!(path: path)
       rescue ConfigurationError => e
         handle_config_error(e)
       end

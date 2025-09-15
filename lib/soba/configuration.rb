@@ -1,14 +1,13 @@
 # frozen_string_literal: true
 
+require 'active_support/core_ext/object/blank'
 require 'dry-configurable'
 require 'yaml'
 require 'pathname'
-require_relative 'blank_helper'
 
 module Soba
   class Configuration
     extend Dry::Configurable
-    using BlankHelper
 
     setting :github do
       setting :token, default: ENV.fetch('GITHUB_TOKEN', nil)

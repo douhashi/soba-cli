@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "active_support/core_ext/object/blank"
 require_relative "../../config_loader"
 require_relative "../../configuration"
 
@@ -29,9 +30,7 @@ module Soba
         private
 
         def mask_token(token)
-          # rubocop:disable Rails/Blank, Airbnb/SimpleModifierConditional
-          return "Not set" if token.nil? || token.empty?
-          # rubocop:enable Rails/Blank, Airbnb/SimpleModifierConditional
+          return "Not set" if token.blank?
 
           if token.length > 8
             "#{token[0..3]}...#{token[-4..]}"

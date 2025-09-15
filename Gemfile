@@ -23,6 +23,9 @@ gem "semantic_logger", "~> 4.15"
 # Configuration
 gem "dry-configurable", "~> 1.1"
 
+# Core Extensions (minimal)
+gem "activesupport", "~> 8.0", require: false
+
 group :development, :test do
   # Testing
   gem "rspec", "~> 3.12"

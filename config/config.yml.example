@@ -1,0 +1,32 @@
+# soba CLI configuration example
+github:
+  # GitHub Personal Access Token
+  # Generate at: https://github.com/settings/tokens
+  token: ${GITHUB_TOKEN}
+
+  # Default repository to monitor (owner/repo format)
+  repository: owner/repo
+
+claude:
+  # Claude API Key
+  api_key: ${CLAUDE_API_KEY}
+
+  # Model to use (optional)
+  model: claude-3-opus-20240229
+
+workflow:
+  # Polling interval in seconds
+  interval: 60
+
+  # Maximum concurrent workflows
+  max_concurrent: 3
+
+  # Workflow timeout in seconds
+  timeout: 3600
+
+logging:
+  # Log level: debug, info, warn, error
+  level: info
+
+  # Log file path (optional)
+  file: ~/.soba/logs/soba.log

@@ -2,6 +2,8 @@
 
 require "spec_helper"
 require "open3"
+require "tmpdir"
+require "fileutils"
 
 RSpec.describe "CLI", type: :e2e do
   let(:soba_bin) { File.expand_path("../../bin/soba", __dir__) }
@@ -26,9 +28,26 @@ RSpec.describe "CLI", type: :e2e do
 
   describe "soba config" do
     it "shows configuration" do
-      output, status = Open3.capture2("#{soba_bin} config")
-      expect(status).to be_success
-      expect(output).to include("Config path:")
+      # テスト用の設定ファイルを作成
+      config_content = <<~YAML
+        github:
+          token: test_token_123
+          repository: test/repo
+        workflow:
+          interval: 30
+      YAML
+
+      Dir.mktmpdir do |dir|
+        Dir.chdir(dir) do
+          FileUtils.mkdir_p('.osoba')
+          File.write('.osoba/config.yml', config_content)
+
+          output, status = Open3.capture2("#{soba_bin} config")
+          expect(status).to be_success
+          expect(output).to include("soba Configuration")
+          expect(output).to include("Repository: test/repo")
+        end
+      end
     end
   end
 

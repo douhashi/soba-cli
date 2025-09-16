@@ -74,6 +74,32 @@ module Soba
         interval = interval.to_i
         interval = 20 if interval <= 0
 
+        # Phase labels configuration
+        puts ""
+        puts "Phase labels configuration:"
+        puts "These labels are used to track issue progress through the workflow"
+        puts ""
+
+        # Planning phase label
+        print "Enter planning phase label [soba:planning]: "
+        planning_label = $stdin.gets.chomp
+        planning_label = 'soba:planning' if planning_label.empty?
+
+        # Ready phase label
+        print "Enter ready phase label [soba:ready]: "
+        ready_label = $stdin.gets.chomp
+        ready_label = 'soba:ready' if ready_label.empty?
+
+        # Doing phase label
+        print "Enter doing phase label [soba:doing]: "
+        doing_label = $stdin.gets.chomp
+        doing_label = 'soba:doing' if doing_label.empty?
+
+        # Review requested phase label
+        print "Enter review requested phase label [soba:review-requested]: "
+        review_label = $stdin.gets.chomp
+        review_label = 'soba:review-requested' if review_label.empty?
+
         # Create configuration
         config = {
           'github' => {
@@ -82,6 +108,12 @@ module Soba
           },
           'workflow' => {
             'interval' => interval,
+            'phase_labels' => {
+              'planning' => planning_label,
+              'ready' => ready_label,
+              'doing' => doing_label,
+              'review_requested' => review_label,
+            },
           },
         }
 
@@ -103,6 +135,13 @@ module Soba
           workflow:
             # Issue polling interval in seconds
             interval: #{config['workflow']['interval']}
+
+            # Phase labels for tracking issue progress
+            phase_labels:
+              planning: #{config['workflow']['phase_labels']['planning']}
+              ready: #{config['workflow']['phase_labels']['ready']}
+              doing: #{config['workflow']['phase_labels']['doing']}
+              review_requested: #{config['workflow']['phase_labels']['review_requested']}
         YAML
 
         File.write(config_path, config_content)

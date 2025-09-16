@@ -54,7 +54,8 @@ module Soba
 
               # Filter issues that need processing
               processable_issues = issues.select do |issue|
-                labels = issue.labels.map(&:to_s)
+                # Extract label names from hash array
+                labels = issue.labels.map { |l| l[:name] }
                 phase = phase_strategy.determine_phase(labels)
                 !phase.nil?
               end
@@ -68,10 +69,11 @@ module Soba
                 puts "\nProcessing Issue ##{issue.number}: #{issue.title}"
 
                 # Convert Domain::Issue to Hash for issue_processor
+                # Extract label names for issue_processor
                 issue_hash = {
                   number: issue.number,
                   title: issue.title,
-                  labels: issue.labels,
+                  labels: issue.labels.map { |l| l[:name] },
                 }
 
                 result = issue_processor.process(issue_hash)

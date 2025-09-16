@@ -48,12 +48,43 @@ module Soba
 
         command_string = build_command_string(phase, issue_number)
 
-        result = @tmux_session_manager.start_claude_session(
-          issue_number: issue_number,
-          command: command_string
-        )
+        # 新しいtmux管理方式: 1リポジトリ = 1セッション、1 Issue = 1 window
+        session_result = @tmux_session_manager.find_or_create_repository_session
+        return session_result unless session_result[:success]
 
-        result.merge(mode: 'tmux')
+        window_result = @tmux_session_manager.create_issue_window(
+          session_name: session_result[:session_name],
+          issue_number: issue_number
+        )
+        return window_result unless window_result[:success]
+
+        # フェーズごとにpane分割（既存のwindowがある場合は新規pane作成）
+        if window_result[:created]
+          # 新規windowの場合は最初のpaneでコマンド実行
+          tmux_client = Soba::Infrastructure::TmuxClient.new
+          tmux_client.send_keys("#{session_result[:session_name]}:#{window_result[:window_name]}", command_string)
+          pane_id = nil
+        else
+          # 既存windowの場合は新規paneを作成
+          pane_result = @tmux_session_manager.create_phase_pane(
+            session_name: session_result[:session_name],
+            window_name: window_result[:window_name],
+            phase: phase.name
+          )
+          return pane_result unless pane_result[:success]
+
+          pane_id = pane_result[:pane_id]
+          tmux_client = Soba::Infrastructure::TmuxClient.new
+          tmux_client.send_keys(pane_id, command_string)
+        end
+
+        {
+          success: true,
+          session_name: session_result[:session_name],
+          window_name: window_result[:window_name],
+          pane_id: pane_id,
+          mode: 'tmux',
+        }
       end
 
       private

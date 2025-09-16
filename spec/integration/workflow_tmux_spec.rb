@@ -4,119 +4,175 @@ require 'spec_helper'
 require 'soba/services/workflow_executor'
 require 'soba/services/tmux_session_manager'
 require 'soba/infrastructure/tmux_client'
-require 'soba/services/issue_processor'
-require 'soba/infrastructure/github_client'
-require 'soba/domain/phase_strategy'
 require 'soba/configuration'
 
 RSpec.describe 'Workflow Tmux Integration' do
-  let(:tmux_client) { Soba::Infrastructure::TmuxClient.new }
+  let(:tmux_client) { instance_double(Soba::Infrastructure::TmuxClient) }
   let(:tmux_session_manager) { Soba::Services::TmuxSessionManager.new(tmux_client: tmux_client) }
   let(:workflow_executor) { Soba::Services::WorkflowExecutor.new(tmux_session_manager: tmux_session_manager) }
-  let(:github_client) { instance_double(Soba::Infrastructure::GitHubClient) }
-  let(:phase_strategy) { Soba::Domain::PhaseStrategy.new }
-  let(:issue_processor) do
-    Soba::Services::IssueProcessor.new(
-      github_client: github_client,
-      workflow_executor: workflow_executor,
-      phase_strategy: phase_strategy,
-      config: Soba::Configuration
+
+  before do
+    allow(Soba::Configuration).to receive(:config).and_return(
+      double(github: double(repository: 'owner/repo-name'))
     )
   end
 
-  before do
-    Soba::Configuration.reset_config
-    Soba::Configuration.configure do |c|
-      c.github.token = 'test_token'
-      c.github.repository = 'test/repo'
-      c.workflow.use_tmux = true
-      c.phase.plan.command = 'echo'
-      c.phase.plan.options = ['-n']
-      c.phase.plan.parameter = 'Planning issue {{issue-number}}'
+  describe 'executing workflow in new tmux structure' do
+    let(:issue_number) { 42 }
+    let(:phase) do
+      double(
+        name: 'planning',
+        command: 'soba:plan',
+        options: [],
+        parameter: '{{issue-number}}'
+      )
     end
 
-    # Mock TmuxClient within TmuxSessionManager
-    allow_any_instance_of(Soba::Infrastructure::TmuxClient).to receive(:create_session).
-      and_return(success: true)
-    allow_any_instance_of(Soba::Infrastructure::TmuxClient).to receive(:send_keys).
-      and_return(success: true)
-  end
+    context 'when executing in a new repository session' do
+      before do
+        # Repository session doesn't exist
+        allow(tmux_client).to receive(:session_exists?).with('soba-owner-repo-name').and_return(false)
+        allow(tmux_client).to receive(:create_session).with('soba-owner-repo-name').and_return(true)
 
-  describe 'default tmux mode execution' do
-    it 'executes workflow in tmux by default' do
-      issue = {
-        number: 123,
-        title: 'Test Issue',
-        labels: ['soba:todo'],
-      }
+        # Window doesn't exist (new issue)
+        allow(tmux_client).to receive(:window_exists?).with('soba-owner-repo-name', 'issue-42').and_return(false)
+        allow(tmux_client).to receive(:create_window).with('soba-owner-repo-name', 'issue-42').and_return(true)
 
-      expect(github_client).to receive(:update_issue_labels).with(
-        123,
-        from: 'soba:todo',
-        to: 'soba:planning'
-      )
-
-      result = issue_processor.process(issue)
-
-      expect(result).to include(
-        success: true,
-        phase: :plan,
-        mode: 'tmux'
-      )
-      expect(result[:session_name]).to match(/^soba-claude-test-repo-123-\d+$/)
-    end
-
-    it 'respects use_tmux: false configuration' do
-      Soba::Configuration.configure do |c|
-        c.workflow.use_tmux = false
+        # Send command to the first pane
+        allow(tmux_client).to receive(:send_keys).with('soba-owner-repo-name:issue-42', 'soba:plan 42').and_return(true)
       end
 
-      issue = {
-        number: 456,
-        title: 'Direct execution test',
-        labels: ['soba:todo'],
-      }
+      it 'creates repository session, issue window, and executes command' do
+        # WorkflowExecutor needs tmux_client instance
+        allow(Soba::Infrastructure::TmuxClient).to receive(:new).and_return(tmux_client)
 
-      expect(github_client).to receive(:update_issue_labels).with(
-        456,
-        from: 'soba:todo',
-        to: 'soba:planning'
-      )
+        result = workflow_executor.execute(phase: phase, issue_number: issue_number, use_tmux: true)
 
-      allow(Open3).to receive(:popen3).with('echo', '-n', 'Planning issue 456') do |&block|
-        stdin = double('stdin', close: nil)
-        stdout = double('stdout', read: 'Planning issue 456')
-        stderr = double('stderr', read: '')
-        thread = double('thread', value: double(exitstatus: 0))
-        block.call(stdin, stdout, stderr, thread)
+        expect(result[:success]).to be true
+        expect(result[:session_name]).to eq('soba-owner-repo-name')
+        expect(result[:window_name]).to eq('issue-42')
+        expect(result[:pane_id]).to be_nil # First pane, no split
+        expect(result[:mode]).to eq('tmux')
+
+        expect(tmux_client).to have_received(:create_session).with('soba-owner-repo-name')
+        expect(tmux_client).to have_received(:create_window).with('soba-owner-repo-name', 'issue-42')
+        expect(tmux_client).to have_received(:send_keys).with('soba-owner-repo-name:issue-42', 'soba:plan 42')
+      end
+    end
+
+    context 'when executing in an existing session with existing window' do
+      before do
+        # Repository session exists
+        allow(tmux_client).to receive(:session_exists?).with('soba-owner-repo-name').and_return(true)
+        allow(tmux_client).to receive(:create_session) # Allow but don't expect
+
+        # Window exists (continuing work on same issue)
+        allow(tmux_client).to receive(:window_exists?).with('soba-owner-repo-name', 'issue-42').and_return(true)
+        allow(tmux_client).to receive(:create_window) # Allow but don't expect
+
+        # Create new pane for the phase
+        allow(tmux_client).to receive(:split_window).with(
+          session_name: 'soba-owner-repo-name',
+          window_name: 'issue-42',
+          vertical: true
+        ).and_return('%15')
+
+        # Send command to the new pane
+        allow(tmux_client).to receive(:send_keys).with('%15', 'soba:plan 42').and_return(true)
       end
 
-      result = issue_processor.process(issue)
+      it 'uses existing session/window and creates new pane for phase' do
+        # WorkflowExecutor needs tmux_client instance
+        allow(Soba::Infrastructure::TmuxClient).to receive(:new).and_return(tmux_client)
 
-      expect(result).to include(
-        success: true,
-        phase: :plan,
-        output: 'Planning issue 456'
-      )
-      expect(result).not_to have_key(:mode)
-      expect(result).not_to have_key(:session_name)
+        result = workflow_executor.execute(phase: phase, issue_number: issue_number, use_tmux: true)
+
+        expect(result[:success]).to be true
+        expect(result[:session_name]).to eq('soba-owner-repo-name')
+        expect(result[:window_name]).to eq('issue-42')
+        expect(result[:pane_id]).to eq('%15')
+        expect(result[:mode]).to eq('tmux')
+
+        expect(tmux_client).not_to have_received(:create_session)
+        expect(tmux_client).not_to have_received(:create_window)
+        expect(tmux_client).to have_received(:split_window)
+        expect(tmux_client).to have_received(:send_keys).with('%15', 'soba:plan 42')
+      end
+    end
+
+    context 'when repository configuration is missing' do
+      before do
+        allow(Soba::Configuration).to receive(:config).and_return(
+          double(github: double(repository: nil))
+        )
+      end
+
+      it 'returns an error' do
+        result = workflow_executor.execute(phase: phase, issue_number: issue_number, use_tmux: true)
+
+        expect(result[:success]).to be false
+        expect(result[:error]).to match(/Repository configuration not found/)
+      end
     end
   end
 
-  describe 'tmux session naming' do
-    it 'generates unique session names for different issues' do
-      phase_config = double(
-        command: 'echo',
-        options: ['-n'],
-        parameter: 'Test {{issue-number}}'
+  describe 'multiple phases execution' do
+    let(:issue_number) { 31 }
+    let(:planning_phase) do
+      double(
+        name: 'planning',
+        command: 'soba:plan',
+        options: [],
+        parameter: '{{issue-number}}'
       )
+    end
+    let(:implementation_phase) do
+      double(
+        name: 'implementation',
+        command: 'soba:implement',
+        options: [],
+        parameter: '{{issue-number}}'
+      )
+    end
 
-      result1 = workflow_executor.execute(phase: phase_config, issue_number: 100)
-      result2 = workflow_executor.execute(phase: phase_config, issue_number: 200)
+    context 'when executing multiple phases for the same issue' do
+      before do
+        # Repository session exists
+        allow(tmux_client).to receive(:session_exists?).with('soba-owner-repo-name').and_return(true)
 
-      expect(result1[:session_name]).to match(/^soba-claude-test-repo-100-\d+$/)
-      expect(result2[:session_name]).to match(/^soba-claude-test-repo-200-\d+$/)
-      expect(result1[:session_name]).not_to eq(result2[:session_name])
+        # First phase: window doesn't exist
+        allow(tmux_client).to receive(:window_exists?).
+          with('soba-owner-repo-name', 'issue-31').
+          and_return(false, true) # Returns false first time, true second time
+        allow(tmux_client).to receive(:create_window).with('soba-owner-repo-name', 'issue-31').and_return(true)
+        allow(tmux_client).to receive(:send_keys).with('soba-owner-repo-name:issue-31', 'soba:plan 31').and_return(true)
+
+        # Second phase: window exists, create new pane
+        allow(tmux_client).to receive(:split_window).with(
+          session_name: 'soba-owner-repo-name',
+          window_name: 'issue-31',
+          vertical: true
+        ).and_return('%20')
+        allow(tmux_client).to receive(:send_keys).with('%20', 'soba:implement 31').and_return(true)
+      end
+
+      it 'creates window for first phase and pane for second phase' do
+        allow(Soba::Infrastructure::TmuxClient).to receive(:new).and_return(tmux_client)
+
+        # Execute planning phase
+        planning_result = workflow_executor.execute(phase: planning_phase, issue_number: issue_number, use_tmux: true)
+        expect(planning_result[:success]).to be true
+        expect(planning_result[:pane_id]).to be_nil
+
+        # Execute implementation phase
+        implementation_result = workflow_executor.execute(phase: implementation_phase, issue_number: issue_number, use_tmux: true)
+        expect(implementation_result[:success]).to be true
+        expect(implementation_result[:pane_id]).to eq('%20')
+
+        # Verify the sequence of calls
+        expect(tmux_client).to have_received(:create_window).once
+        expect(tmux_client).to have_received(:split_window).once
+      end
     end
   end
 end

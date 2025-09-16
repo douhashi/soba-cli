@@ -285,4 +285,168 @@ RSpec.describe Soba::Services::TmuxSessionManager do
       expect(tmux_client).not_to have_received(:kill_session).with(recent_session_with_repo)
     end
   end
+
+  describe '#find_or_create_repository_session' do
+    before do
+      allow(Soba::Configuration).to receive(:config).and_return(
+        double(github: double(repository: 'owner/repo-name'))
+      )
+    end
+
+    it 'creates a new repository session if not exists' do
+      session_name = 'soba-owner-repo-name'
+      allow(tmux_client).to receive(:session_exists?).with(session_name).and_return(false)
+      allow(tmux_client).to receive(:create_session).with(session_name).and_return(true)
+
+      result = manager.find_or_create_repository_session
+
+      expect(result[:success]).to be true
+      expect(result[:session_name]).to eq(session_name)
+      expect(result[:created]).to be true
+      expect(tmux_client).to have_received(:create_session).with(session_name)
+    end
+
+    it 'returns existing repository session if exists' do
+      session_name = 'soba-owner-repo-name'
+      allow(tmux_client).to receive(:session_exists?).with(session_name).and_return(true)
+      allow(tmux_client).to receive(:create_session)
+
+      result = manager.find_or_create_repository_session
+
+      expect(result[:success]).to be true
+      expect(result[:session_name]).to eq(session_name)
+      expect(result[:created]).to be false
+      expect(tmux_client).not_to have_received(:create_session)
+    end
+
+    it 'handles repository names with special characters' do
+      allow(Soba::Configuration).to receive(:config).and_return(
+        double(github: double(repository: 'owner/repo.name-with_special'))
+      )
+      session_name = 'soba-owner-repo-name-with-special'
+      allow(tmux_client).to receive(:session_exists?).with(session_name).and_return(false)
+      allow(tmux_client).to receive(:create_session).with(session_name).and_return(true)
+
+      result = manager.find_or_create_repository_session
+
+      expect(result[:success]).to be true
+      expect(result[:session_name]).to eq(session_name)
+    end
+
+    context 'when repository configuration is missing' do
+      before do
+        allow(Soba::Configuration).to receive(:config).and_return(
+          double(github: double(repository: nil))
+        )
+      end
+
+      it 'returns an error' do
+        result = manager.find_or_create_repository_session
+
+        expect(result[:success]).to be false
+        expect(result[:error]).to match(/Repository configuration not found/)
+      end
+    end
+  end
+
+  describe '#create_issue_window' do
+    let(:session_name) { 'soba-owner-repo' }
+    let(:issue_number) { 42 }
+
+    it 'creates a new window for the issue' do
+      window_name = 'issue-42'
+      allow(tmux_client).to receive(:window_exists?).with(session_name, window_name).and_return(false)
+      allow(tmux_client).to receive(:create_window).with(session_name, window_name).and_return(true)
+
+      result = manager.create_issue_window(session_name: session_name, issue_number: issue_number)
+
+      expect(result[:success]).to be true
+      expect(result[:window_name]).to eq(window_name)
+      expect(result[:created]).to be true
+      expect(tmux_client).to have_received(:create_window).with(session_name, window_name)
+    end
+
+    it 'returns existing window if already exists' do
+      window_name = 'issue-42'
+      allow(tmux_client).to receive(:window_exists?).with(session_name, window_name).and_return(true)
+      allow(tmux_client).to receive(:create_window)
+
+      result = manager.create_issue_window(session_name: session_name, issue_number: issue_number)
+
+      expect(result[:success]).to be true
+      expect(result[:window_name]).to eq(window_name)
+      expect(result[:created]).to be false
+      expect(tmux_client).not_to have_received(:create_window)
+    end
+
+    context 'when window creation fails' do
+      it 'returns an error' do
+        window_name = 'issue-42'
+        allow(tmux_client).to receive(:window_exists?).with(session_name, window_name).and_return(false)
+        allow(tmux_client).to receive(:create_window).with(session_name, window_name).and_return(false)
+
+        result = manager.create_issue_window(session_name: session_name, issue_number: issue_number)
+
+        expect(result[:success]).to be false
+        expect(result[:error]).to match(/Failed to create window/)
+      end
+    end
+  end
+
+  describe '#create_phase_pane' do
+    let(:session_name) { 'soba-owner-repo' }
+    let(:window_name) { 'issue-42' }
+    let(:phase) { 'planning' }
+
+    it 'creates a new pane for the phase' do
+      allow(tmux_client).to receive(:split_window).with(
+        session_name: session_name,
+        window_name: window_name,
+        vertical: true
+      ).and_return(0)
+
+      result = manager.create_phase_pane(
+        session_name: session_name,
+        window_name: window_name,
+        phase: phase
+      )
+
+      expect(result[:success]).to be true
+      expect(result[:pane_id]).to eq(0)
+      expect(result[:phase]).to eq(phase)
+    end
+
+    it 'supports horizontal splitting' do
+      allow(tmux_client).to receive(:split_window).with(
+        session_name: session_name,
+        window_name: window_name,
+        vertical: false
+      ).and_return(1)
+
+      result = manager.create_phase_pane(
+        session_name: session_name,
+        window_name: window_name,
+        phase: phase,
+        vertical: false
+      )
+
+      expect(result[:success]).to be true
+      expect(result[:pane_id]).to eq(1)
+    end
+
+    context 'when pane creation fails' do
+      it 'returns an error' do
+        allow(tmux_client).to receive(:split_window).and_return(nil)
+
+        result = manager.create_phase_pane(
+          session_name: session_name,
+          window_name: window_name,
+          phase: phase
+        )
+
+        expect(result[:success]).to be false
+        expect(result[:error]).to match(/Failed to create pane/)
+      end
+    end
+  end
 end

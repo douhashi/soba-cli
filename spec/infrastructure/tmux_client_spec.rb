@@ -480,8 +480,12 @@ RSpec.describe Soba::Infrastructure::TmuxClient do
                    [new_content, '', double(exitstatus: 0)],
                    [new_content, '', double(exitstatus: 0)])
 
-      # Use timeout to prevent infinite loop in test
-      allow(client).to receive(:sleep).with(1).and_raise(StopIteration)
+      # Allow first sleep, then raise StopIteration on second
+      sleep_count = 0
+      allow(client).to receive(:sleep).with(1) do
+        sleep_count += 1
+        raise StopIteration if sleep_count >= 2
+      end
 
       begin
         client.capture_pane_continuous(pane_id) do |output|
@@ -491,7 +495,7 @@ RSpec.describe Soba::Infrastructure::TmuxClient do
         # Expected - stop the loop
       end
 
-      expect(outputs).to eq(["new line\n"])
+      expect(outputs).to eq(["initial line\n", "new line\n"])
     end
 
     it 'stops when pane no longer exists' do

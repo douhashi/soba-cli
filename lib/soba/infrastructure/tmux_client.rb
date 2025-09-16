@@ -143,6 +143,41 @@ module Soba
         false
       end
 
+      def find_pane(session_name)
+        stdout, _stderr, status = execute_tmux_command('list-panes', '-t', session_name, '-F', '#{pane_id}')
+        return nil unless status.exitstatus == 0
+
+        # Return first pane ID
+        stdout.lines.first&.strip
+      rescue Errno::ENOENT
+        nil
+      end
+
+      def capture_pane_continuous(pane_id)
+        last_content = ""
+
+        loop do
+          stdout, _stderr, status = execute_tmux_command('capture-pane', '-t', pane_id, '-p', '-S', '-')
+          break unless status.exitstatus == 0
+
+          # Yield only new content
+          if stdout != last_content
+            new_lines = stdout[last_content.length..-1] || ""
+            yield new_lines unless new_lines.empty?
+            last_content = stdout
+          end
+
+          sleep 1
+        end
+      rescue Errno::ENOENT
+        nil
+      end
+
+      def list_soba_sessions
+        sessions = list_sessions
+        sessions.select { |s| s.start_with?('soba-') }
+      end
+
       private
 
       def execute_tmux_command(*args)

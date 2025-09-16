@@ -12,7 +12,14 @@ module Soba
     module Workflow
       class Run
         def execute(global_options, _options)
-          Soba::Configuration.load! unless Soba::Configuration.config
+          Soba::Configuration.load!
+
+          config = Soba::Configuration.config
+          unless config&.github&.repository
+            puts "Error: GitHub repository is not configured"
+            puts "Please run 'soba init' or set repository in .osoba/config.yml"
+            return
+          end
 
           github_client = Soba::Infrastructure::GitHubClient.new
           workflow_executor = Soba::Services::WorkflowExecutor.new
@@ -24,39 +31,50 @@ module Soba
             config: Soba::Configuration
           )
 
+          repository = Soba::Configuration.config.github.repository
+          interval = Soba::Configuration.config.workflow.interval
+
           issue_watcher = Soba::Services::IssueWatcher.new(
             client: github_client,
-            repository: Soba::Configuration.config.github.repository,
-            interval: Soba::Configuration.config.workflow.interval
+            repository: repository,
+            interval: interval
           )
 
-          puts "Starting workflow monitor for #{Soba::Configuration.config.github.repository}"
-          puts "Polling interval: #{Soba::Configuration.config.workflow.interval} seconds"
+          puts "Starting workflow monitor for #{repository}"
+          puts "Polling interval: #{interval} seconds"
           puts "Press Ctrl+C to stop"
 
-          Signal.trap('INT') { issue_watcher.stop }
-          Signal.trap('TERM') { issue_watcher.stop }
+          @running = true
+          Signal.trap('INT') { @running = false }
+          Signal.trap('TERM') { @running = false }
 
-          while issue_watcher.running?
+          while @running
             begin
               issues = issue_watcher.fetch_issues
 
               # Filter issues that need processing
               processable_issues = issues.select do |issue|
-                labels = issue[:labels].map { |l| l.is_a?(Hash) ? l[:name] : l }
+                labels = issue.labels.map(&:to_s)
                 phase = phase_strategy.determine_phase(labels)
                 !phase.nil?
               end
 
               # Sort by issue number (youngest first)
-              processable_issues.sort_by! { |issue| issue[:number] }
+              processable_issues.sort_by!(&:number)
 
               # Process the first issue if available
               if processable_issues.any?
                 issue = processable_issues.first
-                puts "\nProcessing Issue ##{issue[:number]}: #{issue[:title]}"
+                puts "\nProcessing Issue ##{issue.number}: #{issue.title}"
 
-                result = issue_processor.process(issue)
+                # Convert Domain::Issue to Hash for issue_processor
+                issue_hash = {
+                  number: issue.number,
+                  title: issue.title,
+                  labels: issue.labels,
+                }
+
+                result = issue_processor.process(issue_hash)
 
                 if result[:success]
                   if result[:skipped]
@@ -75,10 +93,10 @@ module Soba
                 end
               end
 
-              sleep(Soba::Configuration.config.workflow.interval)
+              sleep(Soba::Configuration.config.workflow.interval) if @running
             rescue StandardError => e
               puts "Error: #{e.message}"
-              sleep(Soba::Configuration.config.workflow.interval)
+              sleep(Soba::Configuration.config.workflow.interval) if @running
             end
           end
 

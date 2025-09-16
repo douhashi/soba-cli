@@ -96,6 +96,7 @@ module Soba
         end
         data = YAML.safe_load(expanded_content, permitted_classes: [Symbol])
 
+        reset_config
         configure do |c|
           if data['github']
             c.github.token = data.dig('github', 'token') || ENV.fetch('GITHUB_TOKEN', nil)

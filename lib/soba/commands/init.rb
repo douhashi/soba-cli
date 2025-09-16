@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "active_support/core_ext/object/blank"
+require "active_support/core_ext/string/exclude"
 require "pathname"
 require "yaml"
 require "io/console"
@@ -27,10 +29,21 @@ module Soba
         puts "Let's set up your GitHub configuration:"
         puts ""
 
-        # GitHub repository
-        print "Enter GitHub repository (format: owner/repo): "
+        # GitHub repository - auto-detect from git remote
+        default_repo = detect_github_repository
+
+        if default_repo
+          print "Enter GitHub repository (format: owner/repo) [#{default_repo}]: "
+        else
+          print "Enter GitHub repository (format: owner/repo): "
+        end
+
         repository = $stdin.gets.chomp
-        while repository.empty? || repository.exclude?('/')
+        if repository.empty? && default_repo
+          repository = default_repo
+        end
+
+        while repository.blank? || repository.exclude?('/')
           puts "❌ Invalid format. Please use: owner/repo"
           print "Enter GitHub repository: "
           repository = $stdin.gets.chomp
@@ -139,6 +152,31 @@ module Soba
       rescue StandardError => e
         puts "\n❌ Error: #{e.message}"
         exit 1
+      end
+
+      private
+
+      def detect_github_repository
+        return nil unless Dir.exist?('.git')
+
+        # Try to get remote origin URL
+        remote_url = `git config --get remote.origin.url 2>/dev/null`.chomp
+        return nil if remote_url.empty?
+
+        # Parse GitHub repository from various URL formats
+        # https://github.com/owner/repo.git
+        # git@github.com:owner/repo.git
+        # ssh://git@github.com/owner/repo.git
+        case remote_url
+        when %r{github\.com[:/]([^/]+)/([^/]+?)(?:\.git)?$}
+          "#{Regexp.last_match(1)}/#{Regexp.last_match(2)}"
+        when %r{^git@github\.com:([^/]+)/([^/]+?)(?:\.git)?$}
+          "#{Regexp.last_match(1)}/#{Regexp.last_match(2)}"
+        else
+          nil
+        end
+      rescue StandardError
+        nil
       end
     end
   end

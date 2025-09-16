@@ -16,7 +16,7 @@ RSpec.describe "Issue Watch E2E", type: :e2e do
 
     context "with invalid arguments" do
       it "rejects interval less than minimum" do
-        output, error, status = Open3.capture3(
+        _output, error, status = Open3.capture3(
           soba_bin,
           "issue",
           "watch",
@@ -29,7 +29,7 @@ RSpec.describe "Issue Watch E2E", type: :e2e do
       end
 
       it "requires repository argument" do
-        output, error, status = Open3.capture3(
+        _output, _error, status = Open3.capture3(
           soba_bin,
           "issue",
           "watch"

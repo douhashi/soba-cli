@@ -6,9 +6,9 @@ require "tmpdir"
 require "stringio"
 
 RSpec.describe Soba::Commands::Init do
-  let(:command) { described_class.new }
+  let(:command) { described_class.new(interactive: true) }
 
-  describe "#execute" do
+  describe "#execute with interactive mode" do
     let(:temp_dir) { Dir.mktmpdir }
     let(:config_path) { Pathname.new(temp_dir).join('.soba', 'config.yml') }
 
@@ -240,6 +240,98 @@ RSpec.describe Soba::Commands::Init do
         expect { command.execute }.to raise_error(SystemExit) do |error|
           expect(error.status).to eq(1)
         end
+      end
+    end
+  end
+
+  describe "#execute with non-interactive mode (default)" do
+    let(:command) { described_class.new(interactive: false) }
+    let(:temp_dir) { Dir.mktmpdir }
+    let(:config_path) { Pathname.new(temp_dir).join('.soba', 'config.yml') }
+
+    before do
+      allow(Pathname).to receive(:pwd).and_return(Pathname.new(temp_dir))
+    end
+
+    after do
+      FileUtils.rm_rf(temp_dir)
+    end
+
+    context "when config file does not exist" do
+      it "creates a configuration file with default values" do
+        allow(Dir).to receive(:exist?).with('.git').and_return(true)
+        allow(command).to receive(:`).with('git config --get remote.origin.url 2>/dev/null').and_return("https://github.com/douhashi/soba.git\n")
+
+        expect { command.execute }.to output(/Configuration created successfully/).to_stdout
+
+        expect(config_path).to exist
+        config = YAML.safe_load_file(config_path)
+        expect(config['github']['repository']).to eq('douhashi/soba')
+        expect(config['github']['token']).to eq('${GITHUB_TOKEN}')
+        expect(config['workflow']['interval']).to eq(20)
+        expect(config['workflow']['phase_labels']['planning']).to eq('soba:planning')
+        expect(config['workflow']['phase_labels']['ready']).to eq('soba:ready')
+        expect(config['workflow']['phase_labels']['doing']).to eq('soba:doing')
+        expect(config['workflow']['phase_labels']['review_requested']).to eq('soba:review-requested')
+      end
+
+      it "fails when GitHub repository cannot be detected" do
+        allow(Dir).to receive(:exist?).with('.git').and_return(false)
+
+        expect { command.execute }.to raise_error(SystemExit) do |error|
+          expect(error.status).to eq(1)
+        end
+      end
+    end
+
+    context "when config file already exists" do
+      before do
+        config_path.dirname.mkpath
+        File.write(config_path, "existing: config")
+      end
+
+      it "asks for confirmation before overwriting" do
+        allow(Dir).to receive(:exist?).with('.git').and_return(true)
+        allow(command).to receive(:`).with('git config --get remote.origin.url 2>/dev/null').and_return("https://github.com/douhashi/soba.git\n")
+
+        input = StringIO.new("y\n")
+        allow($stdin).to receive(:gets) { input.gets }
+
+        expect { command.execute }.to output(/already exists.*Configuration created successfully/m).to_stdout
+
+        config = YAML.safe_load_file(config_path)
+        expect(config['github']).not_to be_nil
+      end
+
+      it "does not overwrite when user declines" do
+        input = StringIO.new("n\n")
+        allow($stdin).to receive(:gets) { input.gets }
+
+        expect { command.execute }.to output(/Configuration unchanged/).to_stdout
+
+        content = File.read(config_path)
+        expect(content).to eq("existing: config")
+      end
+    end
+
+    context "with .gitignore handling" do
+      let(:gitignore_path) { Pathname.new(temp_dir).join('.gitignore') }
+
+      before do
+        File.write(gitignore_path, "*.log\n")
+      end
+
+      it "adds .soba to .gitignore when requested in non-interactive mode" do
+        allow(Dir).to receive(:exist?).with('.git').and_return(true)
+        allow(command).to receive(:`).with('git config --get remote.origin.url 2>/dev/null').and_return("https://github.com/douhashi/soba.git\n")
+
+        input = StringIO.new("y\n")
+        allow($stdin).to receive(:gets) { input.gets }
+
+        expect { command.execute }.to output(/Added .soba\/ to .gitignore/).to_stdout
+
+        gitignore_content = File.read(gitignore_path)
+        expect(gitignore_content).to include('.soba/')
       end
     end
   end

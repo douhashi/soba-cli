@@ -61,9 +61,12 @@ end
 
 desc "Initialize soba configuration"
 command :init do |c|
-  c.action do |global_options, _options, _args|
+  c.desc "Interactive mode for configuration"
+  c.switch [:i, :interactive]
+
+  c.action do |global_options, options, _args|
     require_relative "../lib/soba/commands/init"
-    Soba::Commands::Init.new.execute
+    Soba::Commands::Init.new(interactive: options[:interactive]).execute
   end
 end
 

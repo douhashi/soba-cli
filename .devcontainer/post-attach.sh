@@ -14,3 +14,16 @@ alias claude='claude --dangerously-skip-permissions'
 
 echo "Aliases configured:"
 echo "  claude → claude --dangerously-skip-permissions"
+
+# Configure direnv if it exists
+if command -v direnv >/dev/null 2>&1; then
+    if ! grep -q "eval \"\$(direnv hook bash)\"" "$BASHRC_FILE" 2>/dev/null; then
+        echo 'eval "$(direnv hook bash)"' >> "$BASHRC_FILE"
+        echo "direnv configured"
+    fi
+
+    # Apply direnv to current shell session as well
+    eval "$(direnv hook bash)"
+fi
+
+

@@ -37,6 +37,5 @@ soba CLIは、GitHub IssueをデータソースとしてClaude Codeによる自�
 ## 技術スタック
 
 - **実装言語**: Ruby
-- **配布方式**: Whalebrew (Docker コンテナベース)
-- **対象プラットフォーム**: Linux, macOS, Windows (Docker環境)
+- **対象プラットフォーム**: Linux, macOS, Windows
 - **依存関係**: GitHub API, Claude Code API

@@ -19,6 +19,11 @@ module Soba
         require_relative "services/issue_monitor"
         Services::IssueMonitor.new
       end
+
+      register(:issue_watcher) do
+        require_relative "services/issue_watcher"
+        Services::IssueWatcher.new(github_client: Container["github.client"])
+      end
     end
   end
 

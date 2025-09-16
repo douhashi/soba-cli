@@ -9,6 +9,10 @@ RSpec.describe Soba::Configuration do
   let(:config_dir) { File.join(tmp_dir, '.osoba') }
   let(:config_file) { File.join(config_dir, 'config.yml') }
 
+  before do
+    described_class.reset_config
+  end
+
   after do
     FileUtils.rm_rf(tmp_dir)
     described_class.reset_config

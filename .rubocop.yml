@@ -61,3 +61,10 @@ RSpec/NestedGroups:
 # This is a Rails-specific cop that doesn't apply to CLI applications
 Airbnb/ClassOrModuleDeclaredInWrongFile:
   Enabled: false
+
+# Rails-specific cops that don't apply to CLI applications
+Rails/Pluck:
+  Enabled: false
+
+Rails/PluckInWhere:
+  Enabled: false

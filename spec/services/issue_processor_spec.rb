@@ -1,0 +1,224 @@
+# frozen_string_literal: true
+
+require 'spec_helper'
+require 'soba/services/issue_processor'
+require 'soba/services/workflow_executor'
+require 'soba/domain/phase_strategy'
+require 'soba/configuration'
+
+RSpec.describe Soba::Services::IssueProcessor do
+  let(:github_client) { double('GitHubClient') }
+  let(:workflow_executor) { Soba::Services::WorkflowExecutor.new }
+  let(:phase_strategy) { Soba::Domain::PhaseStrategy.new }
+  let(:config) { Soba::Configuration }
+  let(:processor) do
+    described_class.new(
+      github_client: github_client,
+      workflow_executor: workflow_executor,
+      phase_strategy: phase_strategy,
+      config: config
+    )
+  end
+
+  before do
+    Soba::Configuration.reset_config
+    Soba::Configuration.configure do |c|
+      c.phase.plan.command = 'echo'
+      c.phase.plan.options = ['--test']
+      c.phase.plan.parameter = 'Plan {{issue-number}}'
+      c.phase.implement.command = 'echo'
+      c.phase.implement.options = ['--test']
+      c.phase.implement.parameter = 'Implement {{issue-number}}'
+    end
+  end
+
+  describe '#process' do
+    let(:issue) do
+      {
+        number: 123,
+        title: 'Test Issue',
+        labels: issue_labels,
+      }
+    end
+
+    context 'when issue needs plan phase' do
+      let(:issue_labels) { ['soba:todo', 'enhancement'] }
+
+      it 'updates label and executes workflow' do
+        expect(github_client).to receive(:update_issue_labels).with(
+          issue[:number],
+          from: 'soba:todo',
+          to: 'soba:planning'
+        )
+
+        allow(Open3).to receive(:popen3).with('echo', '--test', 'Plan 123') do |&block|
+          stdin = double('stdin', close: nil)
+          stdout = double('stdout', read: 'Plan phase started')
+          stderr = double('stderr', read: '')
+          thread = double('thread', value: double(exitstatus: 0))
+          block.call(stdin, stdout, stderr, thread)
+        end
+
+        result = processor.process(issue)
+
+        expect(result).to include(
+          success: true,
+          phase: :plan,
+          issue_number: 123,
+          label_updated: true
+        )
+      end
+
+      context 'when workflow execution fails' do
+        it 'returns failure result' do
+          expect(github_client).to receive(:update_issue_labels).with(
+            issue[:number],
+            from: 'soba:todo',
+            to: 'soba:planning'
+          )
+
+          allow(Open3).to receive(:popen3).with('echo', '--test', 'Plan 123') do |&block|
+            stdin = double('stdin', close: nil)
+            stdout = double('stdout', read: '')
+            stderr = double('stderr', read: 'Command failed')
+            thread = double('thread', value: double(exitstatus: 1))
+            block.call(stdin, stdout, stderr, thread)
+          end
+
+          result = processor.process(issue)
+
+          expect(result).to include(
+            success: false,
+            phase: :plan,
+            issue_number: 123,
+            error: 'Command failed'
+          )
+        end
+      end
+
+      context 'when label update fails' do
+        it 'does not execute workflow and returns error' do
+          expect(github_client).to receive(:update_issue_labels).and_raise(
+            StandardError.new('API error')
+          )
+
+          expect(Open3).not_to receive(:popen3)
+
+          expect do
+            processor.process(issue)
+          end.to raise_error(Soba::Services::IssueProcessingError, /Failed to update labels/)
+        end
+      end
+    end
+
+    context 'when issue needs implement phase' do
+      let(:issue_labels) { ['soba:ready'] }
+
+      it 'updates label to soba:doing and executes workflow' do
+        expect(github_client).to receive(:update_issue_labels).with(
+          issue[:number],
+          from: 'soba:ready',
+          to: 'soba:doing'
+        )
+
+        allow(Open3).to receive(:popen3).with('echo', '--test', 'Implement 123') do |&block|
+          stdin = double('stdin', close: nil)
+          stdout = double('stdout', read: 'Implementation started')
+          stderr = double('stderr', read: '')
+          thread = double('thread', value: double(exitstatus: 0))
+          block.call(stdin, stdout, stderr, thread)
+        end
+
+        result = processor.process(issue)
+
+        expect(result).to include(
+          success: true,
+          phase: :implement,
+          issue_number: 123,
+          label_updated: true
+        )
+      end
+    end
+
+    context 'when issue is already in progress' do
+      let(:issue_labels) { ['soba:planning'] }
+
+      it 'returns skipped result' do
+        expect(github_client).not_to receive(:update_issue_labels)
+        expect(Open3).not_to receive(:popen3)
+
+        result = processor.process(issue)
+
+        expect(result).to include(
+          success: true,
+          skipped: true,
+          reason: 'No phase determined for issue'
+        )
+      end
+    end
+
+    context 'when issue has no soba labels' do
+      let(:issue_labels) { ['bug', 'enhancement'] }
+
+      it 'returns skipped result' do
+        expect(github_client).not_to receive(:update_issue_labels)
+        expect(Open3).not_to receive(:popen3)
+
+        result = processor.process(issue)
+
+        expect(result).to include(
+          success: true,
+          skipped: true,
+          reason: 'No phase determined for issue'
+        )
+      end
+    end
+
+    context 'when phase config is not defined' do
+      let(:issue_labels) { ['soba:todo'] }
+
+      before do
+        Soba::Configuration.configure do |c|
+          c.phase.plan.command = nil
+          c.phase.plan.options = []
+          c.phase.plan.parameter = nil
+        end
+      end
+
+      it 'updates label but skips workflow execution' do
+        expect(github_client).to receive(:update_issue_labels).with(
+          issue[:number],
+          from: 'soba:todo',
+          to: 'soba:planning'
+        )
+
+        expect(Open3).not_to receive(:popen3)
+
+        result = processor.process(issue)
+
+        expect(result).to include(
+          success: true,
+          phase: :plan,
+          issue_number: 123,
+          label_updated: true,
+          workflow_skipped: true,
+          reason: 'Phase configuration not defined'
+        )
+      end
+    end
+  end
+
+  describe '#current_label_for_phase' do
+    it 'returns correct label for plan phase' do
+      result = processor.send(:current_label_for_phase, :plan)
+
+      expect(result).to eq('soba:todo')
+    end
+
+    it 'returns correct label for implement phase' do
+      result = processor.send(:current_label_for_phase, :implement)
+
+      expect(result).to eq('soba:ready')
+    end
+  end
+end

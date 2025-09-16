@@ -5,7 +5,7 @@ require "soba/services/issue_watcher"
 
 RSpec.describe Soba::Services::IssueWatcher do
   let(:github_client) { instance_double(Soba::Infrastructure::GitHubClient) }
-  let(:watcher) { described_class.new(github_client: github_client) }
+  let(:watcher) { described_class.new(client: github_client) }
   let(:repository) { "owner/repo" }
   let(:interval) { 10 }
 

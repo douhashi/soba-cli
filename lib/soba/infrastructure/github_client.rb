@@ -69,6 +69,41 @@ module Soba
         nil
       end
 
+      def update_issue_labels(issue_number, from:, to:)
+        repository = Configuration.config.github.repository if defined?(Configuration)
+
+        logger.info "Updating issue labels",
+                    repository: repository,
+                    issue: issue_number,
+                    from: from,
+                    to: to
+
+        with_error_handling do
+          with_rate_limit_check do
+            # Get current labels
+            issue = @octokit.issue(repository, issue_number)
+            current_labels = issue.labels.map(&:name)
+
+            # Remove the 'from' label and add the 'to' label
+            new_labels = current_labels - [from]
+            new_labels << to unless new_labels.include?(to)
+
+            # Update labels on the issue
+            @octokit.replace_all_labels(repository, issue_number, new_labels)
+          end
+        end
+
+        logger.info "Labels updated successfully",
+                    repository: repository,
+                    issue: issue_number
+      rescue => e
+        logger.error "Failed to update labels",
+                     error: e.message,
+                     repository: repository,
+                     issue: issue_number
+        raise
+      end
+
       def wait_for_rate_limit
         limit_info = @octokit.rate_limit
 

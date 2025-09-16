@@ -38,6 +38,12 @@ module Soba
           c.github.token = ENV.fetch('GITHUB_TOKEN', nil)
           c.github.repository = nil
           c.workflow.interval = 20
+          c.phase.plan.command = nil
+          c.phase.plan.options = []
+          c.phase.plan.parameter = nil
+          c.phase.implement.command = nil
+          c.phase.implement.options = []
+          c.phase.implement.parameter = nil
         end
       end
 

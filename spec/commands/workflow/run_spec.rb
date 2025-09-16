@@ -6,6 +6,7 @@ require 'soba/infrastructure/github_client'
 require 'soba/services/issue_watcher'
 require 'soba/services/issue_processor'
 require 'soba/services/workflow_executor'
+require 'soba/services/workflow_blocking_checker'
 require 'soba/domain/phase_strategy'
 require 'soba/domain/issue'
 require 'soba/configuration'
@@ -63,8 +64,12 @@ RSpec.describe Soba::Commands::Workflow::Run do
         ]
       end
 
+      let(:blocking_checker) { instance_double(Soba::Services::WorkflowBlockingChecker) }
+
       before do
         allow(github_client).to receive(:issues).and_return(issues_with_todo)
+        allow(Soba::Services::WorkflowBlockingChecker).to receive(:new).and_return(blocking_checker)
+        allow(blocking_checker).to receive(:blocking?).with('owner/repo').and_return(false)
       end
 
       it 'updates label and executes workflow' do
@@ -96,8 +101,12 @@ RSpec.describe Soba::Commands::Workflow::Run do
         ]
       end
 
+      let(:blocking_checker) { instance_double(Soba::Services::WorkflowBlockingChecker) }
+
       before do
         allow(github_client).to receive(:issues).and_return(issues_with_ready)
+        allow(Soba::Services::WorkflowBlockingChecker).to receive(:new).and_return(blocking_checker)
+        allow(blocking_checker).to receive(:blocking?).with('owner/repo').and_return(false)
       end
 
       it 'updates label and executes workflow' do
@@ -137,8 +146,14 @@ RSpec.describe Soba::Commands::Workflow::Run do
         ]
       end
 
+      let(:blocking_checker) { instance_double(Soba::Services::WorkflowBlockingChecker) }
+
       before do
         allow(github_client).to receive(:issues).and_return(issues_in_progress)
+        allow(Soba::Services::WorkflowBlockingChecker).to receive(:new).and_return(blocking_checker)
+        allow(blocking_checker).to receive(:blocking?).with('owner/repo').and_return(true)
+        allow(blocking_checker).to receive(:blocking_reason).with('owner/repo').
+          and_return('Issue #4 が soba:planning のため、新しいワークフローの開始をスキップしました')
       end
 
       it 'skips processing' do
@@ -163,8 +178,12 @@ RSpec.describe Soba::Commands::Workflow::Run do
         ]
       end
 
+      let(:blocking_checker) { instance_double(Soba::Services::WorkflowBlockingChecker) }
+
       before do
         allow(github_client).to receive(:issues).and_return(issues)
+        allow(Soba::Services::WorkflowBlockingChecker).to receive(:new).and_return(blocking_checker)
+        allow(blocking_checker).to receive(:blocking?).with('owner/repo').and_return(false)
         Soba::Configuration.configure do |c|
           c.phase.plan.command = nil
         end
@@ -175,6 +194,125 @@ RSpec.describe Soba::Commands::Workflow::Run do
         expect(Open3).not_to receive(:popen3)
 
         expect { command.execute({}, {}) }.to output(/Workflow skipped/).to_stdout
+      end
+    end
+
+    context 'when workflow is blocked by other soba labels' do
+      let(:blocking_checker) { instance_double(Soba::Services::WorkflowBlockingChecker) }
+
+      context 'when soba:review-requested issue exists' do
+        let(:todo_issue) do
+          Soba::Domain::Issue.new(
+            number: 20,
+            title: 'Todo Issue',
+            labels: [{ name: 'soba:todo' }],
+            state: 'open',
+            created_at: Time.now.iso8601,
+            updated_at: Time.now.iso8601
+          )
+        end
+
+        let(:review_issue) do
+          Soba::Domain::Issue.new(
+            number: 21,
+            title: 'Review Issue',
+            labels: [{ name: 'soba:review-requested' }],
+            state: 'open',
+            created_at: Time.now.iso8601,
+            updated_at: Time.now.iso8601
+          )
+        end
+
+        before do
+          allow(github_client).to receive(:issues).and_return([todo_issue, review_issue])
+          allow(Soba::Services::WorkflowBlockingChecker).to receive(:new).and_return(blocking_checker)
+          allow(blocking_checker).to receive(:blocking?).with('owner/repo').and_return(true)
+          allow(blocking_checker).to receive(:blocking_reason).with('owner/repo').
+            and_return('Issue #21 が soba:review-requested のため、新しいワークフローの開始をスキップしました')
+        end
+
+        it 'skips processing todo issues' do
+          expect(github_client).not_to receive(:update_issue_labels)
+          expect(Open3).not_to receive(:popen3)
+
+          expect { command.execute({}, {}) }.
+            to output(/Issue #21 が soba:review-requested のため、新しいワークフローの開始をスキップしました/).to_stdout
+        end
+      end
+
+      context 'when soba:doing issue exists' do
+        let(:todo_issue) do
+          Soba::Domain::Issue.new(
+            number: 30,
+            title: 'Todo Issue',
+            labels: [{ name: 'soba:todo' }],
+            state: 'open',
+            created_at: Time.now.iso8601,
+            updated_at: Time.now.iso8601
+          )
+        end
+
+        let(:doing_issue) do
+          Soba::Domain::Issue.new(
+            number: 31,
+            title: 'Doing Issue',
+            labels: [{ name: 'soba:doing' }],
+            state: 'open',
+            created_at: Time.now.iso8601,
+            updated_at: Time.now.iso8601
+          )
+        end
+
+        before do
+          allow(github_client).to receive(:issues).and_return([todo_issue, doing_issue])
+          allow(Soba::Services::WorkflowBlockingChecker).to receive(:new).and_return(blocking_checker)
+          allow(blocking_checker).to receive(:blocking?).with('owner/repo').and_return(true)
+          allow(blocking_checker).to receive(:blocking_reason).with('owner/repo').
+            and_return('Issue #31 が soba:doing のため、新しいワークフローの開始をスキップしました')
+        end
+
+        it 'skips processing todo issues and logs blocking reason' do
+          expect(github_client).not_to receive(:update_issue_labels)
+          expect(Open3).not_to receive(:popen3)
+
+          expect { command.execute({}, {}) }.
+            to output(/Issue #31 が soba:doing のため、新しいワークフローの開始をスキップしました/).to_stdout
+        end
+      end
+    end
+
+    context 'when workflow is not blocked' do
+      let(:blocking_checker) { instance_double(Soba::Services::WorkflowBlockingChecker) }
+
+      let(:todo_issue) do
+        Soba::Domain::Issue.new(
+          number: 40,
+          title: 'Todo Issue',
+          labels: [{ name: 'soba:todo' }],
+          state: 'open',
+          created_at: Time.now.iso8601,
+          updated_at: Time.now.iso8601
+        )
+      end
+
+      before do
+        allow(github_client).to receive(:issues).and_return([todo_issue])
+        allow(Soba::Services::WorkflowBlockingChecker).to receive(:new).and_return(blocking_checker)
+        allow(blocking_checker).to receive(:blocking?).with('owner/repo').and_return(false)
+      end
+
+      it 'processes todo issues normally' do
+        expect(github_client).to receive(:update_issue_labels).with(40, from: 'soba:todo', to: 'soba:planning')
+
+        allow(Open3).to receive(:popen3).with('echo', 'Plan 40') do |&block|
+          stdin = double('stdin', close: nil)
+          stdout = double('stdout', read: 'Plan executed')
+          stderr = double('stderr', read: '')
+          thread = double('thread', value: double(exitstatus: 0))
+          block.call(stdin, stdout, stderr, thread)
+        end
+
+        expect { command.execute({}, {}) }.to output(/Processing Issue #40/).to_stdout
       end
     end
   end

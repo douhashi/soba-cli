@@ -7,6 +7,7 @@ require_relative '../../services/issue_watcher'
 require_relative '../../services/issue_processor'
 require_relative '../../services/workflow_executor'
 require_relative '../../services/tmux_session_manager'
+require_relative '../../services/workflow_blocking_checker'
 require_relative '../../domain/phase_strategy'
 
 module Soba
@@ -38,6 +39,9 @@ module Soba
             phase_strategy: phase_strategy,
             config: Soba::Configuration
           )
+          blocking_checker = Soba::Services::WorkflowBlockingChecker.new(
+            github_client: github_client
+          )
 
           repository = Soba::Configuration.config.github.repository
           interval = Soba::Configuration.config.workflow.interval || 10
@@ -59,6 +63,14 @@ module Soba
           while @running
             begin
               issues = issue_watcher.fetch_issues
+
+              # Check if workflow is blocked by other soba labels
+              if blocking_checker.blocking?(repository)
+                blocking_reason = blocking_checker.blocking_reason(repository)
+                puts "\n#{blocking_reason}"
+                sleep(interval) if @running
+                next
+              end
 
               # Filter issues that need processing
               processable_issues = issues.select do |issue|

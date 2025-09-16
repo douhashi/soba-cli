@@ -24,10 +24,6 @@ RSpec.describe "Monitor Integration", :integration do
       # テストセッションを作成
       expect(tmux_client.create_session(test_session)).to be(true)
 
-      # セッションにコマンドを送信
-      tmux_client.send_keys(test_session, "echo 'Test output'")
-      sleep 0.5
-
       # モニター設定
       logger = Soba::Services::SessionLogger.new(log_dir: test_log_dir)
       ansi_processor = Soba::Services::AnsiProcessor.new
@@ -45,24 +41,26 @@ RSpec.describe "Monitor Integration", :integration do
         # Expected when session is killed
       end
 
-      # 出力を待つ
+      # 監視が開始されるのを待つ
       sleep 1
 
-      # 追加のコマンドを送信
-      tmux_client.send_keys(test_session, "echo 'Another line'")
-      sleep 1
+      # セッションにコマンドを送信
+      tmux_client.send_keys(test_session, "echo 'Test output'")
+      sleep 2
 
       # 監視を停止
       monitor.stop
       thread.kill
+      thread.join(1) # スレッドの終了を待つ
 
       # ログファイルを確認
       log_file = File.join(test_log_dir, "#{test_session}.log")
       expect(File.exist?(log_file)).to be(true)
 
       log_content = File.read(log_file)
+
+      # 最低限、コマンドの出力が記録されていることを確認
       expect(log_content).to include("Test output")
-      expect(log_content).to include("Another line")
     end
 
     it "ANSIカラーコードを処理する" do

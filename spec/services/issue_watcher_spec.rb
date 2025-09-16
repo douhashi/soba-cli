@@ -7,7 +7,7 @@ RSpec.describe Soba::Services::IssueWatcher do
   let(:github_client) { instance_double(Soba::Infrastructure::GitHubClient) }
   let(:watcher) { described_class.new(github_client: github_client) }
   let(:repository) { "owner/repo" }
-  let(:interval) { 1 }
+  let(:interval) { 10 }
 
   let(:issues) do
     [
@@ -39,11 +39,15 @@ RSpec.describe Soba::Services::IssueWatcher do
 
     context "when starting the watcher" do
       it "logs the start message" do
-        expect(Soba.logger).to receive(:info).with(
+        expect(watcher.logger).to receive(:info).with(
           "Starting issue watcher",
           repository: repository,
           interval: interval
-        )
+        ).ordered
+        expect(watcher.logger).to receive(:info).with(
+          "Issue watcher stopped",
+          executions: 0
+        ).ordered
 
         allow(watcher).to receive(:running?).and_return(false)
         watcher.start(repository: repository, interval: interval)
@@ -89,7 +93,7 @@ RSpec.describe Soba::Services::IssueWatcher do
 
         allow(watcher).to receive(:running?).and_return(true, true, false)
 
-        expect(Soba.logger).to receive(:error).with(
+        expect(watcher.logger).to receive(:error).with(
           "Failed to fetch issues",
           hash_including(error: "Connection failed")
         )
@@ -101,7 +105,7 @@ RSpec.describe Soba::Services::IssueWatcher do
 
   describe "#stop" do
     it "stops the watcher gracefully" do
-      expect(Soba.logger).to receive(:info).with("Stopping issue watcher...")
+      expect(watcher.logger).to receive(:info).with("Stopping issue watcher...")
 
       watcher.stop
       expect(watcher).not_to be_running

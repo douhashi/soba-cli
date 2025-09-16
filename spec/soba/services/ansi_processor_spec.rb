@@ -65,13 +65,11 @@ RSpec.describe Soba::Services::AnsiProcessor do
       end
 
       it "Paintライブラリ形式に変換できる" do
-        processor = described_class.new(preserve_colors: true, convert_to_paint: true)
+        processor = described_class.new(preserve_colors: true, strip_codes: false, convert_to_paint: true)
         input = "\e[31mError\e[0m"
 
-        # Paint gemがある場合の動作をモック
-        allow(processor).to receive(:convert_to_paint_format).and_return("[[Error]]")
-
         result = processor.process(input)
+        # convert_to_paint_formatメソッドの実際の変換結果を期待
         expect(result).to eq("[[Error]]")
       end
     end
@@ -128,7 +126,7 @@ RSpec.describe Soba::Services::AnsiProcessor do
   describe "#handle_control_chars" do
     it "キャリッジリターンで行を上書きする" do
       input = "First line\rSecond"
-      expected = "Second line"
+      expected = "Secondline"
 
       result = processor.send(:handle_control_chars, input)
       expect(result).to eq(expected)

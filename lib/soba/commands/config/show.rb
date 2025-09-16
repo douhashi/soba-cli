@@ -45,7 +45,7 @@ module Soba
           project_root = find_project_root
           return "Not found" unless project_root
 
-          project_root.join('.osoba', 'config.yml')
+          project_root.join('.soba', 'config.yml')
         end
 
         def find_project_root

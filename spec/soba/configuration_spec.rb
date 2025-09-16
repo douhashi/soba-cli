@@ -6,7 +6,7 @@ require 'tmpdir'
 
 RSpec.describe Soba::Configuration do
   let(:tmp_dir) { Dir.mktmpdir }
-  let(:config_dir) { File.join(tmp_dir, '.osoba') }
+  let(:config_dir) { File.join(tmp_dir, '.soba') }
   let(:config_file) { File.join(config_dir, 'config.yml') }
 
   before do

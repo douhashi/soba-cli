@@ -120,6 +120,51 @@ module Soba
         logger.error "Failed to wait for rate limit", error: e.message
       end
 
+      def list_labels(repository)
+        logger.info "Fetching labels", repository: repository
+
+        response = with_error_handling do
+          with_rate_limit_check do
+            @octokit.labels(repository)
+          end
+        end
+
+        response.map do |label|
+          {
+            name: label.name,
+            color: label.color,
+            description: label.description,
+          }
+        end
+      rescue => e
+        logger.error "Failed to fetch labels", error: e.message, repository: repository
+        raise
+      end
+
+      def create_label(repository, name, color, description)
+        logger.info "Creating label", repository: repository, name: name, color: color
+
+        response = with_error_handling do
+          with_rate_limit_check do
+            @octokit.add_label(repository, name, color, description: description)
+          end
+        end
+
+        {
+          name: response.name,
+          color: response.color,
+          description: response.description,
+        }
+      rescue Octokit::UnprocessableEntity
+        # Check if error is because label already exists
+        # Octokit will return "Validation failed" as the message
+        logger.info "Label already exists, skipping", repository: repository, name: name
+        nil
+      rescue => e
+        logger.error "Failed to create label", error: e.message, repository: repository, name: name
+        raise
+      end
+
       private
 
       def build_middleware_stack

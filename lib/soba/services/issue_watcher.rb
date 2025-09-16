@@ -14,6 +14,7 @@ module Soba
         @github_client = github_client || Infrastructure::GitHubClient.new
         @running = Concurrent::AtomicBoolean.new(false)
         @mutex = Mutex.new
+        @signal_received = false
       end
 
       def start(repository:, interval: 20)
@@ -27,13 +28,20 @@ module Soba
         setup_signal_handlers
         display_header
 
-        run_monitoring_loop
+        execution_count = run_monitoring_loop
+
+        # Show graceful shutdown message
+        if @signal_received
+          puts "\n✅ Issue watcher stopped gracefully (#{execution_count} executions)"
+        else
+          puts "\n✅ Issue watcher stopped successfully (#{execution_count} executions)"
+          logger.info "Issue watcher stopped", executions: execution_count
+        end
       ensure
         @running.make_false
       end
 
       def stop
-        logger.info "Stopping issue watcher..."
         @running.make_false
       end
 
@@ -52,8 +60,9 @@ module Soba
       def setup_signal_handlers
         %w(INT TERM).each do |signal|
           Signal.trap(signal) do
-            puts "\n\nReceived #{signal} signal, shutting down gracefully..."
-            stop
+            @signal_received = true
+            puts "\n\n🛑 Received #{signal} signal, shutting down gracefully..."
+            @running.make_false
           end
         end
       end
@@ -71,10 +80,14 @@ module Soba
           sleep(@interval)
         end
 
-        logger.info "Issue watcher stopped", executions: execution_count
+        execution_count
       rescue => e
-        logger.error "Unexpected error in monitoring loop", error: e.message
-        raise
+        # Skip logging if interrupted by signal
+        unless @signal_received
+          logger.error "Unexpected error in monitoring loop", error: e.message
+          raise
+        end
+        execution_count
       end
 
       def fetch_and_display_issues

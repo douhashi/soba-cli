@@ -1,4 +1,3 @@
-# Make sure RUBY_VERSION matches the Ruby version in .ruby-version
-ARG RUBY_VERSION
-FROM ghcr.io/rails/devcontainer/images/ruby:$RUBY_VERSION
+# Ruby 3.4 for soba CLI project
+FROM mcr.microsoft.com/devcontainers/ruby:3.4
 

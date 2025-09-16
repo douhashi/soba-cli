@@ -12,8 +12,6 @@ services:
     build:
       context: ..
       dockerfile: .devcontainer/Dockerfile
-      args:
-        RUBY_VERSION: $RUBY_VERSION
     init: true
 
     volumes:
@@ -27,17 +25,4 @@ services:
 
     # Use "forwardPorts" in **devcontainer.json** to forward an app port locally.
     # (Adding the "ports" property to this file will not forward from a Codespace.)
-    ports: # for devcontainer/cli 
-      - 5100:5100
-      - 3036:3036
-    <<: *logging-minimal
-
-  selenium:
-    container_name: ${COMPOSE_PROJECT_NAME}-standalone-chrome
-    image: selenium/standalone-chrome
-    healthcheck:
-      test: "curl -f http://localhost:4444/status || exit 1"
-      interval: 5s
-      timeout: 3s
-      retries: 5
     <<: *logging-minimal

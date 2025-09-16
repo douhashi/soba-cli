@@ -81,10 +81,17 @@ RSpec.describe Soba::Configuration do
             interval: 20
         YAML
 
+        # Temporarily clear GITHUB_TOKEN environment variable
+        original_token = ENV['GITHUB_TOKEN']
+        ENV['GITHUB_TOKEN'] = nil
+
         expect { described_class.load!(path: config_file) }.to raise_error(
           Soba::ConfigurationError,
           /GitHub token is not set/
         )
+      ensure
+        # Restore original token
+        ENV['GITHUB_TOKEN'] = original_token
       end
 
       it 'raises error when repository is missing' do

@@ -40,20 +40,18 @@ command :issue do |c|
   end
 
   c.desc "Watch repository for issue changes"
-  c.arg_name "repository"
+  c.arg_name "[repository]"
   c.command :watch do |watch|
     watch.desc "Polling interval in seconds"
     watch.default_value nil
     watch.flag [:i, :interval], type: Integer
 
     watch.action do |global_options, options, args|
-      if args.empty? || args[0].nil? || args[0].empty?
-        raise GLI::BadCommandLine, "repository is required"
-      end
+      repository = args[0] unless args.empty?
 
       require_relative "../lib/soba/commands/issue/watch"
       Soba::Commands::Issue::Watch.new.execute(
-        repository: args[0],
+        repository: repository,
         interval: options[:interval],
         config: global_options[:config],
       )

@@ -4,6 +4,7 @@ require "spec_helper"
 require "soba/commands/init"
 require "tmpdir"
 require "stringio"
+require "soba/infrastructure/github_client"
 
 RSpec.describe Soba::Commands::Init do
   let(:command) { described_class.new(interactive: true) }
@@ -79,6 +80,95 @@ RSpec.describe Soba::Commands::Init do
         expect(config['phase']['implement']['command']).to eq('claude')
         expect(config['phase']['implement']['options']).to eq(['--dangerously-skip-permissions'])
         expect(config['phase']['implement']['parameter']).to eq('/soba:implement {{issue-number}}')
+      end
+
+      context "with label creation" do
+        let(:github_client) { instance_double(Soba::Infrastructure::GitHubClient) }
+        let(:repository) { "douhashi/soba" }
+
+        before do
+          allow(Soba::Infrastructure::GitHubClient).to receive(:new).and_return(github_client)
+        end
+
+        it "creates labels after configuration file is created" do
+          input = StringIO.new("#{repository}\n1\n20\n\n\n\n\n\n\ny\n")
+          allow($stdin).to receive(:gets) { input.gets }
+          allow($stdin).to receive(:noecho).and_yield(input)
+
+          # Expect label creation calls
+          expect(github_client).to receive(:list_labels).with(repository).and_return([])
+          expect(github_client).to receive(:create_label).
+            with(repository, "soba:planning", "1e90ff", "Planning phase").
+            and_return({ name: "soba:planning", color: "1e90ff" })
+          expect(github_client).to receive(:create_label).
+            with(repository, "soba:ready", "228b22", "Ready for implementation").
+            and_return({ name: "soba:ready", color: "228b22" })
+          expect(github_client).to receive(:create_label).
+            with(repository, "soba:doing", "ffd700", "In progress").
+            and_return({ name: "soba:doing", color: "ffd700" })
+          expect(github_client).to receive(:create_label).
+            with(repository, "soba:review-requested", "ff8c00", "Review requested").
+            and_return({ name: "soba:review-requested", color: "ff8c00" })
+
+          expect { command.execute }.to output(/Creating GitHub labels.*soba:planning.*created/m).to_stdout
+
+          expect(config_path).to exist
+        end
+
+        it "skips label creation when user declines" do
+          input = StringIO.new("#{repository}\n1\n20\n\n\n\n\n\n\nn\n")
+          allow($stdin).to receive(:gets) { input.gets }
+          allow($stdin).to receive(:noecho).and_yield(input)
+
+          # Should not call any label methods
+          expect(github_client).not_to receive(:list_labels)
+          expect(github_client).not_to receive(:create_label)
+
+          expect { command.execute }.to output(/Skipping label creation/).to_stdout
+        end
+
+        it "skips existing labels" do
+          input = StringIO.new("#{repository}\n1\n20\n\n\n\n\n\n\ny\n")
+          allow($stdin).to receive(:gets) { input.gets }
+          allow($stdin).to receive(:noecho).and_yield(input)
+
+          # Return existing labels
+          existing_labels = [
+            { name: "soba:planning", color: "1e90ff" },
+            { name: "soba:doing", color: "ffd700" },
+          ]
+          expect(github_client).to receive(:list_labels).with(repository).and_return(existing_labels)
+
+          # Only create missing labels
+          expect(github_client).not_to receive(:create_label).
+            with(repository, "soba:planning", anything, anything)
+          expect(github_client).to receive(:create_label).
+            with(repository, "soba:ready", "228b22", "Ready for implementation").
+            and_return({ name: "soba:ready", color: "228b22" })
+          expect(github_client).not_to receive(:create_label).
+            with(repository, "soba:doing", anything, anything)
+          expect(github_client).to receive(:create_label).
+            with(repository, "soba:review-requested", "ff8c00", "Review requested").
+            and_return({ name: "soba:review-requested", color: "ff8c00" })
+
+          expect { command.execute }.to output(/soba:planning.*already exists.*soba:ready.*created/m).to_stdout
+        end
+
+        it "handles label creation errors gracefully" do
+          input = StringIO.new("#{repository}\n1\n20\n\n\n\n\n\n\ny\n")
+          allow($stdin).to receive(:gets) { input.gets }
+          allow($stdin).to receive(:noecho).and_yield(input)
+
+          expect(github_client).to receive(:list_labels).with(repository).and_return([])
+          expect(github_client).to receive(:create_label).
+            with(repository, "soba:planning", "1e90ff", "Planning phase").
+            and_raise(Soba::Infrastructure::GitHubClientError, "Insufficient permissions")
+
+          expect { command.execute }.to output(/Failed to create label.*Insufficient permissions/m).to_stdout
+
+          # Config should still be created
+          expect(config_path).to exist
+        end
       end
 
       it "uses correct default values for workflow phase commands" do

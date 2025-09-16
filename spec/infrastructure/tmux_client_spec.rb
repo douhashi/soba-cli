@@ -442,4 +442,85 @@ RSpec.describe Soba::Infrastructure::TmuxClient do
       expect(result).to be false
     end
   end
+
+  describe '#find_pane' do
+    let(:session_name) { 'soba-21' }
+
+    it 'returns pane ID for existing session' do
+      pane_list = "%10\n%11\n%12"
+      allow(Open3).to receive(:capture3).with('tmux', 'list-panes', '-t', session_name, '-F', '#{pane_id}').
+        and_return([pane_list, '', double(exitstatus: 0)])
+
+      result = client.find_pane(session_name)
+
+      expect(result).to eq('%10')
+    end
+
+    it 'returns nil when session does not exist' do
+      allow(Open3).to receive(:capture3).with('tmux', 'list-panes', '-t', session_name, '-F', '#{pane_id}').
+        and_return(['', "can't find session", double(exitstatus: 1)])
+
+      result = client.find_pane(session_name)
+
+      expect(result).to be_nil
+    end
+  end
+
+  describe '#capture_pane_continuous' do
+    let(:pane_id) { '%10' }
+
+    it 'yields captured output continuously' do
+      outputs = []
+      initial_content = "initial line\n"
+      new_content = "initial line\nnew line\n"
+
+      # Mock three capture calls
+      allow(Open3).to receive(:capture3).with('tmux', 'capture-pane', '-t', pane_id, '-p', '-S', '-').
+        and_return([initial_content, '', double(exitstatus: 0)],
+                   [new_content, '', double(exitstatus: 0)],
+                   [new_content, '', double(exitstatus: 0)])
+
+      # Use timeout to prevent infinite loop in test
+      allow(client).to receive(:sleep).with(1).and_raise(StopIteration)
+
+      begin
+        client.capture_pane_continuous(pane_id) do |output|
+          outputs << output
+        end
+      rescue StopIteration
+        # Expected - stop the loop
+      end
+
+      expect(outputs).to eq(["new line\n"])
+    end
+
+    it 'stops when pane no longer exists' do
+      allow(Open3).to receive(:capture3).with('tmux', 'capture-pane', '-t', pane_id, '-p', '-S', '-').
+        and_return(['', "can't find pane", double(exitstatus: 1)])
+
+      expect { |b| client.capture_pane_continuous(pane_id, &b) }.not_to yield_control
+    end
+  end
+
+  describe '#list_soba_sessions' do
+    it 'returns only soba sessions' do
+      session_list = "soba-21: 1 windows\nsoba-22: 2 windows\nother-session: 1 windows"
+      allow(Open3).to receive(:capture3).with('tmux', 'list-sessions').
+        and_return([session_list, '', double(exitstatus: 0)])
+
+      result = client.list_soba_sessions
+
+      expect(result).to eq(['soba-21', 'soba-22'])
+    end
+
+    it 'returns empty array when no soba sessions exist' do
+      session_list = "other-session: 1 windows\nanother-session: 2 windows"
+      allow(Open3).to receive(:capture3).with('tmux', 'list-sessions').
+        and_return([session_list, '', double(exitstatus: 0)])
+
+      result = client.list_soba_sessions
+
+      expect(result).to eq([])
+    end
+  end
 end

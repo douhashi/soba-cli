@@ -15,6 +15,7 @@ module Soba
   class ConfigError < Error; end
   class ConfigurationError < Error; end
   class GitHubError < Error; end
+  class CommandError < Error; end
 
   module Domain; end
   module Services; end

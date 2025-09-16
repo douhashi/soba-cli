@@ -67,10 +67,10 @@ module Soba
         end
       rescue Interrupt
         puts "\n\n❌ Setup cancelled."
-        exit 1
+        raise Soba::CommandError, "Setup cancelled"
       rescue StandardError => e
         puts "\n❌ Error: #{e.message}"
-        exit 1
+        raise
       end
 
       private
@@ -82,7 +82,7 @@ module Soba
         unless repository
           puts "❌ Error: Cannot detect GitHub repository from git remote."
           puts "   Please run 'soba init --interactive' for manual setup."
-          exit 1
+          raise Soba::CommandError, "Cannot detect GitHub repository"
         end
 
         # Create configuration with default values
@@ -113,7 +113,7 @@ module Soba
 
         check_github_token(token: '${GITHUB_TOKEN}')
         handle_gitignore
-        create_github_labels(config) if @interactive
+        create_github_labels(config)
 
         puts ""
         puts "🎉 Setup complete! You can now use:"
@@ -428,12 +428,17 @@ module Soba
         repository = config['github']['repository']
         phase_labels = config['workflow']['phase_labels']
 
-        puts ""
-        print "Create GitHub labels for workflow phases? (Y/n): "
-        response = $stdin.gets.chomp.downcase
-        if response == 'n' || response == 'no'
-          puts "✅ Skipping label creation."
-          return
+        # Only ask for confirmation in interactive mode
+        if @interactive
+          puts ""
+          print "Create GitHub labels for workflow phases? (Y/n): "
+          response = $stdin.gets
+          return unless response
+          response = response.chomp.downcase
+          if response == 'n' || response == 'no'
+            puts "✅ Skipping label creation."
+            return
+          end
         end
 
         puts ""

@@ -1,11 +1,11 @@
 # frozen_string_literal: true
 
-require 'soba/configuration'
-require 'soba/infrastructure/github_client'
-require 'soba/services/issue_watcher'
-require 'soba/services/issue_processor'
-require 'soba/services/workflow_executor'
-require 'soba/domain/phase_strategy'
+require_relative '../../configuration'
+require_relative '../../infrastructure/github_client'
+require_relative '../../services/issue_watcher'
+require_relative '../../services/issue_processor'
+require_relative '../../services/workflow_executor'
+require_relative '../../domain/phase_strategy'
 
 module Soba
   module Commands

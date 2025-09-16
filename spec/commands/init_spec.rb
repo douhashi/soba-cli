@@ -323,6 +323,7 @@ RSpec.describe Soba::Commands::Init do
 
     context "with environment variable detection" do
       it "detects when GITHUB_TOKEN is set" do
+        allow(ENV).to receive(:[]).and_return(nil)
         allow(ENV).to receive(:[]).with('GITHUB_TOKEN').and_return('test_token')
         input = StringIO.new("douhashi/soba\n1\n20\n\n\n\n\n\n\n")
         allow($stdin).to receive(:gets) { input.gets }
@@ -331,6 +332,7 @@ RSpec.describe Soba::Commands::Init do
       end
 
       it "warns when GITHUB_TOKEN is not set" do
+        allow(ENV).to receive(:[]).and_return(nil)
         allow(ENV).to receive(:[]).with('GITHUB_TOKEN').and_return(nil)
         input = StringIO.new("douhashi/soba\n1\n20\n\n\n\n\n\n\n")
         allow($stdin).to receive(:gets) { input.gets }
@@ -343,9 +345,7 @@ RSpec.describe Soba::Commands::Init do
       it "handles interrupt gracefully" do
         allow($stdin).to receive(:gets).and_raise(Interrupt)
 
-        expect { command.execute }.to raise_error(SystemExit) do |error|
-          expect(error.status).to eq(1)
-        end
+        expect { command.execute }.to raise_error(Soba::CommandError, /Setup cancelled/)
       end
     end
   end
@@ -396,9 +396,7 @@ RSpec.describe Soba::Commands::Init do
       it "fails when GitHub repository cannot be detected" do
         allow(Dir).to receive(:exist?).with('.git').and_return(false)
 
-        expect { command.execute }.to raise_error(SystemExit) do |error|
-          expect(error.status).to eq(1)
-        end
+        expect { command.execute }.to raise_error(Soba::CommandError, /Cannot detect GitHub repository/)
       end
     end
 

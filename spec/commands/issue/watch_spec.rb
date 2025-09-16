@@ -56,8 +56,18 @@ RSpec.describe Soba::Commands::Issue::Watch do
 
     context "with default values" do
       before do
+        github_mock = double(token: "test-token", repository: nil)
+        allow(github_mock).to receive(:token=)
+        allow(github_mock).to receive(:repository=)
+
+        workflow_mock = double(interval: 20)
+        allow(workflow_mock).to receive(:interval=)
+
         allow(Soba::Configuration).to receive(:config).and_return(
-          double(workflow: double(interval: 20))
+          double(
+            github: github_mock,
+            workflow: workflow_mock
+          )
         )
       end
 

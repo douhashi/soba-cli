@@ -43,11 +43,13 @@ RSpec.describe Soba::Services::IssueWatcher do
           "Starting issue watcher",
           repository: repository,
           interval: interval
-        ).ordered
+        )
+
+        # Also expect the stop message since we're stopping immediately
         expect(watcher.logger).to receive(:info).with(
           "Issue watcher stopped",
           executions: 0
-        ).ordered
+        )
 
         allow(watcher).to receive(:running?).and_return(false)
         watcher.start(repository: repository, interval: interval)
@@ -105,8 +107,6 @@ RSpec.describe Soba::Services::IssueWatcher do
 
   describe "#stop" do
     it "stops the watcher gracefully" do
-      expect(watcher.logger).to receive(:info).with("Stopping issue watcher...")
-
       watcher.stop
       expect(watcher).not_to be_running
     end

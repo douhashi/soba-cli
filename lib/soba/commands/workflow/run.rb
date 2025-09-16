@@ -12,7 +12,7 @@ module Soba
     module Workflow
       class Run
         def execute(global_options, _options)
-          Soba::Configuration.load!
+          Soba::Configuration.load! unless Soba::Configuration.config
 
           github_client = Soba::Infrastructure::GitHubClient.new
           workflow_executor = Soba::Services::WorkflowExecutor.new

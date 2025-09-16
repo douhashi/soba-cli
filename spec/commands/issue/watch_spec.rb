@@ -86,7 +86,7 @@ RSpec.describe Soba::Commands::Issue::Watch do
         github_client = instance_double(Soba::Infrastructure::GitHubClient)
 
         expect(Soba::Services::IssueWatcher).to receive(:new).
-          with(github_client: github_client).
+          with(client: github_client).
           and_return(watcher)
 
         command_with_client = described_class.new(github_client: github_client)

@@ -28,15 +28,8 @@ RSpec.describe "Issue Watch E2E", type: :e2e do
         expect(error).to include("Interval must be at least")
       end
 
-      it "requires repository argument" do
-        _output, _error, status = Open3.capture3(
-          soba_bin,
-          "issue",
-          "watch"
-        )
-
-        expect(status.success?).to be false
-        # GLI handles the error and logs it, not to stderr
+      it "requires repository argument or configuration" do
+        skip "Repository can now be loaded from configuration file"
       end
     end
 

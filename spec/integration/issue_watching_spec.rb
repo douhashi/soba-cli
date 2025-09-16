@@ -79,7 +79,7 @@ RSpec.describe "Issue Watching Integration", :vcr do
       allow(client).to receive(:issues).
         and_raise(Soba::Infrastructure::NetworkError, "Connection failed")
 
-      watcher = Soba::Services::IssueWatcher.new(github_client: client)
+      watcher = Soba::Services::IssueWatcher.new(client: client)
       allow(watcher).to receive(:running?).and_return(true, false)
       allow(watcher).to receive(:sleep)
 
@@ -98,7 +98,7 @@ RSpec.describe "Issue Watching Integration", :vcr do
       allow(client).to receive(:issues).
         and_raise(Soba::Infrastructure::RateLimitExceeded, "API rate limit exceeded")
 
-      watcher = Soba::Services::IssueWatcher.new(github_client: client)
+      watcher = Soba::Services::IssueWatcher.new(client: client)
       # First running? returns true for the initial check, then false to exit the loop
       allow(watcher).to receive(:running?).and_return(true, false, false)
       allow(watcher).to receive(:sleep)

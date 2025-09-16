@@ -39,7 +39,7 @@ module Soba
 
         def create_watcher
           if @github_client
-            Services::IssueWatcher.new(github_client: @github_client)
+            Services::IssueWatcher.new(client: @github_client)
           else
             Services::IssueWatcher.new
           end

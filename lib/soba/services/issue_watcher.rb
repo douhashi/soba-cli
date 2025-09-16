@@ -10,8 +10,10 @@ module Soba
 
       MIN_INTERVAL = 10
 
-      def initialize(github_client: nil)
-        @github_client = github_client || Infrastructure::GitHubClient.new
+      def initialize(client: nil, repository: nil, interval: nil)
+        @github_client = client || Infrastructure::GitHubClient.new
+        @repository = repository
+        @interval = interval
         @running = Concurrent::AtomicBoolean.new(false)
         @mutex = Mutex.new
         @signal_received = false
@@ -47,6 +49,10 @@ module Soba
 
       def running?
         @running.value
+      end
+
+      def fetch_issues(state: "open")
+        @github_client.issues(@repository, state: state)
       end
 
       private

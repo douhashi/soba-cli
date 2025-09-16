@@ -18,6 +18,19 @@ module Soba
       setting :interval, default: 20
     end
 
+    setting :phase do
+      setting :plan do
+        setting :command
+        setting :options, default: []
+        setting :parameter
+      end
+      setting :implement do
+        setting :command
+        setting :options, default: []
+        setting :parameter
+      end
+    end
+
     class << self
       def reset_config
         @config = nil
@@ -86,6 +99,19 @@ module Soba
           if data['workflow']
             c.workflow.interval = data.dig('workflow', 'interval') || 20
           end
+
+          if data['phase']
+            if data['phase']['plan']
+              c.phase.plan.command = data.dig('phase', 'plan', 'command')
+              c.phase.plan.options = data.dig('phase', 'plan', 'options') || []
+              c.phase.plan.parameter = data.dig('phase', 'plan', 'parameter')
+            end
+            if data['phase']['implement']
+              c.phase.implement.command = data.dig('phase', 'implement', 'command')
+              c.phase.implement.options = data.dig('phase', 'implement', 'options') || []
+              c.phase.implement.parameter = data.dig('phase', 'implement', 'parameter')
+            end
+          end
         end
       end
 
@@ -105,6 +131,19 @@ module Soba
           workflow:
             # Issue polling interval in seconds
             interval: 20
+
+          # Phase command configuration (optional)
+          # phase:
+          #   plan:
+          #     command: claude
+          #     options:
+          #       - --dangerously-skip-permissions
+          #     parameter: '/osoba:plan {{issue-number}}'
+          #   implement:
+          #     command: claude
+          #     options:
+          #       - --dangerously-skip-permissions
+          #     parameter: '/osoba:implement {{issue-number}}'
         YAML
 
         File.write(path, default_content)

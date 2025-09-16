@@ -77,6 +77,17 @@ command :config do |c|
   end
 end
 
+desc "Run workflow automation"
+command :workflow do |c|
+  c.desc "Run workflow to process issues"
+  c.command :run do |run|
+    run.action do |global_options, options, _args|
+      require_relative "../lib/soba/commands/workflow/run"
+      Soba::Commands::Workflow::Run.new.execute(global_options, options)
+    end
+  end
+end
+
 pre do |global, _command, _options, _args|
   if global[:verbose]
     Soba.logger.level = :debug

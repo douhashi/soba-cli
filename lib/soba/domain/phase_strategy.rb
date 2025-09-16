@@ -1,0 +1,58 @@
+# frozen_string_literal: true
+
+module Soba
+  module Domain
+    class PhaseStrategy
+      PHASE_TRANSITIONS = {
+        'soba:todo' => 'soba:planning',
+        'soba:planning' => 'soba:ready',
+        'soba:ready' => 'soba:doing',
+        'soba:doing' => 'soba:review-requested',
+      }.freeze
+
+      PHASE_MAPPINGS = {
+        plan: { current: 'soba:todo', next: 'soba:planning' },
+        implement: { current: 'soba:ready', next: 'soba:doing' },
+      }.freeze
+
+      IN_PROGRESS_LABELS = %w(soba:planning soba:doing).freeze
+
+      def determine_phase(labels)
+        return nil if labels.blank?
+
+        labels = labels.map(&:to_s)
+
+        return nil if (labels & IN_PROGRESS_LABELS).any?
+
+        return :plan if labels.include?('soba:todo')
+        return :implement if labels.include?('soba:ready')
+
+        nil
+      end
+
+      def next_label(phase)
+        return nil unless phase
+
+        PHASE_MAPPINGS.dig(phase, :next)
+      end
+
+      def current_label_for_phase(phase)
+        return nil unless phase
+
+        PHASE_MAPPINGS.dig(phase, :current)
+      end
+
+      def validate_transition(from_label, to_label)
+        if from_label.nil? || to_label.nil?
+          return false
+        end
+
+        if !from_label.start_with?('soba:') || !to_label.start_with?('soba:')
+          return false
+        end
+
+        PHASE_TRANSITIONS[from_label] == to_label
+      end
+    end
+  end
+end

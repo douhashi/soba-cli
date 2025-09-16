@@ -129,6 +129,65 @@ RSpec.describe Soba::Configuration do
     end
   end
 
+  describe 'phase configuration' do
+    context 'when phase settings are provided' do
+      before do
+        FileUtils.mkdir_p(config_dir)
+        File.write(config_file, <<~YAML)
+          github:
+            token: test_token
+            repository: owner/repo
+          workflow:
+            interval: 20
+          phase:
+            plan:
+              command: claude
+              options:
+                - --dangerously-skip-permissions
+              parameter: '/osoba:plan {{issue-number}}'
+            implement:
+              command: claude
+              options:
+                - --dangerously-skip-permissions
+              parameter: '/osoba:implement {{issue-number}}'
+        YAML
+      end
+
+      it 'loads phase configuration correctly' do
+        config = described_class.load!(path: config_file)
+
+        expect(config.phase.plan.command).to eq('claude')
+        expect(config.phase.plan.options).to eq(['--dangerously-skip-permissions'])
+        expect(config.phase.plan.parameter).to eq('/osoba:plan {{issue-number}}')
+
+        expect(config.phase.implement.command).to eq('claude')
+        expect(config.phase.implement.options).to eq(['--dangerously-skip-permissions'])
+        expect(config.phase.implement.parameter).to eq('/osoba:implement {{issue-number}}')
+      end
+    end
+
+    context 'when phase settings are not provided' do
+      before do
+        described_class.reset_config
+        FileUtils.mkdir_p(config_dir)
+        File.write(config_file, <<~YAML)
+          github:
+            token: test_token
+            repository: owner/repo
+          workflow:
+            interval: 20
+        YAML
+      end
+
+      it 'has nil values for phase configuration' do
+        config = described_class.load!(path: config_file)
+
+        expect(config.phase.plan.command).to be_nil
+        expect(config.phase.implement.command).to be_nil
+      end
+    end
+  end
+
   describe 'default values' do
     it 'sets default interval to 20 seconds' do
       FileUtils.mkdir_p(config_dir)

@@ -101,6 +101,7 @@ RSpec.describe Soba::Commands::Monitor do
         )
 
         expect { command.execute(["99"]) }.to output(/Session 'soba-99' not found/).to_stderr
+        expect(command.execute(["99"])).to eq(1)
       end
 
       it "割り込み時のメッセージ" do

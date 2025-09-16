@@ -61,6 +61,14 @@ command :issue do |c|
   end
 end
 
+desc "Initialize soba configuration"
+command :init do |c|
+  c.action do |global_options, _options, _args|
+    require_relative "../lib/soba/commands/init"
+    Soba::Commands::Init.new.execute
+  end
+end
+
 desc "Show configuration"
 command :config do |c|
   c.action do |global_options, _options, _args|

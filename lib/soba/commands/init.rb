@@ -2,6 +2,7 @@
 
 require "active_support/core_ext/object/blank"
 require "active_support/core_ext/string/exclude"
+require "active_support/core_ext/object/deep_dup"
 require "pathname"
 require "yaml"
 require "io/console"
@@ -9,6 +10,25 @@ require "io/console"
 module Soba
   module Commands
     class Init
+      DEFAULT_CONFIG = {
+        'github' => {
+          'token' => '${GITHUB_TOKEN}',
+        },
+        'workflow' => {
+          'interval' => 20,
+          'phase_labels' => {
+            'planning' => 'soba:planning',
+            'ready' => 'soba:ready',
+            'doing' => 'soba:doing',
+            'review_requested' => 'soba:review-requested',
+          },
+        },
+      }.freeze
+
+      def initialize(interactive: false)
+        @interactive = interactive
+      end
+
       def execute
         puts "🚀 Initializing soba configuration..."
         puts ""
@@ -25,6 +45,53 @@ module Soba
           end
         end
 
+        if @interactive
+          execute_interactive(config_path)
+        else
+          execute_non_interactive(config_path)
+        end
+      rescue Interrupt
+        puts "\n\n❌ Setup cancelled."
+        exit 1
+      rescue StandardError => e
+        puts "\n❌ Error: #{e.message}"
+        exit 1
+      end
+
+      private
+
+      def execute_non_interactive(config_path)
+        # GitHub repository - auto-detect from git remote
+        repository = detect_github_repository
+
+        unless repository
+          puts "❌ Error: Cannot detect GitHub repository from git remote."
+          puts "   Please run 'soba init --interactive' for manual setup."
+          exit 1
+        end
+
+        # Create configuration with default values
+        config = DEFAULT_CONFIG.deep_dup
+        config['github']['repository'] = repository
+
+        # Write configuration file
+        write_config_file(config_path, config)
+
+        puts ""
+        puts "✅ Configuration created successfully!"
+        puts "📁 Location: #{config_path}"
+        puts "📦 Repository: #{repository}"
+
+        check_github_token(token: '${GITHUB_TOKEN}')
+        handle_gitignore
+
+        puts ""
+        puts "🎉 Setup complete! You can now use:"
+        puts "   soba config     - View current configuration"
+        puts "   soba issue list #{config['github']['repository']} - List repository issues"
+      end
+
+      def execute_interactive(config_path)
         # Collect configuration values
         puts "Let's set up your GitHub configuration:"
         puts ""
@@ -186,6 +253,22 @@ module Soba
         end
 
         # Write configuration file
+        write_config_file(config_path, config)
+
+        puts ""
+        puts "✅ Configuration created successfully!"
+        puts "📁 Location: #{config_path}"
+
+        check_github_token(token: token)
+        handle_gitignore
+
+        puts ""
+        puts "🎉 Setup complete! You can now use:"
+        puts "   soba config     - View current configuration"
+        puts "   soba issue list #{config['github']['repository']} - List repository issues"
+      end
+
+      def write_config_file(config_path, config)
         config_path.dirname.mkpath
         config_content = <<~YAML
           # soba CLI configuration
@@ -250,11 +333,9 @@ module Soba
         end
 
         File.write(config_path, config_content)
+      end
 
-        puts ""
-        puts "✅ Configuration created successfully!"
-        puts "📁 Location: #{config_path}"
-
+      def check_github_token(token: '${GITHUB_TOKEN}')
         # Verify token if environment variable is used
         if token == '${GITHUB_TOKEN}'
           puts ""
@@ -266,7 +347,9 @@ module Soba
             puts "   export GITHUB_TOKEN='your-token-here'"
           end
         end
+      end
 
+      def handle_gitignore
         # Add .soba to .gitignore if needed
         gitignore_path = Pathname.pwd.join('.gitignore')
         if gitignore_path.exist?
@@ -285,20 +368,7 @@ module Soba
             end
           end
         end
-
-        puts ""
-        puts "🎉 Setup complete! You can now use:"
-        puts "   soba config     - View current configuration"
-        puts "   soba issue list #{config['github']['repository']} - List repository issues"
-      rescue Interrupt
-        puts "\n\n❌ Setup cancelled."
-        exit 1
-      rescue StandardError => e
-        puts "\n❌ Error: #{e.message}"
-        exit 1
       end
-
-      private
 
       def detect_github_repository
         return nil unless Dir.exist?('.git')

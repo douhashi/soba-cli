@@ -22,7 +22,7 @@ module Soba
         end
       rescue Services::SessionMonitor::SessionNotFoundError => e
         warn e.message
-        exit 1
+        1 # エラーコードを返す
       rescue Interrupt
         puts "\nMonitoring stopped"
       end

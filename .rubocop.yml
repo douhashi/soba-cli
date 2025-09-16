@@ -57,3 +57,7 @@ RSpec/ExampleLength:
 
 RSpec/NestedGroups:
   Max: 4
+
+# This is a Rails-specific cop that doesn't apply to CLI applications
+Airbnb/ClassOrModuleDeclaredInWrongFile:
+  Enabled: false

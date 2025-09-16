@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require 'ostruct'
+
 module Soba
   module Services
     class IssueProcessingError < StandardError; end
@@ -77,12 +79,41 @@ module Soba
       def get_phase_config(phase)
         case phase
         when :plan
-          config.config.phase.plan
+          # config is the Configuration module, get the actual config object
+          actual_config = config.respond_to?(:config) ? config.config : config
+          plan_config = actual_config.phase.plan
+
+          # Access values through @_values instead of @values
+          values = plan_config.instance_variable_get(:@_values)
+
+          if values
+            OpenStruct.new(
+              command: values[:command],
+              options: values[:options],
+              parameter: values[:parameter]
+            )
+          else
+            nil
+          end
         when :implement
-          config.config.phase.implement
+          actual_config = config.respond_to?(:config) ? config.config : config
+          impl_config = actual_config.phase.implement
+          values = impl_config.instance_variable_get(:@_values)
+
+          if values
+            OpenStruct.new(
+              command: values[:command],
+              options: values[:options],
+              parameter: values[:parameter]
+            )
+          else
+            nil
+          end
         else
           nil
         end
+      rescue StandardError
+        nil
       end
     end
   end

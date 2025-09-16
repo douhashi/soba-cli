@@ -67,6 +67,47 @@ RSpec.describe Soba::Commands::Init do
         expect(config['github']['token']).to eq('${GITHUB_TOKEN}')
         expect(config['workflow']['interval']).to eq(20)
       end
+
+      context "with git repository detection" do
+        it "detects GitHub repository from git remote" do
+          allow(Dir).to receive(:exist?).with('.git').and_return(true)
+          allow(command).to receive(:`).with('git config --get remote.origin.url 2>/dev/null').and_return("https://github.com/user/repo.git\n")
+
+          input = StringIO.new("\n1\n20\n")
+          allow($stdin).to receive(:gets) { input.gets }
+
+          expect { command.execute }.to output(/\[user\/repo\]/).to_stdout
+
+          config = YAML.safe_load_file(config_path)
+          expect(config['github']['repository']).to eq('user/repo')
+        end
+
+        it "handles SSH format git remote" do
+          allow(Dir).to receive(:exist?).with('.git').and_return(true)
+          allow(command).to receive(:`).with('git config --get remote.origin.url 2>/dev/null').and_return("git@github.com:owner/project.git\n")
+
+          input = StringIO.new("\n1\n20\n")
+          allow($stdin).to receive(:gets) { input.gets }
+
+          expect { command.execute }.to output(/\[owner\/project\]/).to_stdout
+
+          config = YAML.safe_load_file(config_path)
+          expect(config['github']['repository']).to eq('owner/project')
+        end
+
+        it "allows manual override of detected repository" do
+          allow(Dir).to receive(:exist?).with('.git').and_return(true)
+          allow(command).to receive(:`).with('git config --get remote.origin.url 2>/dev/null').and_return("https://github.com/user/repo.git\n")
+
+          input = StringIO.new("different/repo\n1\n20\n")
+          allow($stdin).to receive(:gets) { input.gets }
+
+          expect { command.execute }.to output(/\[user\/repo\]/).to_stdout
+
+          config = YAML.safe_load_file(config_path)
+          expect(config['github']['repository']).to eq('different/repo')
+        end
+      end
     end
 
     context "when config file already exists" do

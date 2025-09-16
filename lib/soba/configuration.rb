@@ -16,6 +16,7 @@ module Soba
 
     setting :workflow do
       setting :interval, default: 20
+      setting :use_tmux, default: true
     end
 
     setting :phase do
@@ -38,6 +39,7 @@ module Soba
           c.github.token = ENV.fetch('GITHUB_TOKEN', nil)
           c.github.repository = nil
           c.workflow.interval = 20
+          c.workflow.use_tmux = true
           c.phase.plan.command = nil
           c.phase.plan.options = []
           c.phase.plan.parameter = nil
@@ -105,6 +107,7 @@ module Soba
 
           if data['workflow']
             c.workflow.interval = data.dig('workflow', 'interval') || 20
+            c.workflow.use_tmux = data.dig('workflow', 'use_tmux') != false  # default true
           end
 
           if data['phase']
@@ -138,6 +141,8 @@ module Soba
           workflow:
             # Issue polling interval in seconds
             interval: 20
+            # Use tmux for Claude execution (default: true)
+            use_tmux: true
 
           # Phase command configuration (optional)
           # phase:

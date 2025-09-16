@@ -60,8 +60,9 @@ RSpec.describe Soba::Commands::Issue::Watch do
         allow(github_mock).to receive(:token=)
         allow(github_mock).to receive(:repository=)
 
-        workflow_mock = double(interval: 20)
+        workflow_mock = double(interval: 20, use_tmux: true)
         allow(workflow_mock).to receive(:interval=)
+        allow(workflow_mock).to receive(:use_tmux=)
 
         phase_mock = double
         allow(phase_mock).to receive_message_chain(:plan, :command=)

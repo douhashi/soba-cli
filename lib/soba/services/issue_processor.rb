@@ -37,12 +37,16 @@ module Soba
         phase_config = get_phase_config(phase)
 
         if phase_config&.command
+          actual_config = config.respond_to?(:config) ? config.config : config
+          use_tmux = actual_config.workflow.use_tmux
+
           execution_result = workflow_executor.execute(
             phase: phase_config,
-            issue_number: issue[:number]
+            issue_number: issue[:number],
+            use_tmux: use_tmux
           )
 
-          {
+          result = {
             success: execution_result[:success],
             phase: phase,
             issue_number: issue[:number],
@@ -50,6 +54,12 @@ module Soba
             output: execution_result[:output],
             error: execution_result[:error],
           }
+
+          # Add tmux-specific fields if present
+          result[:mode] = execution_result[:mode] if execution_result[:mode]
+          result[:session_name] = execution_result[:session_name] if execution_result[:session_name]
+
+          result
         else
           {
             success: true,

@@ -2,9 +2,11 @@
 
 require_relative '../../configuration'
 require_relative '../../infrastructure/github_client'
+require_relative '../../infrastructure/tmux_client'
 require_relative '../../services/issue_watcher'
 require_relative '../../services/issue_processor'
 require_relative '../../services/workflow_executor'
+require_relative '../../services/tmux_session_manager'
 require_relative '../../domain/phase_strategy'
 
 module Soba
@@ -22,7 +24,13 @@ module Soba
           end
 
           github_client = Soba::Infrastructure::GitHubClient.new
-          workflow_executor = Soba::Services::WorkflowExecutor.new
+          tmux_client = Soba::Infrastructure::TmuxClient.new
+          tmux_session_manager = Soba::Services::TmuxSessionManager.new(
+            tmux_client: tmux_client
+          )
+          workflow_executor = Soba::Services::WorkflowExecutor.new(
+            tmux_session_manager: tmux_session_manager
+          )
           phase_strategy = Soba::Domain::PhaseStrategy.new
           issue_processor = Soba::Services::IssueProcessor.new(
             github_client: github_client,
@@ -86,6 +94,9 @@ module Soba
                     puts "  Label updated: #{result[:label_updated]}"
                     if result[:workflow_skipped]
                       puts "  Workflow skipped: #{result[:reason]}"
+                    elsif result[:mode] == 'tmux'
+                      puts "  Tmux session started: #{result[:session_name]}" if result[:session_name]
+                      puts "  You can attach with: tmux attach -t #{result[:session_name]}" if result[:session_name]
                     elsif result[:output]
                       puts "  Workflow output: #{result[:output].strip}"
                     end

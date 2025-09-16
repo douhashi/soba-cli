@@ -32,7 +32,7 @@ module Soba
           )
 
           repository = Soba::Configuration.config.github.repository
-          interval = Soba::Configuration.config.workflow.interval
+          interval = Soba::Configuration.config.workflow.interval || 10
 
           issue_watcher = Soba::Services::IssueWatcher.new(
             client: github_client,
@@ -54,7 +54,8 @@ module Soba
 
               # Filter issues that need processing
               processable_issues = issues.select do |issue|
-                labels = issue.labels.map(&:to_s)
+                # Extract label names from hash array - labels are already hashes
+                labels = issue.labels.map { |l| l[:name] }
                 phase = phase_strategy.determine_phase(labels)
                 !phase.nil?
               end
@@ -68,10 +69,11 @@ module Soba
                 puts "\nProcessing Issue ##{issue.number}: #{issue.title}"
 
                 # Convert Domain::Issue to Hash for issue_processor
+                # Extract label names for issue_processor
                 issue_hash = {
                   number: issue.number,
                   title: issue.title,
-                  labels: issue.labels,
+                  labels: issue.labels.map { |l| l[:name] },
                 }
 
                 result = issue_processor.process(issue_hash)
@@ -93,10 +95,11 @@ module Soba
                 end
               end
 
-              sleep(Soba::Configuration.config.workflow.interval) if @running
+              sleep(interval) if @running
             rescue StandardError => e
               puts "Error: #{e.message}"
-              sleep(Soba::Configuration.config.workflow.interval) if @running
+              puts e.backtrace.first(5).join("\n") if ENV['DEBUG']
+              sleep(interval) if @running
             end
           end
 

@@ -120,8 +120,9 @@ RSpec.describe Soba::Commands::Init do
         input = StringIO.new("y\ndouhashi/soba\n1\n20\n")
         allow($stdin).to receive(:gets) { input.gets }
 
-        expect { command.execute }.to output(/already exists/).to_stdout
-        expect { command.execute }.to output(/Configuration created successfully/).to_stdout
+        expect { command.execute }.to output(
+          /already exists.*Configuration created successfully/m
+        ).to_stdout
 
         config = YAML.safe_load_file(config_path)
         expect(config['github']).not_to be_nil

@@ -25,7 +25,7 @@ module Soba
       def handle_config_error(error)
         puts "Configuration Error:"
         puts error.message
-        puts "\nPlease check your .osoba/config.yml file."
+        puts "\nPlease check your .soba/config.yml file."
         exit 1
       end
     end

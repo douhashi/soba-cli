@@ -10,7 +10,7 @@ RSpec.describe Soba::Commands::Init do
 
   describe "#execute" do
     let(:temp_dir) { Dir.mktmpdir }
-    let(:config_path) { Pathname.new(temp_dir).join('.osoba', 'config.yml') }
+    let(:config_path) { Pathname.new(temp_dir).join('.soba', 'config.yml') }
 
     before do
       allow(Pathname).to receive(:pwd).and_return(Pathname.new(temp_dir))
@@ -146,22 +146,22 @@ RSpec.describe Soba::Commands::Init do
         File.write(gitignore_path, "*.log\n")
       end
 
-      it "adds .osoba to .gitignore when requested" do
+      it "adds .soba to .gitignore when requested" do
         input = StringIO.new("douhashi/soba\n1\n20\ny\n")
         allow($stdin).to receive(:gets) { input.gets }
 
-        expect { command.execute }.to output(/Added .osoba\/ to .gitignore/).to_stdout
+        expect { command.execute }.to output(/Added .soba\/ to .gitignore/).to_stdout
 
         gitignore_content = File.read(gitignore_path)
-        expect(gitignore_content).to include('.osoba/')
+        expect(gitignore_content).to include('.soba/')
       end
 
-      it "does not add .osoba when already present" do
-        File.write(gitignore_path, "*.log\n.osoba/\n")
+      it "does not add .soba when already present" do
+        File.write(gitignore_path, "*.log\n.soba/\n")
         input = StringIO.new("douhashi/soba\n1\n20\n")
         allow($stdin).to receive(:gets) { input.gets }
 
-        expect { command.execute }.not_to output(/Add .osoba\/ to .gitignore/).to_stdout
+        expect { command.execute }.not_to output(/Add .soba\/ to .gitignore/).to_stdout
       end
     end
 

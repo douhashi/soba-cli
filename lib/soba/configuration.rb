@@ -65,11 +65,11 @@ module Soba
       def find_config_file(path)
         return Pathname.new(path) if path
 
-        # プロジェクトルートの.osoba/config.ymlを探す
+        # プロジェクトルートの.soba/config.ymlを探す
         project_root = find_project_root
         return nil unless project_root
 
-        project_root.join('.osoba', 'config.yml')
+        project_root.join('.soba', 'config.yml')
       end
 
       def find_project_root
@@ -84,7 +84,7 @@ module Soba
       end
 
       def default_config_path
-        find_project_root.join('.osoba', 'config.yml')
+        find_project_root.join('.soba', 'config.yml')
       end
 
       def load_from_file(path)

@@ -1,0 +1,67 @@
+{
+  "name": "${localWorkspaceFolderBaseName}",
+  "dockerComposeFile": "compose.yaml",
+  "service": "app",
+  "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
+  "features": {
+    "ghcr.io/devcontainers/features/github-cli:1": {},
+    "ghcr.io/rails/devcontainer/features/activestorage": {},
+    "ghcr.io/devcontainers/features/node:1": {},
+    "ghcr.io/devcontainers/features/python:1": {},
+    "ghcr.io/devcontainers/features/aws-cli:1.1.2": {},
+    "ghcr.io/devcontainers/features/sshd:1": {
+      "version": "latest"
+    }
+  },
+  "containerEnv": {
+    "KAMAL_REGISTRY_USERNAME": "$KAMAL_REGISTRY_USERNAME",
+    "KAMAL_REGISTRY_PASSWORD": "$KAMAL_REGISTRY_PASSWORD",
+    "VITE_RUBY_HOST": "0.0.0.0",
+    "SELENIUM_URL": "http://selenium:4444/",
+    "PYTHON": "/usr/bin/python3"
+  },
+  "forwardPorts": [
+    5100,
+    3036
+  ],
+  "mounts": [
+    {
+      "source": "${localEnv:HOME}/.claude",
+      "target": "/home/vscode/.claude",
+      "type": "bind",
+      "consistency": "cached"
+    },
+    {
+      "source": "${localEnv:HOME}/.claude.json",
+      "target": "/home/vscode/.claude.json",
+      "type": "bind",
+      "consistency": "cached"
+    },
+    {
+      "source": "${localEnv:HOME}/.config/gh",
+      "target": "/home/vscode/.config/gh",
+      "type": "bind",
+      "consistency": "cached"
+    },
+    {
+      "source": "${localEnv:HOME}/.ssh",
+      "target": "/home/vscode/.ssh",
+      "type": "bind",
+      "consistency": "cached"
+    },
+    {
+      "source": "${localEnv:HOME}/.aws",
+      "target": "/home/vscode/.aws",
+      "type": "bind",
+      "consistency": "cached"
+    },
+    {
+      "source": "${localEnv:HOME}/.gitconfig",
+      "target": "/home/vscode/.gitconfig",
+      "type": "bind",
+      "consistency": "cached"
+    }
+  ],
+  "postCreateCommand": "/bin/bash .devcontainer/post-create.sh",
+  "postAttachCommand": "/bin/bash .devcontainer/post-attach.sh"
+}

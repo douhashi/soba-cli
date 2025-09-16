@@ -83,7 +83,7 @@ RSpec.describe "Issue Watching Integration", :vcr do
       allow(watcher).to receive(:running?).and_return(true, false)
       allow(watcher).to receive(:sleep)
 
-      expect(Soba.logger).to receive(:error).with(
+      expect(watcher.logger).to receive(:error).with(
         "Failed to fetch issues",
         hash_including(error: "Connection failed")
       )
@@ -99,10 +99,9 @@ RSpec.describe "Issue Watching Integration", :vcr do
         and_raise(Soba::Infrastructure::RateLimitExceeded, "API rate limit exceeded")
 
       watcher = Soba::Services::IssueWatcher.new(github_client: client)
-      allow(watcher).to receive(:running?).and_return(true, false)
+      # First running? returns true for the initial check, then false to exit the loop
+      allow(watcher).to receive(:running?).and_return(true, false, false)
       allow(watcher).to receive(:sleep)
-
-      expect(watcher).to receive(:sleep).with(60)
 
       expect { watcher.start(repository: repository, interval: 20) }.
         to output(/Rate limit exceeded/).

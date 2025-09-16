@@ -89,7 +89,7 @@ RSpec.describe Soba::Commands::Issue::Watch do
         error_message = "Connection failed"
         allow(watcher).to receive(:start).and_raise(StandardError, error_message)
 
-        expect(Soba.logger).to receive(:error).with(
+        expect(command.logger).to receive(:error).with(
           "Failed to start issue watcher",
           hash_including(error: error_message)
         )

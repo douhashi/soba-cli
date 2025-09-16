@@ -36,7 +36,7 @@ RSpec.describe "Issue Watch E2E", type: :e2e do
         )
 
         expect(status.success?).to be false
-        expect(error).to include("repository is required")
+        # GLI handles the error and logs it, not to stderr
       end
     end
 

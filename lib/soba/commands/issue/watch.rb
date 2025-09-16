@@ -64,7 +64,9 @@ module Soba
 
         def validate_interval!(interval)
           if interval < Services::IssueWatcher::MIN_INTERVAL
-            raise ArgumentError, "Interval must be at least #{Services::IssueWatcher::MIN_INTERVAL} seconds"
+            message = "Interval must be at least #{Services::IssueWatcher::MIN_INTERVAL} seconds"
+            warn "Error: #{message}"
+            raise ArgumentError, message
           end
         end
       end

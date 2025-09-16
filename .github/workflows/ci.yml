@@ -24,6 +24,8 @@ jobs:
 
     - name: Run tests
       run: bundle exec rspec
+      env:
+        COVERAGE: true
 
     - name: Upload coverage reports
       if: matrix.ruby-version == '3.3'

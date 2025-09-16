@@ -22,7 +22,7 @@ RSpec.describe Soba::Commands::Init do
 
     context "when config file does not exist" do
       it "creates a new configuration file" do
-        input = StringIO.new("douhashi/soba\n1\n20\n")
+        input = StringIO.new("douhashi/soba\n1\n20\n\n\n\n\n\n\n")
         allow($stdin).to receive(:gets) { input.gets }
         allow($stdin).to receive(:noecho).and_yield(input)
 
@@ -33,10 +33,15 @@ RSpec.describe Soba::Commands::Init do
         expect(config['github']['repository']).to eq('douhashi/soba')
         expect(config['github']['token']).to eq('${GITHUB_TOKEN}')
         expect(config['workflow']['interval']).to eq(20)
+        expect(config['workflow']['phase_labels']['planning']).to eq('soba:planning')
+        expect(config['workflow']['phase_labels']['ready']).to eq('soba:ready')
+        expect(config['workflow']['phase_labels']['doing']).to eq('soba:doing')
+        expect(config['workflow']['phase_labels']['review_requested']).to eq('soba:review-requested')
+        expect(config['phase']).to be_nil
       end
 
       it "accepts direct token input" do
-        input = StringIO.new("douhashi/soba\n2\nsecret_token\n30\n")
+        input = StringIO.new("douhashi/soba\n2\nsecret_token\n30\n\n\n\n\n\n\n")
         allow($stdin).to receive(:gets) { input.gets }
         allow($stdin).to receive(:noecho).and_yield(StringIO.new("secret_token\n"))
 
@@ -46,8 +51,49 @@ RSpec.describe Soba::Commands::Init do
         expect(config['github']['token']).to eq('secret_token')
       end
 
+      it "accepts custom phase labels" do
+        input = StringIO.new("douhashi/soba\n1\n20\nplanning\nready\ndoing\nreview\n\n\n")
+        allow($stdin).to receive(:gets) { input.gets }
+        allow($stdin).to receive(:noecho).and_yield(input)
+
+        expect { command.execute }.to output(/Configuration created successfully/).to_stdout
+
+        config = YAML.safe_load_file(config_path)
+        expect(config['workflow']['phase_labels']['planning']).to eq('planning')
+        expect(config['workflow']['phase_labels']['ready']).to eq('ready')
+        expect(config['workflow']['phase_labels']['doing']).to eq('doing')
+        expect(config['workflow']['phase_labels']['review_requested']).to eq('review')
+      end
+
+      it "accepts workflow phase commands" do
+        input = StringIO.new("douhashi/soba\n1\n20\n\n\n\n\nclaude\n--dangerously-skip-permissions\n/osoba:plan {{issue-number}}\nclaude\n--dangerously-skip-permissions\n/osoba:implement {{issue-number}}\n")
+        allow($stdin).to receive(:gets) { input.gets }
+        allow($stdin).to receive(:noecho).and_yield(input)
+
+        expect { command.execute }.to output(/Configuration created successfully/).to_stdout
+
+        config = YAML.safe_load_file(config_path)
+        expect(config['phase']['plan']['command']).to eq('claude')
+        expect(config['phase']['plan']['options']).to eq(['--dangerously-skip-permissions'])
+        expect(config['phase']['plan']['parameter']).to eq('/osoba:plan {{issue-number}}')
+        expect(config['phase']['implement']['command']).to eq('claude')
+        expect(config['phase']['implement']['options']).to eq(['--dangerously-skip-permissions'])
+        expect(config['phase']['implement']['parameter']).to eq('/osoba:implement {{issue-number}}')
+      end
+
+      it "skips workflow commands when skip is entered" do
+        input = StringIO.new("douhashi/soba\n1\n20\n\n\n\n\nskip\nskip\n")
+        allow($stdin).to receive(:gets) { input.gets }
+        allow($stdin).to receive(:noecho).and_yield(input)
+
+        expect { command.execute }.to output(/Configuration created successfully/).to_stdout
+
+        config = YAML.safe_load_file(config_path)
+        expect(config['phase']).to be_nil
+      end
+
       it "validates repository format" do
-        input = StringIO.new("invalid\ndouhashi/soba\n1\n20\n")
+        input = StringIO.new("invalid\ndouhashi/soba\n1\n20\n\n\n\n\n\n\n")
         allow($stdin).to receive(:gets) { input.gets }
 
         expect { command.execute }.to output(/Invalid format/).to_stdout
@@ -58,7 +104,7 @@ RSpec.describe Soba::Commands::Init do
       end
 
       it "uses default values when empty input" do
-        input = StringIO.new("douhashi/soba\n\n\n")
+        input = StringIO.new("douhashi/soba\n\n\n\n\n\n\n\n\n")
         allow($stdin).to receive(:gets) { input.gets }
 
         expect { command.execute }.to output(/Configuration created successfully/).to_stdout
@@ -66,6 +112,10 @@ RSpec.describe Soba::Commands::Init do
         config = YAML.safe_load_file(config_path)
         expect(config['github']['token']).to eq('${GITHUB_TOKEN}')
         expect(config['workflow']['interval']).to eq(20)
+        expect(config['workflow']['phase_labels']['planning']).to eq('soba:planning')
+        expect(config['workflow']['phase_labels']['ready']).to eq('soba:ready')
+        expect(config['workflow']['phase_labels']['doing']).to eq('soba:doing')
+        expect(config['workflow']['phase_labels']['review_requested']).to eq('soba:review-requested')
       end
 
       context "with git repository detection" do
@@ -73,7 +123,7 @@ RSpec.describe Soba::Commands::Init do
           allow(Dir).to receive(:exist?).with('.git').and_return(true)
           allow(command).to receive(:`).with('git config --get remote.origin.url 2>/dev/null').and_return("https://github.com/user/repo.git\n")
 
-          input = StringIO.new("\n1\n20\n")
+          input = StringIO.new("\n1\n20\n\n\n\n\n\n\n")
           allow($stdin).to receive(:gets) { input.gets }
 
           expect { command.execute }.to output(/\[user\/repo\]/).to_stdout
@@ -86,7 +136,7 @@ RSpec.describe Soba::Commands::Init do
           allow(Dir).to receive(:exist?).with('.git').and_return(true)
           allow(command).to receive(:`).with('git config --get remote.origin.url 2>/dev/null').and_return("git@github.com:owner/project.git\n")
 
-          input = StringIO.new("\n1\n20\n")
+          input = StringIO.new("\n1\n20\n\n\n\n\n\n\n")
           allow($stdin).to receive(:gets) { input.gets }
 
           expect { command.execute }.to output(/\[owner\/project\]/).to_stdout
@@ -99,7 +149,7 @@ RSpec.describe Soba::Commands::Init do
           allow(Dir).to receive(:exist?).with('.git').and_return(true)
           allow(command).to receive(:`).with('git config --get remote.origin.url 2>/dev/null').and_return("https://github.com/user/repo.git\n")
 
-          input = StringIO.new("different/repo\n1\n20\n")
+          input = StringIO.new("different/repo\n1\n20\n\n\n\n\n\n\n")
           allow($stdin).to receive(:gets) { input.gets }
 
           expect { command.execute }.to output(/\[user\/repo\]/).to_stdout
@@ -117,7 +167,7 @@ RSpec.describe Soba::Commands::Init do
       end
 
       it "asks for confirmation before overwriting" do
-        input = StringIO.new("y\ndouhashi/soba\n1\n20\n")
+        input = StringIO.new("y\ndouhashi/soba\n1\n20\n\n\n\n\n\n\n")
         allow($stdin).to receive(:gets) { input.gets }
 
         expect { command.execute }.to output(
@@ -147,7 +197,7 @@ RSpec.describe Soba::Commands::Init do
       end
 
       it "adds .soba to .gitignore when requested" do
-        input = StringIO.new("douhashi/soba\n1\n20\ny\n")
+        input = StringIO.new("douhashi/soba\n1\n20\n\n\n\n\n\n\ny\n")
         allow($stdin).to receive(:gets) { input.gets }
 
         expect { command.execute }.to output(/Added .soba\/ to .gitignore/).to_stdout
@@ -158,7 +208,7 @@ RSpec.describe Soba::Commands::Init do
 
       it "does not add .soba when already present" do
         File.write(gitignore_path, "*.log\n.soba/\n")
-        input = StringIO.new("douhashi/soba\n1\n20\n")
+        input = StringIO.new("douhashi/soba\n1\n20\n\n\n\n\n\n\n")
         allow($stdin).to receive(:gets) { input.gets }
 
         expect { command.execute }.not_to output(/Add .soba\/ to .gitignore/).to_stdout
@@ -168,7 +218,7 @@ RSpec.describe Soba::Commands::Init do
     context "with environment variable detection" do
       it "detects when GITHUB_TOKEN is set" do
         allow(ENV).to receive(:[]).with('GITHUB_TOKEN').and_return('test_token')
-        input = StringIO.new("douhashi/soba\n1\n20\n")
+        input = StringIO.new("douhashi/soba\n1\n20\n\n\n\n\n\n\n")
         allow($stdin).to receive(:gets) { input.gets }
 
         expect { command.execute }.to output(/GITHUB_TOKEN environment variable is set/).to_stdout
@@ -176,7 +226,7 @@ RSpec.describe Soba::Commands::Init do
 
       it "warns when GITHUB_TOKEN is not set" do
         allow(ENV).to receive(:[]).with('GITHUB_TOKEN').and_return(nil)
-        input = StringIO.new("douhashi/soba\n1\n20\n")
+        input = StringIO.new("douhashi/soba\n1\n20\n\n\n\n\n\n\n")
         allow($stdin).to receive(:gets) { input.gets }
 
         expect { command.execute }.to output(/GITHUB_TOKEN environment variable is not set/).to_stdout

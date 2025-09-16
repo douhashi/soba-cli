@@ -100,6 +100,53 @@ module Soba
         review_label = $stdin.gets.chomp
         review_label = 'soba:review-requested' if review_label.empty?
 
+        # Workflow commands configuration
+        puts ""
+        puts "Workflow commands configuration (optional):"
+        puts "These commands will be executed during each phase"
+        puts ""
+
+        # Plan phase command
+        puts "Planning phase command:"
+        print "Enter command (e.g., claude) [skip]: "
+        plan_command = $stdin.gets.chomp
+        if plan_command.empty? || plan_command.downcase == 'skip'
+          plan_command = nil
+        end
+
+        plan_options = []
+        plan_parameter = nil
+        if plan_command
+          print "Enter options (comma-separated, e.g., --dangerously-skip-permissions) []: "
+          options_input = $stdin.gets.chomp
+          plan_options = options_input.split(',').map(&:strip).reject(&:empty?) unless options_input.empty?
+
+          print "Enter parameter (use {{issue-number}} for issue number) [/osoba:plan {{issue-number}}]: "
+          plan_parameter = $stdin.gets.chomp
+          plan_parameter = '/osoba:plan {{issue-number}}' if plan_parameter.empty?
+        end
+
+        # Implement phase command
+        puts ""
+        puts "Implementation phase command:"
+        print "Enter command (e.g., claude) [skip]: "
+        implement_command = $stdin.gets.chomp
+        if implement_command.empty? || implement_command.downcase == 'skip'
+          implement_command = nil
+        end
+
+        implement_options = []
+        implement_parameter = nil
+        if implement_command
+          print "Enter options (comma-separated, e.g., --dangerously-skip-permissions) []: "
+          options_input = $stdin.gets.chomp
+          implement_options = options_input.split(',').map(&:strip).reject(&:empty?) unless options_input.empty?
+
+          print "Enter parameter (use {{issue-number}} for issue number) [/osoba:implement {{issue-number}}]: "
+          implement_parameter = $stdin.gets.chomp
+          implement_parameter = '/osoba:implement {{issue-number}}' if implement_parameter.empty?
+        end
+
         # Create configuration
         config = {
           'github' => {
@@ -116,6 +163,27 @@ module Soba
             },
           },
         }
+
+        # Add phase configuration if provided
+        if plan_command || implement_command
+          config['phase'] = {}
+
+          if plan_command
+            config['phase']['plan'] = {
+              'command' => plan_command,
+              'options' => plan_options,
+              'parameter' => plan_parameter,
+            }
+          end
+
+          if implement_command
+            config['phase']['implement'] = {
+              'command' => implement_command,
+              'options' => implement_options,
+              'parameter' => implement_parameter,
+            }
+          end
+        end
 
         # Write configuration file
         config_path.dirname.mkpath
@@ -143,6 +211,43 @@ module Soba
               doing: #{config['workflow']['phase_labels']['doing']}
               review_requested: #{config['workflow']['phase_labels']['review_requested']}
         YAML
+
+        # Add phase configuration if present
+        if config['phase']
+          phase_content = "\n          # Phase command configuration\n          phase:\n"
+
+          if config['phase']['plan']
+            phase_content += "            plan:\n"
+            phase_content += "              command: #{config['phase']['plan']['command']}\n"
+            if config['phase']['plan']['options'].present?
+              phase_content += "              options:\n"
+              config['phase']['plan']['options'].each do |opt|
+                phase_content += "                - #{opt}\n"
+              end
+            end
+            if config['phase']['plan']['parameter']
+              phase_content += "              parameter: '#{config['phase']['plan']['parameter']}'\n"
+            end
+          end
+
+          if config['phase']['implement']
+            phase_content += "            implement:\n"
+            phase_content += "              command: #{config['phase']['implement']['command']}\n"
+            if config['phase']['implement']['options'].present?
+              phase_content += "              options:\n"
+              config['phase']['implement']['options'].each do |opt|
+                phase_content += "                - #{opt}\n"
+              end
+            end
+            if config['phase']['implement']['parameter']
+              phase_content += "              parameter: '#{config['phase']['implement']['parameter']}'\n"
+            end
+          end
+
+          # Remove extra indentation to match YAML structure
+          phase_content = phase_content.gsub(/^          /, '')
+          config_content += phase_content
+        end
 
         File.write(config_path, config_content)
 

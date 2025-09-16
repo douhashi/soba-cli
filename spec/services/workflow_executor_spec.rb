@@ -2,9 +2,11 @@
 
 require 'spec_helper'
 require 'soba/services/workflow_executor'
+require 'soba/services/tmux_session_manager'
 
 RSpec.describe Soba::Services::WorkflowExecutor do
-  let(:executor) { described_class.new }
+  let(:tmux_session_manager) { instance_double(Soba::Services::TmuxSessionManager) }
+  let(:executor) { described_class.new(tmux_session_manager: tmux_session_manager) }
 
   describe '#execute' do
     let(:phase_config) do
@@ -155,6 +157,58 @@ RSpec.describe Soba::Services::WorkflowExecutor do
       command = executor.send(:build_command, config, 999)
 
       expect(command).to eq(['echo', 'Issue 999 - Number: 999'])
+    end
+  end
+
+  describe '#execute_in_tmux' do
+    let(:phase_config) do
+      double(
+        command: 'claude',
+        options: ['code', '--continue'],
+        parameter: '/osoba:plan {{issue-number}}'
+      )
+    end
+
+    context 'when executing command in tmux' do
+      it 'starts a Claude session in tmux' do
+        expect(tmux_session_manager).to receive(:start_claude_session).with(
+          issue_number: 123,
+          command: 'claude code --continue /osoba:plan 123'
+        ).and_return({ success: true, session_name: 'soba-claude-123-1234567890' })
+
+        result = executor.execute_in_tmux(phase: phase_config, issue_number: 123)
+
+        expect(result).to include(
+          success: true,
+          session_name: 'soba-claude-123-1234567890',
+          mode: 'tmux'
+        )
+      end
+
+      it 'handles tmux session creation failure' do
+        expect(tmux_session_manager).to receive(:start_claude_session).with(
+          issue_number: 456,
+          command: 'claude code --continue /osoba:plan 456'
+        ).and_return({ success: false, error: 'Failed to create tmux session' })
+
+        result = executor.execute_in_tmux(phase: phase_config, issue_number: 456)
+
+        expect(result).to include(
+          success: false,
+          error: 'Failed to create tmux session',
+          mode: 'tmux'
+        )
+      end
+    end
+
+    context 'when phase configuration is nil' do
+      let(:phase_config) { double(command: nil, options: nil, parameter: nil) }
+
+      it 'returns nil' do
+        result = executor.execute_in_tmux(phase: phase_config, issue_number: 123)
+
+        expect(result).to be_nil
+      end
     end
   end
 end

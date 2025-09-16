@@ -7,6 +7,10 @@ module Soba
     class WorkflowExecutionError < StandardError; end
 
     class WorkflowExecutor
+      def initialize(tmux_session_manager: nil)
+        @tmux_session_manager = tmux_session_manager
+      end
+
       def execute(phase:, issue_number:)
         return nil unless phase.command
 
@@ -29,6 +33,19 @@ module Soba
         raise WorkflowExecutionError, "Failed to execute workflow command: #{e.message}"
       end
 
+      def execute_in_tmux(phase:, issue_number:)
+        return nil unless phase.command
+
+        command_string = build_command_string(phase, issue_number)
+
+        result = @tmux_session_manager.start_claude_session(
+          issue_number: issue_number,
+          command: command_string
+        )
+
+        result.merge(mode: 'tmux')
+      end
+
       private
 
       def build_command(phase_config, issue_number)
@@ -41,6 +58,10 @@ module Soba
         end
 
         command
+      end
+
+      def build_command_string(phase_config, issue_number)
+        build_command(phase_config, issue_number).join(' ')
       end
     end
   end

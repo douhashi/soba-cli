@@ -54,7 +54,7 @@ RSpec.describe Soba::Commands::Workflow::Run do
           Soba::Domain::Issue.new(
             number: 1,
             title: 'Issue 1',
-            labels: ['soba:todo'],
+            labels: [{ name: 'soba:todo' }],
             state: 'open',
             created_at: Time.now.iso8601,
             updated_at: Time.now.iso8601
@@ -87,7 +87,7 @@ RSpec.describe Soba::Commands::Workflow::Run do
           Soba::Domain::Issue.new(
             number: 3,
             title: 'Issue 3',
-            labels: ['soba:ready'],
+            labels: [{ name: 'soba:ready' }],
             state: 'open',
             created_at: Time.now.iso8601,
             updated_at: Time.now.iso8601
@@ -128,7 +128,7 @@ RSpec.describe Soba::Commands::Workflow::Run do
           Soba::Domain::Issue.new(
             number: 5,
             title: 'Issue 5',
-            labels: ['soba:doing'],
+            labels: [{ name: 'soba:doing' }],
             state: 'open',
             created_at: Time.now.iso8601,
             updated_at: Time.now.iso8601
@@ -154,7 +154,7 @@ RSpec.describe Soba::Commands::Workflow::Run do
           Soba::Domain::Issue.new(
             number: 10,
             title: 'Issue 10',
-            labels: ['soba:todo'],
+            labels: [{ name: 'soba:todo' }],
             state: 'open',
             created_at: Time.now.iso8601,
             updated_at: Time.now.iso8601

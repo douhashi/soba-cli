@@ -527,4 +527,88 @@ RSpec.describe Soba::Infrastructure::TmuxClient do
       expect(result).to eq([])
     end
   end
+
+  describe '#window_exists?' do
+    let(:session_name) { 'soba-test-session' }
+    let(:window_name) { 'test-window' }
+
+    it 'returns true when window exists' do
+      windows_list = "0: bash* (1 panes) [80x24]\n1: test-window (1 panes) [80x24]"
+      allow(Open3).to receive(:capture3).with('tmux', 'list-windows', '-t', session_name).
+        and_return([windows_list, '', double(exitstatus: 0)])
+
+      result = client.window_exists?(session_name, window_name)
+
+      expect(result).to be true
+    end
+
+    it 'returns false when window does not exist' do
+      windows_list = "0: bash* (1 panes) [80x24]\n1: other-window (1 panes) [80x24]"
+      allow(Open3).to receive(:capture3).with('tmux', 'list-windows', '-t', session_name).
+        and_return([windows_list, '', double(exitstatus: 0)])
+
+      result = client.window_exists?(session_name, window_name)
+
+      expect(result).to be false
+    end
+
+    it 'returns false when session does not exist' do
+      allow(Open3).to receive(:capture3).with('tmux', 'list-windows', '-t', session_name).
+        and_return(['', "can't find session", double(exitstatus: 1)])
+
+      result = client.window_exists?(session_name, window_name)
+
+      expect(result).to be false
+    end
+  end
+
+  describe '#split_window' do
+    let(:session_name) { 'soba-test-session' }
+    let(:window_name) { 'test-window' }
+
+    it 'splits window vertically and returns pane ID' do
+      allow(Open3).to receive(:capture3).with(
+        'tmux', 'split-window', '-t', "#{session_name}:#{window_name}",
+        '-v', '-P', '-F', '#{pane_id}'
+      ).and_return(['%12', '', double(exitstatus: 0)])
+
+      result = client.split_window(
+        session_name: session_name,
+        window_name: window_name,
+        vertical: true
+      )
+
+      expect(result).to eq('%12')
+    end
+
+    it 'splits window horizontally and returns pane ID' do
+      allow(Open3).to receive(:capture3).with(
+        'tmux', 'split-window', '-t', "#{session_name}:#{window_name}",
+        '-h', '-P', '-F', '#{pane_id}'
+      ).and_return(['%13', '', double(exitstatus: 0)])
+
+      result = client.split_window(
+        session_name: session_name,
+        window_name: window_name,
+        vertical: false
+      )
+
+      expect(result).to eq('%13')
+    end
+
+    it 'returns nil when split fails' do
+      allow(Open3).to receive(:capture3).with(
+        'tmux', 'split-window', '-t', "#{session_name}:#{window_name}",
+        '-v', '-P', '-F', '#{pane_id}'
+      ).and_return(['', "can't find window", double(exitstatus: 1)])
+
+      result = client.split_window(
+        session_name: session_name,
+        window_name: window_name,
+        vertical: true
+      )
+
+      expect(result).to be_nil
+    end
+  end
 end

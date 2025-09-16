@@ -18,32 +18,57 @@ RSpec.describe Soba::Services::WorkflowExecutor do
     end
 
     context 'when use_tmux is true (default)' do
-      it 'executes the command in tmux session by default' do
-        expect(tmux_session_manager).to receive(:start_claude_session).with(
-          issue_number: 123,
-          command: 'echo --test Issue 123'
-        ).and_return({ success: true, session_name: 'soba-claude-123-1234567890' })
+      let(:phase_with_name) do
+        double(
+          name: 'test-phase',
+          command: 'echo',
+          options: ['--test'],
+          parameter: 'Issue {{issue-number}}'
+        )
+      end
+      let(:tmux_client) { instance_double(Soba::Infrastructure::TmuxClient) }
 
-        result = executor.execute(phase: phase_config, issue_number: 123)
+      before do
+        allow(Soba::Infrastructure::TmuxClient).to receive(:new).and_return(tmux_client)
+        allow(tmux_session_manager).to receive(:find_or_create_repository_session).and_return({
+          success: true,
+          session_name: 'soba-repo',
+          created: false,
+        })
+      end
+
+      it 'executes the command in tmux session by default' do
+        allow(tmux_session_manager).to receive(:create_issue_window).and_return({
+          success: true,
+          window_name: 'issue-123',
+          created: true,
+        })
+        allow(tmux_client).to receive(:send_keys).and_return(true)
+
+        result = executor.execute(phase: phase_with_name, issue_number: 123)
 
         expect(result).to include(
           success: true,
-          session_name: 'soba-claude-123-1234567890',
+          session_name: 'soba-repo',
+          window_name: 'issue-123',
           mode: 'tmux'
         )
       end
 
       it 'explicitly uses tmux when use_tmux is true' do
-        expect(tmux_session_manager).to receive(:start_claude_session).with(
-          issue_number: 456,
-          command: 'echo --test Issue 456'
-        ).and_return({ success: true, session_name: 'soba-claude-456-1234567890' })
+        allow(tmux_session_manager).to receive(:create_issue_window).and_return({
+          success: true,
+          window_name: 'issue-456',
+          created: true,
+        })
+        allow(tmux_client).to receive(:send_keys).and_return(true)
 
-        result = executor.execute(phase: phase_config, issue_number: 456, use_tmux: true)
+        result = executor.execute(phase: phase_with_name, issue_number: 456, use_tmux: true)
 
         expect(result).to include(
           success: true,
-          session_name: 'soba-claude-456-1234567890',
+          session_name: 'soba-repo',
+          window_name: 'issue-456',
           mode: 'tmux'
         )
       end
@@ -198,40 +223,53 @@ RSpec.describe Soba::Services::WorkflowExecutor do
   describe '#execute_in_tmux' do
     let(:phase_config) do
       double(
+        name: 'planning',
         command: 'claude',
         options: ['code', '--continue'],
         parameter: '/osoba:plan {{issue-number}}'
       )
     end
+    let(:tmux_client) { instance_double(Soba::Infrastructure::TmuxClient) }
+
+    before do
+      allow(Soba::Infrastructure::TmuxClient).to receive(:new).and_return(tmux_client)
+    end
 
     context 'when executing command in tmux' do
       it 'starts a Claude session in tmux' do
-        expect(tmux_session_manager).to receive(:start_claude_session).with(
-          issue_number: 123,
-          command: 'claude code --continue /osoba:plan 123'
-        ).and_return({ success: true, session_name: 'soba-claude-123-1234567890' })
+        allow(tmux_session_manager).to receive(:find_or_create_repository_session).and_return({
+          success: true,
+          session_name: 'soba-repo',
+          created: false,
+        })
+        allow(tmux_session_manager).to receive(:create_issue_window).and_return({
+          success: true,
+          window_name: 'issue-123',
+          created: true,
+        })
+        allow(tmux_client).to receive(:send_keys).and_return(true)
 
         result = executor.execute_in_tmux(phase: phase_config, issue_number: 123)
 
         expect(result).to include(
           success: true,
-          session_name: 'soba-claude-123-1234567890',
+          session_name: 'soba-repo',
+          window_name: 'issue-123',
           mode: 'tmux'
         )
       end
 
       it 'handles tmux session creation failure' do
-        expect(tmux_session_manager).to receive(:start_claude_session).with(
-          issue_number: 456,
-          command: 'claude code --continue /osoba:plan 456'
-        ).and_return({ success: false, error: 'Failed to create tmux session' })
+        expect(tmux_session_manager).to receive(:find_or_create_repository_session).and_return({
+          success: false,
+          error: 'Failed to create repository session',
+        })
 
         result = executor.execute_in_tmux(phase: phase_config, issue_number: 456)
 
         expect(result).to include(
           success: false,
-          error: 'Failed to create tmux session',
-          mode: 'tmux'
+          error: 'Failed to create repository session'
         )
       end
     end

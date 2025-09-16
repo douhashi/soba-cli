@@ -13,22 +13,24 @@ module Soba
         end
 
         def execute(repository:, interval:, config:)
-          load_configuration(config) if config
+          load_configuration(config)
           effective_interval = determine_interval(interval)
+          effective_repository = determine_repository(repository)
 
           validate_interval!(effective_interval)
+          validate_repository!(effective_repository)
 
           logger.info "Starting issue watch command",
-                      repository: repository,
+                      repository: effective_repository,
                       interval: effective_interval,
                       config: config
 
           watcher = create_watcher
-          watcher.start(repository: repository, interval: effective_interval)
+          watcher.start(repository: effective_repository, interval: effective_interval)
         rescue => e
           logger.error "Failed to start issue watcher",
                        error: e.message,
-                       repository: repository
+                       repository: effective_repository
 
           raise
         end
@@ -44,11 +46,16 @@ module Soba
         end
 
         def load_configuration(config_path)
-          Soba::Configuration.load!(path: config_path)
+          if config_path
+            Soba::Configuration.load!(path: config_path)
+          else
+            # Load from default location
+            Soba::Configuration.load!
+          end
         rescue => e
-          logger.warn "Failed to load configuration",
-                      path: config_path,
-                      error: e.message
+          logger.debug "Configuration loading failed",
+                       path: config_path,
+                       error: e.message
         end
 
         def determine_interval(cli_interval)
@@ -62,9 +69,28 @@ module Soba
           end
         end
 
+        def determine_repository(cli_repository)
+          # Priority: CLI argument > config file
+          if cli_repository.present?
+            cli_repository
+          elsif defined?(Soba::Configuration) && Soba::Configuration.config
+            Soba::Configuration.config.github.repository
+          else
+            nil
+          end
+        end
+
         def validate_interval!(interval)
           if interval < Services::IssueWatcher::MIN_INTERVAL
             message = "Interval must be at least #{Services::IssueWatcher::MIN_INTERVAL} seconds"
+            warn "Error: #{message}"
+            raise ArgumentError, message
+          end
+        end
+
+        def validate_repository!(repository)
+          if repository.blank?
+            message = "Repository is required. Specify via argument or config file"
             warn "Error: #{message}"
             raise ArgumentError, message
           end

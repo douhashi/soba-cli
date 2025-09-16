@@ -39,8 +39,8 @@ RSpec.describe "CLI", type: :e2e do
 
       Dir.mktmpdir do |dir|
         Dir.chdir(dir) do
-          FileUtils.mkdir_p('.osoba')
-          File.write('.osoba/config.yml', config_content)
+          FileUtils.mkdir_p('.soba')
+          File.write('.soba/config.yml', config_content)
 
           output, status = Open3.capture2("#{soba_bin} config")
           expect(status).to be_success

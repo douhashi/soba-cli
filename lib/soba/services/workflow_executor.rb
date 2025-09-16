@@ -11,7 +11,17 @@ module Soba
         @tmux_session_manager = tmux_session_manager
       end
 
-      def execute(phase:, issue_number:)
+      def execute(phase:, issue_number:, use_tmux: true)
+        return nil unless phase.command
+
+        if use_tmux
+          execute_in_tmux(phase: phase, issue_number: issue_number)
+        else
+          execute_direct(phase: phase, issue_number: issue_number)
+        end
+      end
+
+      def execute_direct(phase:, issue_number:)
         return nil unless phase.command
 
         command_array = build_command(phase, issue_number)

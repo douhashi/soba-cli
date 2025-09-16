@@ -17,9 +17,41 @@ RSpec.describe Soba::Services::WorkflowExecutor do
       )
     end
 
-    context 'when phase configuration exists' do
-      it 'executes the command with proper arguments' do
-        expect(Open3).to receive(:popen3).with('echo', '--test', 'Issue 123') do |&block|
+    context 'when use_tmux is true (default)' do
+      it 'executes the command in tmux session by default' do
+        expect(tmux_session_manager).to receive(:start_claude_session).with(
+          issue_number: 123,
+          command: 'echo --test Issue 123'
+        ).and_return({ success: true, session_name: 'soba-claude-123-1234567890' })
+
+        result = executor.execute(phase: phase_config, issue_number: 123)
+
+        expect(result).to include(
+          success: true,
+          session_name: 'soba-claude-123-1234567890',
+          mode: 'tmux'
+        )
+      end
+
+      it 'explicitly uses tmux when use_tmux is true' do
+        expect(tmux_session_manager).to receive(:start_claude_session).with(
+          issue_number: 456,
+          command: 'echo --test Issue 456'
+        ).and_return({ success: true, session_name: 'soba-claude-456-1234567890' })
+
+        result = executor.execute(phase: phase_config, issue_number: 456, use_tmux: true)
+
+        expect(result).to include(
+          success: true,
+          session_name: 'soba-claude-456-1234567890',
+          mode: 'tmux'
+        )
+      end
+    end
+
+    context 'when use_tmux is false' do
+      it 'executes the command directly without tmux' do
+        expect(Open3).to receive(:popen3).with('echo', '--test', 'Issue 789') do |&block|
           stdin = double('stdin', close: nil)
           stdout = double('stdout', read: 'Command output')
           stderr = double('stderr', read: '')
@@ -27,7 +59,7 @@ RSpec.describe Soba::Services::WorkflowExecutor do
           block.call(stdin, stdout, stderr, thread)
         end
 
-        result = executor.execute(phase: phase_config, issue_number: 123)
+        result = executor.execute(phase: phase_config, issue_number: 789, use_tmux: false)
 
         expect(result).to include(
           success: true,
@@ -35,8 +67,11 @@ RSpec.describe Soba::Services::WorkflowExecutor do
           error: '',
           exit_code: 0
         )
+        expect(result).not_to have_key(:mode)
       end
+    end
 
+    context 'when executing commands directly (legacy behavior)' do
       it 'replaces {{issue-number}} placeholder with actual issue number' do
         expect(Open3).to receive(:popen3).with('echo', '--test', 'Issue 456') do |&block|
           stdin = double('stdin', close: nil)
@@ -46,7 +81,7 @@ RSpec.describe Soba::Services::WorkflowExecutor do
           block.call(stdin, stdout, stderr, thread)
         end
 
-        result = executor.execute(phase: phase_config, issue_number: 456)
+        result = executor.execute(phase: phase_config, issue_number: 456, use_tmux: false)
 
         expect(result[:output]).to eq('Issue 456')
       end
@@ -60,7 +95,7 @@ RSpec.describe Soba::Services::WorkflowExecutor do
           block.call(stdin, stdout, stderr, thread)
         end
 
-        result = executor.execute(phase: phase_config, issue_number: 789)
+        result = executor.execute(phase: phase_config, issue_number: 789, use_tmux: false)
 
         expect(result).to include(
           success: false,
@@ -88,7 +123,7 @@ RSpec.describe Soba::Services::WorkflowExecutor do
             block.call(stdin, stdout, stderr, thread)
           end
 
-          result = executor.execute(phase: phase_config, issue_number: 100)
+          result = executor.execute(phase: phase_config, issue_number: 100, use_tmux: false)
 
           expect(result[:success]).to be true
         end
@@ -118,7 +153,7 @@ RSpec.describe Soba::Services::WorkflowExecutor do
         expect(Open3).to receive(:popen3).and_raise(Errno::ENOENT.new('No such file or directory'))
 
         expect do
-          executor.execute(phase: phase_config, issue_number: 123)
+          executor.execute(phase: phase_config, issue_number: 123, use_tmux: false)
         end.to raise_error(Soba::Services::WorkflowExecutionError, /Failed to execute workflow command/)
       end
     end

@@ -3,12 +3,14 @@
 require 'spec_helper'
 require 'soba/services/issue_processor'
 require 'soba/services/workflow_executor'
+require 'soba/services/tmux_session_manager'
 require 'soba/domain/phase_strategy'
 require 'soba/configuration'
 
 RSpec.describe Soba::Services::IssueProcessor do
   let(:github_client) { double('GitHubClient') }
-  let(:workflow_executor) { Soba::Services::WorkflowExecutor.new }
+  let(:tmux_session_manager) { instance_double(Soba::Services::TmuxSessionManager) }
+  let(:workflow_executor) { Soba::Services::WorkflowExecutor.new(tmux_session_manager: tmux_session_manager) }
   let(:phase_strategy) { Soba::Domain::PhaseStrategy.new }
   let(:config) { Soba::Configuration }
   let(:processor) do
@@ -44,20 +46,17 @@ RSpec.describe Soba::Services::IssueProcessor do
     context 'when issue needs plan phase' do
       let(:issue_labels) { ['soba:todo', 'enhancement'] }
 
-      it 'updates label and executes workflow' do
+      it 'updates label and executes workflow in tmux by default' do
         expect(github_client).to receive(:update_issue_labels).with(
           issue[:number],
           from: 'soba:todo',
           to: 'soba:planning'
         )
 
-        allow(Open3).to receive(:popen3).with('echo', '--test', 'Plan 123') do |&block|
-          stdin = double('stdin', close: nil)
-          stdout = double('stdout', read: 'Plan phase started')
-          stderr = double('stderr', read: '')
-          thread = double('thread', value: double(exitstatus: 0))
-          block.call(stdin, stdout, stderr, thread)
-        end
+        expect(tmux_session_manager).to receive(:start_claude_session).with(
+          issue_number: 123,
+          command: 'echo --test Plan 123'
+        ).and_return({ success: true, session_name: 'soba-claude-123-1234567890', mode: 'tmux' })
 
         result = processor.process(issue)
 
@@ -77,13 +76,10 @@ RSpec.describe Soba::Services::IssueProcessor do
             to: 'soba:planning'
           )
 
-          allow(Open3).to receive(:popen3).with('echo', '--test', 'Plan 123') do |&block|
-            stdin = double('stdin', close: nil)
-            stdout = double('stdout', read: '')
-            stderr = double('stderr', read: 'Command failed')
-            thread = double('thread', value: double(exitstatus: 1))
-            block.call(stdin, stdout, stderr, thread)
-          end
+          expect(tmux_session_manager).to receive(:start_claude_session).with(
+            issue_number: 123,
+            command: 'echo --test Plan 123'
+          ).and_return({ success: false, error: 'Command failed', mode: 'tmux' })
 
           result = processor.process(issue)
 
@@ -102,7 +98,7 @@ RSpec.describe Soba::Services::IssueProcessor do
             StandardError.new('API error')
           )
 
-          expect(Open3).not_to receive(:popen3)
+          expect(tmux_session_manager).not_to receive(:start_claude_session)
 
           expect do
             processor.process(issue)
@@ -114,20 +110,17 @@ RSpec.describe Soba::Services::IssueProcessor do
     context 'when issue needs implement phase' do
       let(:issue_labels) { ['soba:ready'] }
 
-      it 'updates label to soba:doing and executes workflow' do
+      it 'updates label to soba:doing and executes workflow in tmux' do
         expect(github_client).to receive(:update_issue_labels).with(
           issue[:number],
           from: 'soba:ready',
           to: 'soba:doing'
         )
 
-        allow(Open3).to receive(:popen3).with('echo', '--test', 'Implement 123') do |&block|
-          stdin = double('stdin', close: nil)
-          stdout = double('stdout', read: 'Implementation started')
-          stderr = double('stderr', read: '')
-          thread = double('thread', value: double(exitstatus: 0))
-          block.call(stdin, stdout, stderr, thread)
-        end
+        expect(tmux_session_manager).to receive(:start_claude_session).with(
+          issue_number: 123,
+          command: 'echo --test Implement 123'
+        ).and_return({ success: true, session_name: 'soba-claude-123-1234567890', mode: 'tmux' })
 
         result = processor.process(issue)
 
@@ -140,12 +133,49 @@ RSpec.describe Soba::Services::IssueProcessor do
       end
     end
 
+    context 'when use_tmux is disabled in configuration' do
+      let(:issue_labels) { ['soba:todo'] }
+
+      before do
+        Soba::Configuration.configure do |c|
+          c.workflow.use_tmux = false
+        end
+      end
+
+      it 'executes workflow directly without tmux' do
+        expect(github_client).to receive(:update_issue_labels).with(
+          issue[:number],
+          from: 'soba:todo',
+          to: 'soba:planning'
+        )
+
+        allow(Open3).to receive(:popen3).with('echo', '--test', 'Plan 123') do |&block|
+          stdin = double('stdin', close: nil)
+          stdout = double('stdout', read: 'Plan phase started')
+          stderr = double('stderr', read: '')
+          thread = double('thread', value: double(exitstatus: 0))
+          block.call(stdin, stdout, stderr, thread)
+        end
+
+        expect(tmux_session_manager).not_to receive(:start_claude_session)
+
+        result = processor.process(issue)
+
+        expect(result).to include(
+          success: true,
+          phase: :plan,
+          issue_number: 123,
+          label_updated: true
+        )
+      end
+    end
+
     context 'when issue is already in progress' do
       let(:issue_labels) { ['soba:planning'] }
 
       it 'returns skipped result' do
         expect(github_client).not_to receive(:update_issue_labels)
-        expect(Open3).not_to receive(:popen3)
+        expect(tmux_session_manager).not_to receive(:start_claude_session)
 
         result = processor.process(issue)
 
@@ -162,7 +192,7 @@ RSpec.describe Soba::Services::IssueProcessor do
 
       it 'returns skipped result' do
         expect(github_client).not_to receive(:update_issue_labels)
-        expect(Open3).not_to receive(:popen3)
+        expect(tmux_session_manager).not_to receive(:start_claude_session)
 
         result = processor.process(issue)
 
@@ -192,7 +222,7 @@ RSpec.describe Soba::Services::IssueProcessor do
           to: 'soba:planning'
         )
 
-        expect(Open3).not_to receive(:popen3)
+        expect(tmux_session_manager).not_to receive(:start_claude_session)
 
         result = processor.process(issue)
 

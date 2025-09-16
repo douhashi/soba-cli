@@ -93,6 +93,53 @@ module Soba
         { cleaned: cleaned_sessions }
       end
 
+      def find_or_create_repository_session
+        repository = Configuration.config.github.repository
+
+        return { success: false, error: 'Repository configuration not found' } if repository.blank?
+
+        # Convert repository name to session-safe format
+        session_name = "soba-#{repository.gsub(/[\/._]/, '-')}"
+
+        if @tmux_client.session_exists?(session_name)
+          { success: true, session_name: session_name, created: false }
+        else
+          if @tmux_client.create_session(session_name)
+            { success: true, session_name: session_name, created: true }
+          else
+            { success: false, error: 'Failed to create repository session' }
+          end
+        end
+      end
+
+      def create_issue_window(session_name:, issue_number:)
+        window_name = "issue-#{issue_number}"
+
+        if @tmux_client.window_exists?(session_name, window_name)
+          { success: true, window_name: window_name, created: false }
+        else
+          if @tmux_client.create_window(session_name, window_name)
+            { success: true, window_name: window_name, created: true }
+          else
+            { success: false, error: "Failed to create window for issue #{issue_number}" }
+          end
+        end
+      end
+
+      def create_phase_pane(session_name:, window_name:, phase:, vertical: true)
+        pane_id = @tmux_client.split_window(
+          session_name: session_name,
+          window_name: window_name,
+          vertical: vertical
+        )
+
+        if pane_id
+          { success: true, pane_id: pane_id, phase: phase }
+        else
+          { success: false, error: "Failed to create pane for phase #{phase}" }
+        end
+      end
+
       private
 
       def generate_session_name(issue_number)

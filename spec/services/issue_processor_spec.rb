@@ -9,8 +9,7 @@ require 'soba/configuration'
 
 RSpec.describe Soba::Services::IssueProcessor do
   let(:github_client) { double('GitHubClient') }
-  let(:tmux_session_manager) { instance_double(Soba::Services::TmuxSessionManager) }
-  let(:workflow_executor) { Soba::Services::WorkflowExecutor.new(tmux_session_manager: tmux_session_manager) }
+  let(:workflow_executor) { instance_double(Soba::Services::WorkflowExecutor) }
   let(:phase_strategy) { Soba::Domain::PhaseStrategy.new }
   let(:config) { Soba::Configuration }
   let(:processor) do
@@ -53,10 +52,11 @@ RSpec.describe Soba::Services::IssueProcessor do
           to: 'soba:planning'
         )
 
-        expect(tmux_session_manager).to receive(:start_claude_session).with(
+        expect(workflow_executor).to receive(:execute).with(
+          phase: anything,
           issue_number: 123,
-          command: 'echo --test Plan 123'
-        ).and_return({ success: true, session_name: 'soba-claude-123-1234567890', mode: 'tmux' })
+          use_tmux: true
+        ).and_return({ success: true, session_name: 'soba-repo', window_name: 'issue-123', mode: 'tmux' })
 
         result = processor.process(issue)
 
@@ -76,9 +76,10 @@ RSpec.describe Soba::Services::IssueProcessor do
             to: 'soba:planning'
           )
 
-          expect(tmux_session_manager).to receive(:start_claude_session).with(
+          expect(workflow_executor).to receive(:execute).with(
+            phase: anything,
             issue_number: 123,
-            command: 'echo --test Plan 123'
+            use_tmux: true
           ).and_return({ success: false, error: 'Command failed', mode: 'tmux' })
 
           result = processor.process(issue)
@@ -98,7 +99,7 @@ RSpec.describe Soba::Services::IssueProcessor do
             StandardError.new('API error')
           )
 
-          expect(tmux_session_manager).not_to receive(:start_claude_session)
+          expect(workflow_executor).not_to receive(:execute)
 
           expect do
             processor.process(issue)
@@ -117,10 +118,11 @@ RSpec.describe Soba::Services::IssueProcessor do
           to: 'soba:doing'
         )
 
-        expect(tmux_session_manager).to receive(:start_claude_session).with(
+        expect(workflow_executor).to receive(:execute).with(
+          phase: anything,
           issue_number: 123,
-          command: 'echo --test Implement 123'
-        ).and_return({ success: true, session_name: 'soba-claude-123-1234567890', mode: 'tmux' })
+          use_tmux: true
+        ).and_return({ success: true, session_name: 'soba-repo', window_name: 'issue-123', mode: 'tmux' })
 
         result = processor.process(issue)
 
@@ -149,15 +151,11 @@ RSpec.describe Soba::Services::IssueProcessor do
           to: 'soba:planning'
         )
 
-        allow(Open3).to receive(:popen3).with('echo', '--test', 'Plan 123') do |&block|
-          stdin = double('stdin', close: nil)
-          stdout = double('stdout', read: 'Plan phase started')
-          stderr = double('stderr', read: '')
-          thread = double('thread', value: double(exitstatus: 0))
-          block.call(stdin, stdout, stderr, thread)
-        end
-
-        expect(tmux_session_manager).not_to receive(:start_claude_session)
+        expect(workflow_executor).to receive(:execute).with(
+          phase: anything,
+          issue_number: 123,
+          use_tmux: false
+        ).and_return({ success: true, output: 'Plan phase started', mode: 'direct' })
 
         result = processor.process(issue)
 
@@ -175,7 +173,7 @@ RSpec.describe Soba::Services::IssueProcessor do
 
       it 'returns skipped result' do
         expect(github_client).not_to receive(:update_issue_labels)
-        expect(tmux_session_manager).not_to receive(:start_claude_session)
+        expect(workflow_executor).not_to receive(:execute)
 
         result = processor.process(issue)
 
@@ -192,7 +190,7 @@ RSpec.describe Soba::Services::IssueProcessor do
 
       it 'returns skipped result' do
         expect(github_client).not_to receive(:update_issue_labels)
-        expect(tmux_session_manager).not_to receive(:start_claude_session)
+        expect(workflow_executor).not_to receive(:execute)
 
         result = processor.process(issue)
 
@@ -222,7 +220,7 @@ RSpec.describe Soba::Services::IssueProcessor do
           to: 'soba:planning'
         )
 
-        expect(tmux_session_manager).not_to receive(:start_claude_session)
+        expect(workflow_executor).not_to receive(:execute)
 
         result = processor.process(issue)
 

@@ -178,6 +178,26 @@ module Soba
         sessions.select { |s| s.start_with?('soba-') }
       end
 
+      def window_exists?(session_name, window_name)
+        windows = list_windows(session_name)
+        windows.include?(window_name)
+      rescue Errno::ENOENT
+        false
+      end
+
+      def split_window(session_name:, window_name:, vertical: true)
+        flag = vertical ? '-v' : '-h'
+        target = "#{session_name}:#{window_name}"
+        stdout, _stderr, status = execute_tmux_command(
+          'split-window', '-t', target, flag, '-P', '-F', '#{pane_id}'
+        )
+        return nil unless status.exitstatus == 0
+
+        stdout.strip
+      rescue Errno::ENOENT
+        nil
+      end
+
       private
 
       def execute_tmux_command(*args)

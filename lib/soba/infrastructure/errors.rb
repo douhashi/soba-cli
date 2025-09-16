@@ -9,5 +9,13 @@ module Soba
     class RateLimitExceeded < GitHubClientError; end
 
     class NetworkError < GitHubClientError; end
+
+    class TmuxError < StandardError; end
+
+    class TmuxSessionNotFound < TmuxError; end
+
+    class TmuxCommandFailed < TmuxError; end
+
+    class TmuxNotInstalled < TmuxError; end
   end
 end

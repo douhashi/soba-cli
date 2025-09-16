@@ -144,4 +144,73 @@ RSpec.describe 'Tmux Integration', type: :integration, skip: 'Requires actual tm
       tmux_session_manager.stop_claude_session(new_session_name)
     end
   end
+
+  describe 'Window and pane operations' do
+    let(:test_session_name) { "soba-test-windows-#{Time.now.to_i}" }
+
+    after do
+      tmux_client.kill_session(test_session_name) if tmux_client.session_exists?(test_session_name)
+    end
+
+    it 'manages windows within a session' do
+      # Create session
+      expect(tmux_client.create_session(test_session_name)).to be true
+
+      # Create a new window
+      expect(tmux_client.create_window(test_session_name, 'test-window')).to be true
+
+      # List windows
+      windows = tmux_client.list_windows(test_session_name)
+      expect(windows).to include('test-window')
+
+      # Rename window
+      expect(tmux_client.rename_window(test_session_name, 'test-window', 'renamed-window')).to be true
+
+      # Switch window
+      expect(tmux_client.switch_window(test_session_name, 'renamed-window')).to be true
+    end
+
+    it 'manages panes within a session' do
+      # Create session
+      expect(tmux_client.create_session(test_session_name)).to be true
+
+      # Split panes
+      expect(tmux_client.split_pane(test_session_name, :vertical)).to be true
+      expect(tmux_client.split_pane(test_session_name, :horizontal)).to be true
+
+      # Select pane
+      expect(tmux_client.select_pane(test_session_name, 0)).to be true
+
+      # Resize pane
+      expect(tmux_client.resize_pane(test_session_name, :down, 5)).to be true
+
+      # Close a pane (not pane 0, which would close the session)
+      expect(tmux_client.close_pane(test_session_name, 1)).to be true
+    end
+  end
+
+  describe 'Session information' do
+    let(:test_session_name) { "soba-test-info-#{Time.now.to_i}" }
+
+    after do
+      tmux_client.kill_session(test_session_name) if tmux_client.session_exists?(test_session_name)
+    end
+
+    it 'retrieves detailed session information' do
+      # Create session
+      expect(tmux_client.create_session(test_session_name)).to be true
+
+      # Get session info
+      info = tmux_client.session_info(test_session_name)
+      expect(info).to be_a(Hash)
+      expect(info[:name]).to eq(test_session_name)
+      expect(info[:windows]).to be >= 1
+      expect(info[:created_at]).to be_a(String)
+      expect(info[:size]).to be_an(Array)
+
+      # Check attached status
+      attached = tmux_client.session_attached?(test_session_name)
+      expect(attached).to be_in([true, false])
+    end
+  end
 end

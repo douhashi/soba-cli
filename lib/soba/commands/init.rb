@@ -6,6 +6,7 @@ require "active_support/core_ext/object/deep_dup"
 require "pathname"
 require "yaml"
 require "io/console"
+require_relative "../infrastructure/github_client"
 
 module Soba
   module Commands
@@ -23,6 +24,20 @@ module Soba
             'review_requested' => 'soba:review-requested',
           },
         },
+      }.freeze
+
+      LABEL_COLORS = {
+        'planning' => '1e90ff',        # Blue
+        'ready' => '228b22',           # Green
+        'doing' => 'ffd700',           # Yellow
+        'review_requested' => 'ff8c00', # Orange
+      }.freeze
+
+      LABEL_DESCRIPTIONS = {
+        'planning' => 'Planning phase',
+        'ready' => 'Ready for implementation',
+        'doing' => 'In progress',
+        'review_requested' => 'Review requested',
       }.freeze
 
       def initialize(interactive: false)
@@ -52,10 +67,10 @@ module Soba
         end
       rescue Interrupt
         puts "\n\n❌ Setup cancelled."
-        exit 1
+        raise Soba::CommandError, "Setup cancelled"
       rescue StandardError => e
         puts "\n❌ Error: #{e.message}"
-        exit 1
+        raise
       end
 
       private
@@ -67,7 +82,7 @@ module Soba
         unless repository
           puts "❌ Error: Cannot detect GitHub repository from git remote."
           puts "   Please run 'soba init --interactive' for manual setup."
-          exit 1
+          raise Soba::CommandError, "Cannot detect GitHub repository"
         end
 
         # Create configuration with default values
@@ -98,6 +113,7 @@ module Soba
 
         check_github_token(token: '${GITHUB_TOKEN}')
         handle_gitignore
+        create_github_labels(config)
 
         puts ""
         puts "🎉 Setup complete! You can now use:"
@@ -275,6 +291,7 @@ module Soba
 
         check_github_token(token: token)
         handle_gitignore
+        create_github_labels(config)
 
         puts ""
         puts "🎉 Setup complete! You can now use:"
@@ -405,6 +422,70 @@ module Soba
         end
       rescue StandardError
         nil
+      end
+
+      def create_github_labels(config)
+        repository = config['github']['repository']
+        phase_labels = config['workflow']['phase_labels']
+
+        # Only ask for confirmation in interactive mode
+        if @interactive
+          puts ""
+          print "Create GitHub labels for workflow phases? (Y/n): "
+          response = $stdin.gets
+          return unless response
+          response = response.chomp.downcase
+          if response == 'n' || response == 'no'
+            puts "✅ Skipping label creation."
+            return
+          end
+        end
+
+        puts ""
+        puts "🏷️  Creating GitHub labels..."
+
+        begin
+          # Initialize GitHub client
+          github_client = Infrastructure::GitHubClient.new
+
+          # Get existing labels
+          existing_labels = github_client.list_labels(repository)
+          existing_label_names = existing_labels.map { |label| label[:name] }
+
+          # Create labels for each phase
+          created_count = 0
+          skipped_count = 0
+
+          phase_labels.each do |phase, label_name|
+            if existing_label_names.include?(label_name)
+              puts "   ⏩ Label '#{label_name}' already exists, skipping"
+              skipped_count += 1
+            else
+              color = LABEL_COLORS[phase]
+              description = LABEL_DESCRIPTIONS[phase]
+
+              result = github_client.create_label(repository, label_name, color, description)
+              if result
+                puts "   ✅ Label '#{label_name}' created"
+                created_count += 1
+              else
+                puts "   ⚠️  Label '#{label_name}' could not be created (may already exist)"
+                skipped_count += 1
+              end
+            end
+          end
+
+          puts ""
+          puts "✅ Label creation complete: #{created_count} created, #{skipped_count} skipped"
+        rescue Infrastructure::AuthenticationError => e
+          puts "   ❌ Authentication failed: #{e.message}"
+          puts "   Please ensure your GitHub token has 'repo' permission"
+        rescue Infrastructure::GitHubClientError => e
+          puts "   ❌ Failed to create labels: #{e.message}"
+          puts "   Please check your repository permissions"
+        rescue StandardError => e
+          puts "   ❌ Unexpected error: #{e.message}"
+        end
       end
     end
   end

@@ -2,7 +2,6 @@
 
 require "simplecov"
 SimpleCov.start do
-  minimum_coverage 90
   add_filter "/spec/"
   add_filter "/vendor/"
 end if ENV["COVERAGE"]

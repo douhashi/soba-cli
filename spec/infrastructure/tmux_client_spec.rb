@@ -2,6 +2,7 @@
 
 require 'spec_helper'
 require 'soba/infrastructure/tmux_client'
+require 'soba/infrastructure/errors'
 
 RSpec.describe Soba::Infrastructure::TmuxClient do
   let(:client) { described_class.new }
@@ -35,7 +36,7 @@ RSpec.describe Soba::Infrastructure::TmuxClient do
         it 'raises an error' do
           allow(Open3).to receive(:capture3).and_raise(Errno::ENOENT)
 
-          expect { client.create_session(session_name) }.to raise_error(Soba::Infrastructure::TmuxError, /tmux is not installed/)
+          expect { client.create_session(session_name) }.to raise_error(Soba::Infrastructure::TmuxNotInstalled, /tmux is not installed/)
         end
       end
     end
@@ -157,6 +158,288 @@ RSpec.describe Soba::Infrastructure::TmuxClient do
       result = client.capture_pane(session_name)
 
       expect(result).to be_nil
+    end
+  end
+
+  describe '#create_window' do
+    let(:session_name) { 'soba-test-session' }
+    let(:window_name) { 'test-window' }
+
+    it 'creates a new window in the session' do
+      allow(Open3).to receive(:capture3).with('tmux', 'new-window', '-t', session_name, '-n', window_name).
+        and_return(['', '', double(exitstatus: 0)])
+
+      result = client.create_window(session_name, window_name)
+
+      expect(result).to be true
+      expect(Open3).to have_received(:capture3).with('tmux', 'new-window', '-t', session_name, '-n', window_name)
+    end
+
+    it 'returns false when session does not exist' do
+      allow(Open3).to receive(:capture3).with('tmux', 'new-window', '-t', session_name, '-n', window_name).
+        and_return(['', "can't find session", double(exitstatus: 1)])
+
+      result = client.create_window(session_name, window_name)
+
+      expect(result).to be false
+    end
+  end
+
+  describe '#switch_window' do
+    let(:session_name) { 'soba-test-session' }
+    let(:window_name) { 'test-window' }
+
+    it 'switches to the specified window' do
+      allow(Open3).to receive(:capture3).with('tmux', 'select-window', '-t', "#{session_name}:#{window_name}").
+        and_return(['', '', double(exitstatus: 0)])
+
+      result = client.switch_window(session_name, window_name)
+
+      expect(result).to be true
+      expect(Open3).to have_received(:capture3).with('tmux', 'select-window', '-t', "#{session_name}:#{window_name}")
+    end
+
+    it 'returns false when window does not exist' do
+      allow(Open3).to receive(:capture3).with('tmux', 'select-window', '-t', "#{session_name}:#{window_name}").
+        and_return(['', "can't find window", double(exitstatus: 1)])
+
+      result = client.switch_window(session_name, window_name)
+
+      expect(result).to be false
+    end
+  end
+
+  describe '#list_windows' do
+    let(:session_name) { 'soba-test-session' }
+
+    it 'returns list of windows in the session' do
+      windows_list = "0: bash* (1 panes) [80x24]\n1: vim (1 panes) [80x24]\n2: test-window (1 panes) [80x24]"
+      allow(Open3).to receive(:capture3).with('tmux', 'list-windows', '-t', session_name).
+        and_return([windows_list, '', double(exitstatus: 0)])
+
+      result = client.list_windows(session_name)
+
+      expect(result).to eq(['bash', 'vim', 'test-window'])
+    end
+
+    it 'returns empty array when session does not exist' do
+      allow(Open3).to receive(:capture3).with('tmux', 'list-windows', '-t', session_name).
+        and_return(['', "can't find session", double(exitstatus: 1)])
+
+      result = client.list_windows(session_name)
+
+      expect(result).to eq([])
+    end
+  end
+
+  describe '#rename_window' do
+    let(:session_name) { 'soba-test-session' }
+    let(:old_name) { 'old-window' }
+    let(:new_name) { 'new-window' }
+
+    it 'renames the window' do
+      allow(Open3).to receive(:capture3).with('tmux', 'rename-window', '-t', "#{session_name}:#{old_name}", new_name).
+        and_return(['', '', double(exitstatus: 0)])
+
+      result = client.rename_window(session_name, old_name, new_name)
+
+      expect(result).to be true
+      expect(Open3).to have_received(:capture3).with('tmux', 'rename-window', '-t', "#{session_name}:#{old_name}", new_name)
+    end
+
+    it 'returns false when window does not exist' do
+      allow(Open3).to receive(:capture3).with('tmux', 'rename-window', '-t', "#{session_name}:#{old_name}", new_name).
+        and_return(['', "can't find window", double(exitstatus: 1)])
+
+      result = client.rename_window(session_name, old_name, new_name)
+
+      expect(result).to be false
+    end
+  end
+
+  describe '#split_pane' do
+    let(:session_name) { 'soba-test-session' }
+
+    it 'splits the pane vertically' do
+      allow(Open3).to receive(:capture3).with('tmux', 'split-window', '-t', session_name, '-v').
+        and_return(['', '', double(exitstatus: 0)])
+
+      result = client.split_pane(session_name, :vertical)
+
+      expect(result).to be true
+      expect(Open3).to have_received(:capture3).with('tmux', 'split-window', '-t', session_name, '-v')
+    end
+
+    it 'splits the pane horizontally' do
+      allow(Open3).to receive(:capture3).with('tmux', 'split-window', '-t', session_name, '-h').
+        and_return(['', '', double(exitstatus: 0)])
+
+      result = client.split_pane(session_name, :horizontal)
+
+      expect(result).to be true
+      expect(Open3).to have_received(:capture3).with('tmux', 'split-window', '-t', session_name, '-h')
+    end
+
+    it 'returns false when session does not exist' do
+      allow(Open3).to receive(:capture3).with('tmux', 'split-window', '-t', session_name, '-v').
+        and_return(['', "can't find session", double(exitstatus: 1)])
+
+      result = client.split_pane(session_name, :vertical)
+
+      expect(result).to be false
+    end
+  end
+
+  describe '#select_pane' do
+    let(:session_name) { 'soba-test-session' }
+    let(:pane_index) { 0 }
+
+    it 'selects the specified pane' do
+      allow(Open3).to receive(:capture3).with('tmux', 'select-pane', '-t', "#{session_name}.#{pane_index}").
+        and_return(['', '', double(exitstatus: 0)])
+
+      result = client.select_pane(session_name, pane_index)
+
+      expect(result).to be true
+      expect(Open3).to have_received(:capture3).with('tmux', 'select-pane', '-t', "#{session_name}.#{pane_index}")
+    end
+
+    it 'returns false when pane does not exist' do
+      allow(Open3).to receive(:capture3).with('tmux', 'select-pane', '-t', "#{session_name}.#{pane_index}").
+        and_return(['', "can't find pane", double(exitstatus: 1)])
+
+      result = client.select_pane(session_name, pane_index)
+
+      expect(result).to be false
+    end
+  end
+
+  describe '#resize_pane' do
+    let(:session_name) { 'soba-test-session' }
+
+    it 'resizes the pane by direction' do
+      allow(Open3).to receive(:capture3).with('tmux', 'resize-pane', '-t', session_name, '-D', '10').
+        and_return(['', '', double(exitstatus: 0)])
+
+      result = client.resize_pane(session_name, :down, 10)
+
+      expect(result).to be true
+      expect(Open3).to have_received(:capture3).with('tmux', 'resize-pane', '-t', session_name, '-D', '10')
+    end
+
+    it 'supports all directions' do
+      directions = { up: '-U', down: '-D', left: '-L', right: '-R' }
+
+      directions.each do |direction, flag|
+        allow(Open3).to receive(:capture3).with('tmux', 'resize-pane', '-t', session_name, flag, '5').
+          and_return(['', '', double(exitstatus: 0)])
+
+        result = client.resize_pane(session_name, direction, 5)
+        expect(result).to be true
+      end
+    end
+  end
+
+  describe '#close_pane' do
+    let(:session_name) { 'soba-test-session' }
+    let(:pane_index) { 1 }
+
+    it 'closes the specified pane' do
+      allow(Open3).to receive(:capture3).with('tmux', 'kill-pane', '-t', "#{session_name}.#{pane_index}").
+        and_return(['', '', double(exitstatus: 0)])
+
+      result = client.close_pane(session_name, pane_index)
+
+      expect(result).to be true
+      expect(Open3).to have_received(:capture3).with('tmux', 'kill-pane', '-t', "#{session_name}.#{pane_index}")
+    end
+
+    it 'returns false when pane does not exist' do
+      allow(Open3).to receive(:capture3).with('tmux', 'kill-pane', '-t', "#{session_name}.#{pane_index}").
+        and_return(['', "can't find pane", double(exitstatus: 1)])
+
+      result = client.close_pane(session_name, pane_index)
+
+      expect(result).to be false
+    end
+  end
+
+  describe '#session_info' do
+    let(:session_name) { 'soba-test-session' }
+
+    it 'returns session details' do
+      session_output = "soba-test-session: 1 windows (created Mon Dec 15 10:00:00 2024)\n[120x45]"
+      allow(Open3).to receive(:capture3).with('tmux', 'list-sessions', '-F', '#{session_name}: #{session_windows} windows (created #{session_created_string}) [#{session_width}x#{session_height}]').
+        and_return([session_output, '', double(exitstatus: 0)])
+
+      result = client.session_info(session_name)
+
+      expect(result).to include(
+        name: 'soba-test-session',
+        windows: 1,
+        created_at: 'Mon Dec 15 10:00:00 2024',
+        size: [120, 45]
+      )
+    end
+
+    it 'returns nil when session does not exist' do
+      allow(Open3).to receive(:capture3).with('tmux', 'list-sessions', '-F', '#{session_name}: #{session_windows} windows (created #{session_created_string}) [#{session_width}x#{session_height}]').
+        and_return(['', "can't find session", double(exitstatus: 1)])
+
+      result = client.session_info(session_name)
+
+      expect(result).to be_nil
+    end
+  end
+
+  describe '#active_session' do
+    it 'returns the active session name' do
+      allow(Open3).to receive(:capture3).with('tmux', 'display-message', '-p', '#{session_name}').
+        and_return(['soba-active-session', '', double(exitstatus: 0)])
+
+      result = client.active_session
+
+      expect(result).to eq('soba-active-session')
+    end
+
+    it 'returns nil when no active session' do
+      allow(Open3).to receive(:capture3).with('tmux', 'display-message', '-p', '#{session_name}').
+        and_return(['', 'no current client', double(exitstatus: 1)])
+
+      result = client.active_session
+
+      expect(result).to be_nil
+    end
+  end
+
+  describe '#session_attached?' do
+    let(:session_name) { 'soba-test-session' }
+
+    it 'returns true when session is attached' do
+      allow(Open3).to receive(:capture3).with('tmux', 'list-sessions', '-F', '#{session_name}: #{session_attached}', '-f', "#{session_name}==#{session_name}").
+        and_return(["soba-test-session: 1", '', double(exitstatus: 0)])
+
+      result = client.session_attached?(session_name)
+
+      expect(result).to be true
+    end
+
+    it 'returns false when session is not attached' do
+      allow(Open3).to receive(:capture3).with('tmux', 'list-sessions', '-F', '#{session_name}: #{session_attached}', '-f', "#{session_name}==#{session_name}").
+        and_return(["soba-test-session: 0", '', double(exitstatus: 0)])
+
+      result = client.session_attached?(session_name)
+
+      expect(result).to be false
+    end
+
+    it 'returns false when session does not exist' do
+      allow(Open3).to receive(:capture3).with('tmux', 'list-sessions', '-F', '#{session_name}: #{session_attached}', '-f', "#{session_name}==#{session_name}").
+        and_return(['', "can't find session", double(exitstatus: 1)])
+
+      result = client.session_attached?(session_name)
+
+      expect(result).to be false
     end
   end
 end

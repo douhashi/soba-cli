@@ -40,6 +40,19 @@ module Soba
         'review_requested' => 'Review requested',
       }.freeze
 
+      DEFAULT_PHASE_CONFIG = {
+        'plan' => {
+          'command' => 'claude',
+          'options' => ['--dangerously-skip-permissions'],
+          'parameter' => '/soba:plan {{issue-number}}',
+        },
+        'implement' => {
+          'command' => 'claude',
+          'options' => ['--dangerously-skip-permissions'],
+          'parameter' => '/soba:implement {{issue-number}}',
+        },
+      }.freeze
+
       def initialize(interactive: false)
         @interactive = interactive
       end
@@ -90,18 +103,7 @@ module Soba
         config['github']['repository'] = repository
 
         # Add default phase configuration
-        config['phase'] = {
-          'plan' => {
-            'command' => 'claude',
-            'options' => ['--dangerously-skip-permissions'],
-            'parameter' => '/soba:plan {{issue-number}}',
-          },
-          'implement' => {
-            'command' => 'claude',
-            'options' => ['--dangerously-skip-permissions'],
-            'parameter' => '/soba:implement {{issue-number}}',
-          },
-        }
+        config['phase'] = DEFAULT_PHASE_CONFIG.deep_dup
 
         # Write configuration file
         write_config_file(config_path, config)
@@ -205,43 +207,57 @@ module Soba
 
         # Plan phase command
         puts "Planning phase command:"
-        print "Enter command (e.g., claude) [skip]: "
+        print "Enter command (e.g., claude) [#{DEFAULT_PHASE_CONFIG['plan']['command']}]: "
         plan_command = $stdin.gets.chomp
-        if plan_command.empty? || plan_command.downcase == 'skip'
+        plan_command = DEFAULT_PHASE_CONFIG['plan']['command'] if plan_command.empty?
+        if plan_command.downcase == 'skip'
           plan_command = nil
         end
 
         plan_options = []
         plan_parameter = nil
         if plan_command
-          print "Enter options (comma-separated, e.g., --dangerously-skip-permissions) []: "
+          default_options = DEFAULT_PHASE_CONFIG['plan']['options'].join(',')
+          print "Enter options (comma-separated, e.g., --dangerously-skip-permissions) [#{default_options}]: "
           options_input = $stdin.gets.chomp
-          plan_options = options_input.split(',').map(&:strip).reject(&:empty?) unless options_input.empty?
+          if options_input.empty?
+            plan_options = DEFAULT_PHASE_CONFIG['plan']['options']
+          else
+            plan_options = options_input.split(',').map(&:strip).reject(&:empty?)
+          end
 
-          print "Enter parameter (use {{issue-number}} for issue number) [/soba:plan {{issue-number}}]: "
+          default_param = DEFAULT_PHASE_CONFIG['plan']['parameter']
+          print "Enter parameter (use {{issue-number}} for issue number) [#{default_param}]: "
           plan_parameter = $stdin.gets.chomp
-          plan_parameter = '/soba:plan {{issue-number}}' if plan_parameter.empty?
+          plan_parameter = DEFAULT_PHASE_CONFIG['plan']['parameter'] if plan_parameter.empty?
         end
 
         # Implement phase command
         puts ""
         puts "Implementation phase command:"
-        print "Enter command (e.g., claude) [skip]: "
+        print "Enter command (e.g., claude) [#{DEFAULT_PHASE_CONFIG['implement']['command']}]: "
         implement_command = $stdin.gets.chomp
-        if implement_command.empty? || implement_command.downcase == 'skip'
+        implement_command = DEFAULT_PHASE_CONFIG['implement']['command'] if implement_command.empty?
+        if implement_command.downcase == 'skip'
           implement_command = nil
         end
 
         implement_options = []
         implement_parameter = nil
         if implement_command
-          print "Enter options (comma-separated, e.g., --dangerously-skip-permissions) []: "
+          default_options = DEFAULT_PHASE_CONFIG['implement']['options'].join(',')
+          print "Enter options (comma-separated, e.g., --dangerously-skip-permissions) [#{default_options}]: "
           options_input = $stdin.gets.chomp
-          implement_options = options_input.split(',').map(&:strip).reject(&:empty?) unless options_input.empty?
+          if options_input.empty?
+            implement_options = DEFAULT_PHASE_CONFIG['implement']['options']
+          else
+            implement_options = options_input.split(',').map(&:strip).reject(&:empty?)
+          end
 
-          print "Enter parameter (use {{issue-number}} for issue number) [/soba:implement {{issue-number}}]: "
+          default_param = DEFAULT_PHASE_CONFIG['implement']['parameter']
+          print "Enter parameter (use {{issue-number}} for issue number) [#{default_param}]: "
           implement_parameter = $stdin.gets.chomp
-          implement_parameter = '/soba:implement {{issue-number}}' if implement_parameter.empty?
+          implement_parameter = DEFAULT_PHASE_CONFIG['implement']['parameter'] if implement_parameter.empty?
         end
 
         # Create configuration

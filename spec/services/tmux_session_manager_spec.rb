@@ -13,6 +13,68 @@ RSpec.describe Soba::Services::TmuxSessionManager do
     let(:command) { 'claude code --help' }
 
     context 'when starting a new Claude Code session' do
+      context 'with repository configuration' do
+        before do
+          allow(Soba::Configuration).to receive(:config).and_return(
+            double(github: double(repository: 'douhashi/soba'))
+          )
+        end
+
+        it 'creates a tmux session with repository name in the session name' do
+          session_name = nil
+          allow(tmux_client).to receive(:session_exists?).and_return(false)
+          allow(tmux_client).to receive(:create_session) do |name|
+            session_name = name
+            true
+          end
+          allow(tmux_client).to receive(:send_keys).and_return(true)
+
+          result = manager.start_claude_session(issue_number: issue_number, command: command)
+
+          expect(result[:success]).to be true
+          expect(result[:session_name]).to match(/^soba-claude-douhashi-soba-19-\d+$/)
+          expect(session_name).to eq(result[:session_name])
+        end
+
+        it 'converts slashes to hyphens in repository name' do
+          allow(Soba::Configuration).to receive(:config).and_return(
+            double(github: double(repository: 'owner/repo-name'))
+          )
+          allow(tmux_client).to receive(:session_exists?).and_return(false)
+          allow(tmux_client).to receive(:create_session).and_return(true)
+          allow(tmux_client).to receive(:send_keys).and_return(true)
+
+          result = manager.start_claude_session(issue_number: issue_number, command: command)
+
+          expect(result[:success]).to be true
+          expect(result[:session_name]).to match(/^soba-claude-owner-repo-name-19-\d+$/)
+        end
+      end
+
+      context 'without repository configuration' do
+        before do
+          allow(Soba::Configuration).to receive(:config).and_return(
+            double(github: double(repository: nil))
+          )
+        end
+
+        it 'falls back to original naming convention' do
+          session_name = nil
+          allow(tmux_client).to receive(:session_exists?).and_return(false)
+          allow(tmux_client).to receive(:create_session) do |name|
+            session_name = name
+            true
+          end
+          allow(tmux_client).to receive(:send_keys).and_return(true)
+
+          result = manager.start_claude_session(issue_number: issue_number, command: command)
+
+          expect(result[:success]).to be true
+          expect(result[:session_name]).to match(/^soba-claude-19-\d+$/)
+          expect(session_name).to eq(result[:session_name])
+        end
+      end
+
       it 'creates a tmux session with proper naming convention' do
         session_name = nil
         allow(tmux_client).to receive(:session_exists?).and_return(false)
@@ -25,7 +87,7 @@ RSpec.describe Soba::Services::TmuxSessionManager do
         result = manager.start_claude_session(issue_number: issue_number, command: command)
 
         expect(result[:success]).to be true
-        expect(result[:session_name]).to match(/^soba-claude-19-\d+$/)
+        expect(result[:session_name]).to match(/^soba-claude-([\w-]+-)?19-\d+$/)
         expect(session_name).to eq(result[:session_name])
       end
 
@@ -201,6 +263,26 @@ RSpec.describe Soba::Services::TmuxSessionManager do
       expect(result[:cleaned]).to eq([old_session])
       expect(tmux_client).to have_received(:kill_session).with(old_session)
       expect(tmux_client).not_to have_received(:kill_session).with(recent_session)
+    end
+
+    it 'handles new session format with repository names' do
+      # Create session names with repository names and timestamps
+      now = Time.now.to_i
+      old_session_with_repo = "soba-claude-owner-repo-1-#{now - 7200}" # 2 hours old
+      recent_session_with_repo = "soba-claude-owner-repo-2-#{now - 1800}" # 30 minutes old
+      old_session_without_repo = "soba-claude-3-#{now - 7200}" # 2 hours old
+
+      allow(tmux_client).to receive(:list_sessions).and_return([
+        old_session_with_repo, recent_session_with_repo, old_session_without_repo,
+      ])
+      allow(tmux_client).to receive(:kill_session).and_return(true)
+
+      result = manager.cleanup_old_sessions(max_age_seconds: 3600) # 1 hour
+
+      expect(result[:cleaned]).to contain_exactly(old_session_with_repo, old_session_without_repo)
+      expect(tmux_client).to have_received(:kill_session).with(old_session_with_repo)
+      expect(tmux_client).to have_received(:kill_session).with(old_session_without_repo)
+      expect(tmux_client).not_to have_received(:kill_session).with(recent_session_with_repo)
     end
   end
 end

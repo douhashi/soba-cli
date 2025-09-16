@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+require 'active_support/core_ext/object/blank'
+require 'soba/configuration'
+
 module Soba
   module Services
     class TmuxSessionManager
@@ -74,7 +77,9 @@ module Soba
 
         list_claude_sessions.each do |session_name|
           # Extract timestamp from session name
-          if session_name =~ /#{SESSION_PREFIX}-\d+-(\d+)$/
+          # Handle both old format (soba-claude-{issue}-{timestamp})
+          # and new format (soba-claude-{repo}-{issue}-{timestamp})
+          if session_name =~ /-(\d+)$/
             session_timestamp = Regexp.last_match(1).to_i
             age = current_time - session_timestamp
 
@@ -92,7 +97,16 @@ module Soba
 
       def generate_session_name(issue_number)
         timestamp = Time.now.to_i
-        "#{SESSION_PREFIX}-#{issue_number}-#{timestamp}"
+        repository = Configuration.config.github.repository
+
+        if repository.present?
+          # Convert slashes to hyphens in repository name
+          repo_part = repository.gsub('/', '-')
+          "#{SESSION_PREFIX}-#{repo_part}-#{issue_number}-#{timestamp}"
+        else
+          # Fallback to original naming convention
+          "#{SESSION_PREFIX}-#{issue_number}-#{timestamp}"
+        end
       end
     end
   end

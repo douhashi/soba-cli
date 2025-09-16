@@ -63,7 +63,7 @@ RSpec.describe 'Workflow Tmux Integration' do
         phase: :plan,
         mode: 'tmux'
       )
-      expect(result[:session_name]).to match(/^soba-claude-123-\d+$/)
+      expect(result[:session_name]).to match(/^soba-claude-test-repo-123-\d+$/)
     end
 
     it 'respects use_tmux: false configuration' do
@@ -114,8 +114,8 @@ RSpec.describe 'Workflow Tmux Integration' do
       result1 = workflow_executor.execute(phase: phase_config, issue_number: 100)
       result2 = workflow_executor.execute(phase: phase_config, issue_number: 200)
 
-      expect(result1[:session_name]).to match(/^soba-claude-100-\d+$/)
-      expect(result2[:session_name]).to match(/^soba-claude-200-\d+$/)
+      expect(result1[:session_name]).to match(/^soba-claude-test-repo-100-\d+$/)
+      expect(result2[:session_name]).to match(/^soba-claude-test-repo-200-\d+$/)
       expect(result1[:session_name]).not_to eq(result2[:session_name])
     end
   end

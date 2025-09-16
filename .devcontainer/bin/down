@@ -1,0 +1,35 @@
+#!/bin/bash
+
+echo "Stopping devcontainer..."
+
+# Get the directory where this script is located
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ENV_FILE="$SCRIPT_DIR/../.env"
+
+# Load COMPOSE_PROJECT_NAME from .env file
+if [ -f "$ENV_FILE" ]; then
+    # Source the .env file to get COMPOSE_PROJECT_NAME
+    export $(grep -E '^COMPOSE_PROJECT_NAME=' "$ENV_FILE" | xargs)
+fi
+
+# Use COMPOSE_PROJECT_NAME from .env or fallback to directory name with _devcontainer suffix
+if [ -z "$COMPOSE_PROJECT_NAME" ]; then
+    COMPOSE_PROJECT_NAME="$(basename "$(pwd)")_devcontainer"
+    echo "Warning: COMPOSE_PROJECT_NAME not found in .env, using default: $COMPOSE_PROJECT_NAME"
+fi
+
+echo "Compose project name: $COMPOSE_PROJECT_NAME"
+
+# Stop containers managed by docker compose
+cd .devcontainer 2>/dev/null || true
+if [ -f "compose.yaml" ]; then
+    docker compose --env-file .env -f compose.yaml down
+elif [ -f "compose.yml" ]; then
+    docker compose --env-file .env -f compose.yml down
+else
+    echo "Error: compose.yaml not found"
+    exit 1
+fi
+cd - >/dev/null 2>&1 || true
+
+echo "Devcontainer stopped."

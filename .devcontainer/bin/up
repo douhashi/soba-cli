@@ -1,0 +1,11 @@
+#!/bin/bash
+
+# Get the directory where this script is located
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Source the common functions
+source "$SCRIPT_DIR/devcontainer-common.sh"
+
+# Start devcontainer and connect to it
+up_devcontainer ""
+exec_devcontainer

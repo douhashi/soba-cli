@@ -43,7 +43,7 @@ command :issue do |c|
   c.arg_name "repository"
   c.command :watch do |watch|
     watch.desc "Polling interval in seconds"
-    watch.default_value 60
+    watch.default_value nil
     watch.flag [:i, :interval], type: Integer
 
     watch.action do |global_options, options, args|

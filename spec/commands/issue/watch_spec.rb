@@ -63,10 +63,19 @@ RSpec.describe Soba::Commands::Issue::Watch do
         workflow_mock = double(interval: 20)
         allow(workflow_mock).to receive(:interval=)
 
+        phase_mock = double
+        allow(phase_mock).to receive_message_chain(:plan, :command=)
+        allow(phase_mock).to receive_message_chain(:plan, :options=)
+        allow(phase_mock).to receive_message_chain(:plan, :parameter=)
+        allow(phase_mock).to receive_message_chain(:implement, :command=)
+        allow(phase_mock).to receive_message_chain(:implement, :options=)
+        allow(phase_mock).to receive_message_chain(:implement, :parameter=)
+
         allow(Soba::Configuration).to receive(:config).and_return(
           double(
             github: github_mock,
-            workflow: workflow_mock
+            workflow: workflow_mock,
+            phase: phase_mock
           )
         )
       end

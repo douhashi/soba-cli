@@ -7,6 +7,7 @@ require 'soba/services/issue_watcher'
 require 'soba/services/issue_processor'
 require 'soba/services/workflow_executor'
 require 'soba/domain/phase_strategy'
+require 'soba/domain/issue'
 require 'soba/configuration'
 
 RSpec.describe Soba::Commands::Workflow::Run do
@@ -29,15 +30,16 @@ RSpec.describe Soba::Commands::Workflow::Run do
       c.phase.implement.parameter = 'Implement {{issue-number}}'
     end
 
-    # Mock the infinite loop
-    @call_count = 0
-    allow_any_instance_of(Soba::Services::IssueWatcher).to receive(:running?) do
-      @call_count += 1
-      @call_count <= 1 # Run only once
+    # Skip Configuration.load! in tests
+    allow(Soba::Configuration).to receive(:load!)
+
+    # Mock the infinite loop - run only once
+    @execution_count = 0
+    allow_any_instance_of(described_class).to receive(:sleep) do |instance|
+      @execution_count += 1
+      instance.instance_variable_set(:@running, false) if @execution_count >= 1
     end
 
-    # Mock sleep to avoid delays
-    allow_any_instance_of(Soba::Commands::Workflow::Run).to receive(:sleep)
     allow(Signal).to receive(:trap)
   end
 
@@ -49,7 +51,14 @@ RSpec.describe Soba::Commands::Workflow::Run do
     context 'when workflow processes issues with soba:todo label' do
       let(:issues_with_todo) do
         [
-          { number: 1, title: 'Issue 1', labels: ['soba:todo'] },
+          Soba::Domain::Issue.new(
+            number: 1,
+            title: 'Issue 1',
+            labels: ['soba:todo'],
+            state: 'open',
+            created_at: Time.now.iso8601,
+            updated_at: Time.now.iso8601
+          ),
         ]
       end
 
@@ -75,7 +84,14 @@ RSpec.describe Soba::Commands::Workflow::Run do
     context 'when workflow processes issues with soba:ready label' do
       let(:issues_with_ready) do
         [
-          { number: 3, title: 'Issue 3', labels: ['soba:ready'] },
+          Soba::Domain::Issue.new(
+            number: 3,
+            title: 'Issue 3',
+            labels: ['soba:ready'],
+            state: 'open',
+            created_at: Time.now.iso8601,
+            updated_at: Time.now.iso8601
+          ),
         ]
       end
 
@@ -101,8 +117,22 @@ RSpec.describe Soba::Commands::Workflow::Run do
     context 'when issues are already in progress' do
       let(:issues_in_progress) do
         [
-          { number: 4, title: 'Issue 4', labels: ['soba:planning'] },
-          { number: 5, title: 'Issue 5', labels: ['soba:doing'] },
+          Soba::Domain::Issue.new(
+            number: 4,
+            title: 'Issue 4',
+            labels: ['soba:planning'],
+            state: 'open',
+            created_at: Time.now.iso8601,
+            updated_at: Time.now.iso8601
+          ),
+          Soba::Domain::Issue.new(
+            number: 5,
+            title: 'Issue 5',
+            labels: ['soba:doing'],
+            state: 'open',
+            created_at: Time.now.iso8601,
+            updated_at: Time.now.iso8601
+          ),
         ]
       end
 
@@ -119,7 +149,18 @@ RSpec.describe Soba::Commands::Workflow::Run do
     end
 
     context 'when no phase configuration exists' do
-      let(:issues) { [{ number: 10, title: 'Issue 10', labels: ['soba:todo'] }] }
+      let(:issues) do
+        [
+          Soba::Domain::Issue.new(
+            number: 10,
+            title: 'Issue 10',
+            labels: ['soba:todo'],
+            state: 'open',
+            created_at: Time.now.iso8601,
+            updated_at: Time.now.iso8601
+          ),
+        ]
+      end
 
       before do
         allow(github_client).to receive(:issues).and_return(issues)

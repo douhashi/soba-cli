@@ -13,7 +13,7 @@ module Soba
         puts "🚀 Initializing soba configuration..."
         puts ""
 
-        config_path = Pathname.pwd.join('.osoba', 'config.yml')
+        config_path = Pathname.pwd.join('.soba', 'config.yml')
 
         if config_path.exist?
           puts "⚠️  Configuration file already exists at: #{config_path}"
@@ -123,21 +123,21 @@ module Soba
           end
         end
 
-        # Add .osoba to .gitignore if needed
+        # Add .soba to .gitignore if needed
         gitignore_path = Pathname.pwd.join('.gitignore')
         if gitignore_path.exist?
           gitignore_content = File.read(gitignore_path)
-          unless gitignore_content.include?('.osoba')
+          unless gitignore_content.include?('.soba')
             puts ""
-            print "Add .osoba/ to .gitignore? (Y/n): "
+            print "Add .soba/ to .gitignore? (Y/n): "
             response = $stdin.gets.chomp.downcase
             if response != 'n' && response != 'no'
               File.open(gitignore_path, 'a') do |f|
                 f.puts "" unless gitignore_content.end_with?("\n")
                 f.puts "# soba configuration directory"
-                f.puts ".osoba/"
+                f.puts ".soba/"
               end
-              puts "✅ Added .osoba/ to .gitignore"
+              puts "✅ Added .soba/ to .gitignore"
             end
           end
         end

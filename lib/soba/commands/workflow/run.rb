@@ -17,7 +17,7 @@ module Soba
           config = Soba::Configuration.config
           unless config&.github&.repository
             puts "Error: GitHub repository is not configured"
-            puts "Please run 'soba init' or set repository in .osoba/config.yml"
+            puts "Please run 'soba init' or set repository in .soba/config.yml"
             return
           end
 

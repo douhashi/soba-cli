@@ -66,7 +66,7 @@ RSpec.describe Soba::Commands::Init do
       end
 
       it "accepts workflow phase commands" do
-        input = StringIO.new("douhashi/soba\n1\n20\n\n\n\n\nclaude\n--dangerously-skip-permissions\n/osoba:plan {{issue-number}}\nclaude\n--dangerously-skip-permissions\n/osoba:implement {{issue-number}}\n")
+        input = StringIO.new("douhashi/soba\n1\n20\n\n\n\n\nclaude\n--dangerously-skip-permissions\n/soba:plan {{issue-number}}\nclaude\n--dangerously-skip-permissions\n/soba:implement {{issue-number}}\n")
         allow($stdin).to receive(:gets) { input.gets }
         allow($stdin).to receive(:noecho).and_yield(input)
 
@@ -75,10 +75,26 @@ RSpec.describe Soba::Commands::Init do
         config = YAML.safe_load_file(config_path)
         expect(config['phase']['plan']['command']).to eq('claude')
         expect(config['phase']['plan']['options']).to eq(['--dangerously-skip-permissions'])
-        expect(config['phase']['plan']['parameter']).to eq('/osoba:plan {{issue-number}}')
+        expect(config['phase']['plan']['parameter']).to eq('/soba:plan {{issue-number}}')
         expect(config['phase']['implement']['command']).to eq('claude')
         expect(config['phase']['implement']['options']).to eq(['--dangerously-skip-permissions'])
-        expect(config['phase']['implement']['parameter']).to eq('/osoba:implement {{issue-number}}')
+        expect(config['phase']['implement']['parameter']).to eq('/soba:implement {{issue-number}}')
+      end
+
+      it "uses correct default values for workflow phase commands" do
+        input = StringIO.new("douhashi/soba\n1\n20\n\n\n\n\nclaude\n--dangerously-skip-permissions\n\nclaude\n--dangerously-skip-permissions\n\n")
+        allow($stdin).to receive(:gets) { input.gets }
+        allow($stdin).to receive(:noecho).and_yield(input)
+
+        expect { command.execute }.to output(/Configuration created successfully/).to_stdout
+
+        config = YAML.safe_load_file(config_path)
+        expect(config['phase']['plan']['command']).to eq('claude')
+        expect(config['phase']['plan']['options']).to eq(['--dangerously-skip-permissions'])
+        expect(config['phase']['plan']['parameter']).to eq('/soba:plan {{issue-number}}')
+        expect(config['phase']['implement']['command']).to eq('claude')
+        expect(config['phase']['implement']['options']).to eq(['--dangerously-skip-permissions'])
+        expect(config['phase']['implement']['parameter']).to eq('/soba:implement {{issue-number}}')
       end
 
       it "skips workflow commands when skip is entered" do
@@ -258,7 +274,7 @@ RSpec.describe Soba::Commands::Init do
     end
 
     context "when config file does not exist" do
-      it "creates a configuration file with default values" do
+      it "creates a configuration file with default values including phase configuration" do
         allow(Dir).to receive(:exist?).with('.git').and_return(true)
         allow(command).to receive(:`).with('git config --get remote.origin.url 2>/dev/null').and_return("https://github.com/douhashi/soba.git\n")
 
@@ -273,6 +289,18 @@ RSpec.describe Soba::Commands::Init do
         expect(config['workflow']['phase_labels']['ready']).to eq('soba:ready')
         expect(config['workflow']['phase_labels']['doing']).to eq('soba:doing')
         expect(config['workflow']['phase_labels']['review_requested']).to eq('soba:review-requested')
+
+        # Phase configuration should be present with default values
+        expect(config['phase']).not_to be_nil
+        expect(config['phase']['plan']).not_to be_nil
+        expect(config['phase']['plan']['command']).to eq('claude')
+        expect(config['phase']['plan']['options']).to eq(['--dangerously-skip-permissions'])
+        expect(config['phase']['plan']['parameter']).to eq('/soba:plan {{issue-number}}')
+
+        expect(config['phase']['implement']).not_to be_nil
+        expect(config['phase']['implement']['command']).to eq('claude')
+        expect(config['phase']['implement']['options']).to eq(['--dangerously-skip-permissions'])
+        expect(config['phase']['implement']['parameter']).to eq('/soba:implement {{issue-number}}')
       end
 
       it "fails when GitHub repository cannot be detected" do

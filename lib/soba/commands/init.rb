@@ -74,6 +74,20 @@ module Soba
         config = DEFAULT_CONFIG.deep_dup
         config['github']['repository'] = repository
 
+        # Add default phase configuration
+        config['phase'] = {
+          'plan' => {
+            'command' => 'claude',
+            'options' => ['--dangerously-skip-permissions'],
+            'parameter' => '/soba:plan {{issue-number}}',
+          },
+          'implement' => {
+            'command' => 'claude',
+            'options' => ['--dangerously-skip-permissions'],
+            'parameter' => '/soba:implement {{issue-number}}',
+          },
+        }
+
         # Write configuration file
         write_config_file(config_path, config)
 
@@ -188,9 +202,9 @@ module Soba
           options_input = $stdin.gets.chomp
           plan_options = options_input.split(',').map(&:strip).reject(&:empty?) unless options_input.empty?
 
-          print "Enter parameter (use {{issue-number}} for issue number) [/osoba:plan {{issue-number}}]: "
+          print "Enter parameter (use {{issue-number}} for issue number) [/soba:plan {{issue-number}}]: "
           plan_parameter = $stdin.gets.chomp
-          plan_parameter = '/osoba:plan {{issue-number}}' if plan_parameter.empty?
+          plan_parameter = '/soba:plan {{issue-number}}' if plan_parameter.empty?
         end
 
         # Implement phase command
@@ -209,9 +223,9 @@ module Soba
           options_input = $stdin.gets.chomp
           implement_options = options_input.split(',').map(&:strip).reject(&:empty?) unless options_input.empty?
 
-          print "Enter parameter (use {{issue-number}} for issue number) [/osoba:implement {{issue-number}}]: "
+          print "Enter parameter (use {{issue-number}} for issue number) [/soba:implement {{issue-number}}]: "
           implement_parameter = $stdin.gets.chomp
-          implement_parameter = '/osoba:implement {{issue-number}}' if implement_parameter.empty?
+          implement_parameter = '/soba:implement {{issue-number}}' if implement_parameter.empty?
         end
 
         # Create configuration

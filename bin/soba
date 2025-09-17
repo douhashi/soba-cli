@@ -104,7 +104,6 @@ command :workflow do |c|
   end
 end
 
-
 pre do |global, _command, _options, _args|
   if global[:verbose]
     Soba.logger.level = :debug

@@ -7,7 +7,8 @@ require 'soba/infrastructure/tmux_client'
 
 RSpec.describe Soba::Services::WorkflowExecutor do
   let(:tmux_session_manager) { instance_double(Soba::Services::TmuxSessionManager) }
-  let(:executor) { described_class.new(tmux_session_manager: tmux_session_manager) }
+  let(:git_workspace_manager) { instance_double(Soba::Services::GitWorkspaceManager) }
+  let(:executor) { described_class.new(tmux_session_manager: tmux_session_manager, git_workspace_manager: git_workspace_manager) }
 
   describe '#execute' do
     let(:phase_config) do
@@ -16,6 +17,54 @@ RSpec.describe Soba::Services::WorkflowExecutor do
         options: ['--test'],
         parameter: 'Issue {{issue-number}}'
       )
+    end
+
+    context 'with git workspace setup' do
+      it 'sets up workspace before executing command' do
+        expect(git_workspace_manager).to receive(:setup_workspace).with(123)
+        expect(Open3).to receive(:popen3).with('echo', '--test', 'Issue 123') do |&block|
+          stdin = double('stdin', close: nil)
+          stdout = double('stdout', read: 'Command output')
+          stderr = double('stderr', read: '')
+          thread = double('thread', value: double(exitstatus: 0))
+          block.call(stdin, stdout, stderr, thread)
+        end
+
+        result = executor.execute(phase: phase_config, issue_number: 123, use_tmux: false, setup_workspace: true)
+
+        expect(result).to include(success: true)
+      end
+
+      it 'continues execution even if workspace setup fails' do
+        expect(git_workspace_manager).to receive(:setup_workspace).with(456).
+          and_raise(Soba::Services::GitWorkspaceManager::GitOperationError.new('Git error'))
+        expect(Open3).to receive(:popen3).with('echo', '--test', 'Issue 456') do |&block|
+          stdin = double('stdin', close: nil)
+          stdout = double('stdout', read: 'Command output')
+          stderr = double('stderr', read: '')
+          thread = double('thread', value: double(exitstatus: 0))
+          block.call(stdin, stdout, stderr, thread)
+        end
+
+        result = executor.execute(phase: phase_config, issue_number: 456, use_tmux: false, setup_workspace: true)
+
+        expect(result).to include(success: true)
+      end
+
+      it 'skips workspace setup when setup_workspace is false' do
+        expect(git_workspace_manager).not_to receive(:setup_workspace)
+        expect(Open3).to receive(:popen3).with('echo', '--test', 'Issue 789') do |&block|
+          stdin = double('stdin', close: nil)
+          stdout = double('stdout', read: 'Command output')
+          stderr = double('stderr', read: '')
+          thread = double('thread', value: double(exitstatus: 0))
+          block.call(stdin, stdout, stderr, thread)
+        end
+
+        result = executor.execute(phase: phase_config, issue_number: 789, use_tmux: false, setup_workspace: false)
+
+        expect(result).to include(success: true)
+      end
     end
 
     context 'when use_tmux is true (default)' do
@@ -36,6 +85,7 @@ RSpec.describe Soba::Services::WorkflowExecutor do
           session_name: 'soba-repo',
           created: false,
         })
+        allow(git_workspace_manager).to receive(:setup_workspace)
       end
 
       it 'executes the command in tmux session by default' do
@@ -135,6 +185,10 @@ RSpec.describe Soba::Services::WorkflowExecutor do
     end
 
     context 'when use_tmux is false' do
+      before do
+        allow(git_workspace_manager).to receive(:setup_workspace)
+      end
+
       it 'executes the command directly without tmux' do
         expect(Open3).to receive(:popen3).with('echo', '--test', 'Issue 789') do |&block|
           stdin = double('stdin', close: nil)
@@ -157,6 +211,10 @@ RSpec.describe Soba::Services::WorkflowExecutor do
     end
 
     context 'when executing commands directly (legacy behavior)' do
+      before do
+        allow(git_workspace_manager).to receive(:setup_workspace)
+      end
+
       it 'replaces {{issue-number}} placeholder with actual issue number' do
         expect(Open3).to receive(:popen3).with('echo', '--test', 'Issue 456') do |&block|
           stdin = double('stdin', close: nil)
@@ -218,6 +276,10 @@ RSpec.describe Soba::Services::WorkflowExecutor do
     context 'when phase configuration is nil' do
       let(:phase_config) { double(command: nil, options: nil, parameter: nil) }
 
+      before do
+        allow(git_workspace_manager).to receive(:setup_workspace)
+      end
+
       it 'returns nil' do
         result = executor.execute(phase: phase_config, issue_number: 123)
 
@@ -232,6 +294,10 @@ RSpec.describe Soba::Services::WorkflowExecutor do
           options: [],
           parameter: 'test'
         )
+      end
+
+      before do
+        allow(git_workspace_manager).to receive(:setup_workspace)
       end
 
       it 'handles the exception gracefully' do
@@ -381,6 +447,10 @@ RSpec.describe Soba::Services::WorkflowExecutor do
 
     context 'when phase configuration is nil' do
       let(:phase_config) { double(command: nil, options: nil, parameter: nil) }
+
+      before do
+        allow(git_workspace_manager).to receive(:setup_workspace)
+      end
 
       it 'returns nil' do
         result = executor.execute_in_tmux(phase: phase_config, issue_number: 123)

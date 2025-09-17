@@ -3,6 +3,7 @@
 require 'spec_helper'
 require 'soba/services/workflow_executor'
 require 'soba/services/tmux_session_manager'
+require 'soba/infrastructure/tmux_client'
 
 RSpec.describe Soba::Services::WorkflowExecutor do
   let(:tmux_session_manager) { instance_double(Soba::Services::TmuxSessionManager) }
@@ -52,6 +53,65 @@ RSpec.describe Soba::Services::WorkflowExecutor do
           session_name: 'soba-repo',
           window_name: 'issue-123',
           mode: 'tmux'
+        )
+      end
+
+      it 'returns detailed tmux information including monitoring commands' do
+        allow(tmux_session_manager).to receive(:create_issue_window).and_return({
+          success: true,
+          window_name: 'issue-123',
+          created: true,
+        })
+        allow(tmux_client).to receive(:send_keys).and_return(true)
+
+        result = executor.execute(phase: phase_with_name, issue_number: 123)
+
+        expect(result).to include(
+          success: true,
+          session_name: 'soba-repo',
+          window_name: 'issue-123',
+          mode: 'tmux',
+          tmux_info: {
+            session: 'soba-repo',
+            window: 'issue-123',
+            pane: nil,
+            monitor_commands: [
+              'tmux attach -t soba-repo:issue-123',
+              'tmux capture-pane -t soba-repo:issue-123 -p',
+            ],
+          }
+        )
+      end
+
+      it 'returns detailed tmux information with pane when existing window' do
+        allow(tmux_session_manager).to receive(:create_issue_window).and_return({
+          success: true,
+          window_name: 'issue-123',
+          created: false,
+        })
+        allow(tmux_session_manager).to receive(:create_phase_pane).and_return({
+          success: true,
+          pane_id: 'soba-repo:issue-123.1',
+        })
+        allow(tmux_client).to receive(:send_keys).and_return(true)
+
+        result = executor.execute(phase: phase_with_name, issue_number: 123)
+
+        expect(result).to include(
+          success: true,
+          session_name: 'soba-repo',
+          window_name: 'issue-123',
+          pane_id: 'soba-repo:issue-123.1',
+          mode: 'tmux',
+          tmux_info: {
+            session: 'soba-repo',
+            window: 'issue-123',
+            pane: 'soba-repo:issue-123.1',
+            monitor_commands: [
+              'tmux attach -t soba-repo:issue-123.1',
+              'tmux capture-pane -t soba-repo:issue-123.1 -p',
+            ],
+          }
         )
       end
 
@@ -270,6 +330,51 @@ RSpec.describe Soba::Services::WorkflowExecutor do
         expect(result).to include(
           success: false,
           error: 'Failed to create repository session'
+        )
+      end
+
+      it 'falls back to direct execution when tmux is not installed' do
+        expect(tmux_session_manager).to receive(:find_or_create_repository_session).
+          and_raise(Soba::Infrastructure::TmuxNotInstalled.new('tmux is not installed'))
+
+        expect(Open3).to receive(:popen3).with('claude', 'code', '--continue', '/osoba:plan 789') do |&block|
+          stdin = double('stdin', close: nil)
+          stdout = double('stdout', read: 'Command output')
+          stderr = double('stderr', read: '')
+          thread = double('thread', value: double(exitstatus: 0))
+          block.call(stdin, stdout, stderr, thread)
+        end
+
+        result = executor.execute_in_tmux(phase: phase_config, issue_number: 789)
+
+        expect(result).to include(
+          success: true,
+          output: 'Command output',
+          error: '',
+          exit_code: 0
+        )
+        expect(result).not_to have_key(:mode)
+      end
+
+      it 'falls back to direct execution on generic tmux errors' do
+        expect(tmux_session_manager).to receive(:find_or_create_repository_session).
+          and_raise(StandardError.new('Some tmux error'))
+
+        expect(Open3).to receive(:popen3).with('claude', 'code', '--continue', '/osoba:plan 999') do |&block|
+          stdin = double('stdin', close: nil)
+          stdout = double('stdout', read: 'Fallback output')
+          stderr = double('stderr', read: '')
+          thread = double('thread', value: double(exitstatus: 0))
+          block.call(stdin, stdout, stderr, thread)
+        end
+
+        result = executor.execute_in_tmux(phase: phase_config, issue_number: 999)
+
+        expect(result).to include(
+          success: true,
+          output: 'Fallback output',
+          error: '',
+          exit_code: 0
         )
       end
     end

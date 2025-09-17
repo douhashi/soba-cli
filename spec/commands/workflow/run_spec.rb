@@ -315,5 +315,104 @@ RSpec.describe Soba::Commands::Workflow::Run do
         expect { command.execute({}, {}) }.to output(/Processing Issue #40/).to_stdout
       end
     end
+
+    context 'when tmux execution with enhanced display' do
+      let(:blocking_checker) { instance_double(Soba::Services::WorkflowBlockingChecker) }
+      let(:tmux_session_manager) { instance_double(Soba::Services::TmuxSessionManager) }
+      let(:workflow_executor) { instance_double(Soba::Services::WorkflowExecutor) }
+      let(:issue_processor) { instance_double(Soba::Services::IssueProcessor) }
+
+      let(:todo_issue) do
+        Soba::Domain::Issue.new(
+          number: 50,
+          title: 'Test Issue',
+          labels: [{ name: 'soba:todo' }],
+          state: 'open',
+          created_at: Time.now.iso8601,
+          updated_at: Time.now.iso8601
+        )
+      end
+
+      before do
+        allow(github_client).to receive(:issues).and_return([todo_issue])
+        allow(Soba::Services::WorkflowBlockingChecker).to receive(:new).and_return(blocking_checker)
+        allow(blocking_checker).to receive(:blocking?).with('owner/repo').and_return(false)
+        allow(Soba::Services::TmuxSessionManager).to receive(:new).and_return(tmux_session_manager)
+        allow(Soba::Services::WorkflowExecutor).to receive(:new).and_return(workflow_executor)
+        allow(Soba::Services::IssueProcessor).to receive(:new).and_return(issue_processor)
+      end
+
+      context 'when tmux_info is returned' do
+        it 'displays enhanced tmux session information with emoji' do
+          process_result = {
+            success: true,
+            phase: 'plan',
+            label_updated: true,
+            mode: 'tmux',
+            tmux_info: {
+              session: 'soba-issue-50',
+              window: '0',
+              pane: '1',
+            },
+            session_name: 'soba-issue-50',
+          }
+
+          allow(issue_processor).to receive(:process).and_return(process_result)
+
+          expect { command.execute({}, {}) }.to output(
+            /📺 Session: soba-issue-50.*💡 Monitor: soba monitor soba-issue-50.*📁 Log: ~\/\.soba\/logs\/soba-issue-50\.log/m
+          ).to_stdout
+        end
+      end
+
+      context 'when tmux_info is not present (backward compatibility)' do
+        it 'displays legacy tmux session information' do
+          process_result = {
+            success: true,
+            phase: 'plan',
+            label_updated: true,
+            mode: 'tmux',
+            session_name: 'soba-issue-50',
+          }
+
+          allow(issue_processor).to receive(:process).and_return(process_result)
+
+          expect { command.execute({}, {}) }.to output(
+            /Tmux session started: soba-issue-50.*You can attach with: tmux attach -t soba-issue-50/m
+          ).to_stdout
+        end
+      end
+
+      context 'when error occurs during execution' do
+        it 'displays error message with emoji' do
+          process_result = {
+            success: false,
+            error: 'Failed to create tmux session',
+          }
+
+          allow(issue_processor).to receive(:process).and_return(process_result)
+
+          expect { command.execute({}, {}) }.to output(
+            /❌ Failed: Failed to create tmux session/
+          ).to_stdout
+        end
+      end
+
+      context 'when starting issue processing' do
+        it 'displays issue processing message with emoji' do
+          process_result = {
+            success: true,
+            phase: 'plan',
+            label_updated: true,
+          }
+
+          allow(issue_processor).to receive(:process).and_return(process_result)
+
+          expect { command.execute({}, {}) }.to output(
+            /🚀 Processing Issue #50: Test Issue/
+          ).to_stdout
+        end
+      end
+    end
   end
 end

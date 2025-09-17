@@ -17,6 +17,7 @@ RSpec.describe 'Workflow Tmux Integration' do
       double(github: double(repository: 'owner/repo-name'))
     )
     allow(git_workspace_manager).to receive(:setup_workspace)
+    allow(git_workspace_manager).to receive(:get_worktree_path).and_return(nil)
   end
 
   describe 'executing workflow in new tmux structure' do

@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'open3'
+require 'shellwords'
 require_relative 'git_workspace_manager'
 
 module Soba
@@ -37,11 +38,25 @@ module Soba
         return nil unless phase.command
 
         command_array = build_command(phase, issue_number)
+        worktree_path = @git_workspace_manager.get_worktree_path(issue_number)
 
-        stdout, stderr, status = Open3.popen3(*command_array) do |stdin, stdout, stderr, wait_thr|
-          stdin.close
-          [stdout.read, stderr.read, wait_thr.value]
-        end
+        result = if worktree_path
+                   # worktreeが存在する場合はその中で実行
+                   Dir.chdir(worktree_path) do
+                     Open3.popen3(*command_array) do |stdin, stdout, stderr, wait_thr|
+                       stdin.close
+                       [stdout.read, stderr.read, wait_thr.value]
+                     end
+                   end
+                 else
+                   # worktreeが存在しない場合は現在のディレクトリで実行
+                   Open3.popen3(*command_array) do |stdin, stdout, stderr, wait_thr|
+                     stdin.close
+                     [stdout.read, stderr.read, wait_thr.value]
+                   end
+                 end
+
+        stdout, stderr, status = result
 
         {
           success: status.exitstatus == 0,
@@ -58,7 +73,7 @@ module Soba
       def execute_in_tmux(phase:, issue_number:)
         return nil unless phase.command
 
-        command_string = build_command_string(phase, issue_number)
+        command_string = build_command_string_with_worktree(phase, issue_number)
 
         begin
           # 新しいtmux管理方式: 1リポジトリ = 1セッション、1 Issue = 1 window
@@ -137,7 +152,39 @@ module Soba
       end
 
       def build_command_string(phase_config, issue_number)
-        build_command(phase_config, issue_number).join(' ')
+        command_parts = build_command(phase_config, issue_number)
+
+        # コマンドは最初の要素
+        result = [command_parts[0]]
+
+        # オプションが存在する場合（コマンド、オプション、パラメータの3つ以上の要素がある場合）
+        if phase_config.options&.any?
+          result.concat(phase_config.options)
+        end
+
+        # パラメータがある場合はダブルクォートで囲む
+        if phase_config.parameter
+          parameter = phase_config.parameter.gsub('{{issue-number}}', issue_number.to_s)
+          # パラメータにスペースやスラッシュが含まれる場合はダブルクォートで囲む
+          if parameter.include?(' ') || parameter.include?('/')
+            result << "\"#{parameter}\""
+          else
+            result << parameter
+          end
+        end
+
+        result.join(' ')
+      end
+
+      def build_command_string_with_worktree(phase_config, issue_number)
+        command_string = build_command_string(phase_config, issue_number)
+        worktree_path = @git_workspace_manager.get_worktree_path(issue_number)
+
+        if worktree_path
+          "cd #{worktree_path} && #{command_string}"
+        else
+          command_string
+        end
       end
     end
   end

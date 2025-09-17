@@ -50,6 +50,11 @@ module Soba
         true
       end
 
+      def get_worktree_path(issue_number)
+        path = worktree_path(issue_number)
+        Dir.exist?(path) ? path : nil
+      end
+
       private
 
       def worktree_path(issue_number)

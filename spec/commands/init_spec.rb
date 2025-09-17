@@ -189,6 +189,12 @@ RSpec.describe Soba::Commands::Init do
           expect(github_client).to receive(:create_label).
             with(repository, "soba:requires-changes", "dc143c", "Changes requested").
             and_return({ name: "soba:requires-changes", color: "dc143c" })
+          expect(github_client).to receive(:create_label).
+            with(repository, "soba:revising", "ff1493", "Revising based on review feedback").
+            and_return({ name: "soba:revising", color: "ff1493" })
+          expect(github_client).to receive(:create_label).
+            with(repository, "soba:lgtm", "00ff00", "PR approved for auto-merge").
+            and_return({ name: "soba:lgtm", color: "00ff00" })
 
           expect { command.execute }.to output(/Creating GitHub labels.*soba:planning.*created/m).to_stdout
 

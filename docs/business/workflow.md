@@ -16,6 +16,8 @@ graph TD
     F -->|soba: 自動検出| G[soba:reviewing]
     G -->|Claude: レビュー承認| H[soba:done + PR:soba:lgtm]
     G -->|Claude: 修正要求| I[soba:requires-changes]
+    I -->|soba: 自動検出| K[soba:revising]
+    K -->|Claude: 修正対応| F
     H -->|soba: 自動マージ| J[soba:merged]
     J -->|次のキューイング| A
 ```
@@ -72,6 +74,23 @@ graph TD
   - 承認: Issueラベル `soba:reviewing` → `soba:done`、PRに `soba:lgtm` ラベル付与
   - 修正要求: Issueラベル `soba:reviewing` → `soba:requires-changes`
 
+## 修正フェーズ
+
+### 1. Issue検出
+- **対象ラベル**: `soba:requires-changes`
+- **検出方法**: 定期的なGitHub Issue監視
+- **選定基準**: Issue番号が最も若いものを1件抽出
+- **実行主体**: **soba CLI**
+
+### 2. 修正対応
+- **【soba】** ラベルを `soba:requires-changes` → `soba:revising` に変更
+- **【soba】** Claude Codeプロセスを起動
+- **【Claude】** レビューコメントを確認し、以下を実行：
+  - 指摘事項への対応実施
+  - テストの修正・追加
+  - コードの改善
+- **【Claude】** 修正完了後、ラベルを `soba:revising` → `soba:review-requested` に変更
+
 ## マージフェーズ
 
 ### 1. PR検出
@@ -106,6 +125,7 @@ graph TD
 | `soba:reviewing` | レビュー中 | Claude Codeがレビュー実施中（1つのみ） | soba → |
 | `soba:done` | 完了 | レビュー承認、マージ可能 | Claude → |
 | `soba:requires-changes` | 修正要求 | レビューで修正が必要と判断 | Claude → |
+| `soba:revising` | 修正中 | Claude Codeが修正対応中（1つのみ） | soba → |
 | `soba:merged` | マージ済み | PRがマージされ、Issueクローズ済み | soba → |
 
 ### PRラベル（マージ判定）

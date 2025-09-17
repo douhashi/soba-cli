@@ -14,9 +14,10 @@ graph TD
     D -->|soba: 自動検出| E[soba:doing]
     E -->|Claude: 実装・PR作成| F[soba:review-requested]
     F -->|soba: 自動検出| G[soba:reviewing]
-    G -->|Claude: レビュー承認| H[soba:done]
+    G -->|Claude: レビュー承認| H[soba:done + PR:soba:lgtm]
     G -->|Claude: 修正要求| I[soba:requires-changes]
-    H -->|次のキューイング| A
+    H -->|soba: 自動マージ| J[soba:merged]
+    J -->|次のキューイング| A
 ```
 
 ## 計画フェーズ
@@ -68,10 +69,31 @@ graph TD
   - セキュリティ観点でのチェック
   - レビューコメントの投稿
 - **【Claude】** レビュー結果に応じてラベルを変更：
-  - 承認: `soba:reviewing` → `soba:done`
-  - 修正要求: `soba:reviewing` → `soba:requires-changes`
+  - 承認: Issueラベル `soba:reviewing` → `soba:done`、PRに `soba:lgtm` ラベル付与
+  - 修正要求: Issueラベル `soba:reviewing` → `soba:requires-changes`
+
+## マージフェーズ
+
+### 1. PR検出
+- **対象ラベル**: PRの `soba:lgtm` ラベル
+- **検出方法**: 定期的なGitHub PR監視
+- **選定基準**: `soba:lgtm` ラベルが付いた全てのPR
+- **実行主体**: **soba CLI**
+
+### 2. 自動マージ実施
+- **【soba】** PRのマージ可能状態を確認：
+  - CIが全てパス
+  - コンフリクトなし
+  - マージ可能状態
+- **【soba】** 条件を満たすPRを自動的にマージ（squash merge）
+- **【soba】** マージ後の処理：
+  - 関連するIssueを自動クローズ
+  - Issueに `soba:merged` ラベルを付与
+  - 作業ブランチを削除
 
 ## ラベル定義
+
+### Issueラベル（状態管理）
 
 | ラベル | 状態 | 説明 | 変更主体 |
 |--------|------|------|----------|
@@ -84,6 +106,13 @@ graph TD
 | `soba:reviewing` | レビュー中 | Claude Codeがレビュー実施中（1つのみ） | soba → |
 | `soba:done` | 完了 | レビュー承認、マージ可能 | Claude → |
 | `soba:requires-changes` | 修正要求 | レビューで修正が必要と判断 | Claude → |
+| `soba:merged` | マージ済み | PRがマージされ、Issueクローズ済み | soba → |
+
+### PRラベル（マージ判定）
+
+| ラベル | 状態 | 説明 | 変更主体 |
+|--------|------|------|----------|
+| `soba:lgtm` | 承認済み | レビュー承認、自動マージ対象 | Claude → |
 
 ## 自動化のメリット
 

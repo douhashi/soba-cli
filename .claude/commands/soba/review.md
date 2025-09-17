@@ -82,6 +82,7 @@ gh pr comment <PR-number> --body "$(cat ./.tmp/review-result-<issue-number>.md)"
 承認の場合:
 ```bash
 gh issue edit <issue-number> --remove-label "soba:reviewing" --add-label "soba:done"
+gh pr edit <PR-number> --add-label "soba:lgtm"
 ```
 
 修正要求の場合:

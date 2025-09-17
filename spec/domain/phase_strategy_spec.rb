@@ -27,6 +27,16 @@ RSpec.describe Soba::Domain::PhaseStrategy do
       end
     end
 
+    context 'when issue has soba:review-requested label' do
+      let(:labels) { ['soba:review-requested', 'feature'] }
+
+      it 'returns :review phase' do
+        phase = strategy.determine_phase(labels)
+
+        expect(phase).to eq(:review)
+      end
+    end
+
     context 'when issue has soba:planning label' do
       let(:labels) { ['soba:planning'] }
 
@@ -39,6 +49,16 @@ RSpec.describe Soba::Domain::PhaseStrategy do
 
     context 'when issue has soba:doing label' do
       let(:labels) { ['soba:doing', 'priority'] }
+
+      it 'returns nil (already in progress)' do
+        phase = strategy.determine_phase(labels)
+
+        expect(phase).to be_nil
+      end
+    end
+
+    context 'when issue has soba:reviewing label' do
+      let(:labels) { ['soba:reviewing'] }
 
       it 'returns nil (already in progress)' do
         phase = strategy.determine_phase(labels)
@@ -95,6 +115,14 @@ RSpec.describe Soba::Domain::PhaseStrategy do
       end
     end
 
+    context 'for review phase' do
+      it 'returns soba:reviewing' do
+        label = strategy.next_label(:review)
+
+        expect(label).to eq('soba:reviewing')
+      end
+    end
+
     context 'for unknown phase' do
       it 'returns nil' do
         label = strategy.next_label(:unknown)
@@ -140,6 +168,14 @@ RSpec.describe Soba::Domain::PhaseStrategy do
     context 'from soba:doing to soba:review-requested' do
       it 'returns true' do
         result = strategy.validate_transition('soba:doing', 'soba:review-requested')
+
+        expect(result).to be true
+      end
+    end
+
+    context 'from soba:review-requested to soba:reviewing' do
+      it 'returns true' do
+        result = strategy.validate_transition('soba:review-requested', 'soba:reviewing')
 
         expect(result).to be true
       end
@@ -192,6 +228,14 @@ RSpec.describe Soba::Domain::PhaseStrategy do
         label = strategy.current_label_for_phase(:implement)
 
         expect(label).to eq('soba:ready')
+      end
+    end
+
+    context 'for review phase' do
+      it 'returns soba:review-requested' do
+        label = strategy.current_label_for_phase(:review)
+
+        expect(label).to eq('soba:review-requested')
       end
     end
 

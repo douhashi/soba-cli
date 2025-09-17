@@ -35,6 +35,11 @@ module Soba
         setting :options, default: []
         setting :parameter
       end
+      setting :review do
+        setting :command
+        setting :options, default: []
+        setting :parameter
+      end
     end
 
     class << self
@@ -53,6 +58,9 @@ module Soba
           c.phase.implement.command = nil
           c.phase.implement.options = []
           c.phase.implement.parameter = nil
+          c.phase.review.command = nil
+          c.phase.review.options = []
+          c.phase.review.parameter = nil
         end
       end
 
@@ -133,6 +141,11 @@ module Soba
               c.phase.implement.options = data.dig('phase', 'implement', 'options') || []
               c.phase.implement.parameter = data.dig('phase', 'implement', 'parameter')
             end
+            if data['phase']['review']
+              c.phase.review.command = data.dig('phase', 'review', 'command')
+              c.phase.review.options = data.dig('phase', 'review', 'options') || []
+              c.phase.review.parameter = data.dig('phase', 'review', 'parameter')
+            end
           end
         end
       end
@@ -174,6 +187,11 @@ module Soba
           #     options:
           #       - --dangerously-skip-permissions
           #     parameter: '/osoba:implement {{issue-number}}'
+          #   review:
+          #     command: claude
+          #     options:
+          #       - --dangerously-skip-permissions
+          #     parameter: '/soba:review {{issue-number}}'
         YAML
 
         File.write(path, default_content)

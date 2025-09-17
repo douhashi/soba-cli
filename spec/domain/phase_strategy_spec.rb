@@ -40,10 +40,10 @@ RSpec.describe Soba::Domain::PhaseStrategy do
     context 'when issue has soba:queued label' do
       let(:labels) { ['soba:queued'] }
 
-      it 'returns nil (already in progress)' do
+      it 'returns :queued_to_planning phase' do
         phase = strategy.determine_phase(labels)
 
-        expect(phase).to be_nil
+        expect(phase).to eq(:queued_to_planning)
       end
     end
 
@@ -130,6 +130,14 @@ RSpec.describe Soba::Domain::PhaseStrategy do
         label = strategy.next_label(:review)
 
         expect(label).to eq('soba:reviewing')
+      end
+    end
+
+    context 'for queued_to_planning phase' do
+      it 'returns soba:planning' do
+        label = strategy.next_label(:queued_to_planning)
+
+        expect(label).to eq('soba:planning')
       end
     end
 
@@ -262,6 +270,14 @@ RSpec.describe Soba::Domain::PhaseStrategy do
         label = strategy.current_label_for_phase(:review)
 
         expect(label).to eq('soba:review-requested')
+      end
+    end
+
+    context 'for queued_to_planning phase' do
+      it 'returns soba:queued' do
+        label = strategy.current_label_for_phase(:queued_to_planning)
+
+        expect(label).to eq('soba:queued')
       end
     end
 

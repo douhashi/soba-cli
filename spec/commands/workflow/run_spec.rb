@@ -227,14 +227,21 @@ RSpec.describe Soba::Commands::Workflow::Run do
         before do
           allow(github_client).to receive(:issues).and_return([todo_issue, review_issue])
           allow(Soba::Services::WorkflowBlockingChecker).to receive(:new).and_return(blocking_checker)
-          allow(blocking_checker).to receive(:blocking?).with('owner/repo', issues: [todo_issue, review_issue]).and_return(true)
-          allow(blocking_checker).to receive(:blocking_reason).with('owner/repo', issues: [todo_issue, review_issue]).
+          # blocking? will be called with except_issue_number: 20 for todo issue
+          allow(blocking_checker).to receive(:blocking?).with('owner/repo', issues: [todo_issue, review_issue], except_issue_number: 20).and_return(true)
+          allow(blocking_checker).to receive(:blocking_reason).with('owner/repo', issues: [todo_issue, review_issue], except_issue_number: 20).
             and_return('Issue #21 が soba:review-requested のため、新しいワークフローの開始をスキップしました')
         end
 
         it 'skips processing todo issues' do
           expect(github_client).not_to receive(:update_issue_labels)
           expect(Open3).not_to receive(:popen3)
+
+          # Modify sleep to stop loop after first iteration
+          allow_any_instance_of(described_class).to receive(:sleep) do |instance, interval|
+            instance.instance_variable_set(:@running, false)
+            nil
+          end
 
           expect { command.execute({}, {}) }.
             to output(/Issue #21 が soba:review-requested のため、新しいワークフローの開始をスキップしました/).to_stdout
@@ -267,8 +274,9 @@ RSpec.describe Soba::Commands::Workflow::Run do
         before do
           allow(github_client).to receive(:issues).and_return([todo_issue, doing_issue])
           allow(Soba::Services::WorkflowBlockingChecker).to receive(:new).and_return(blocking_checker)
-          allow(blocking_checker).to receive(:blocking?).with('owner/repo', issues: [todo_issue, doing_issue]).and_return(true)
-          allow(blocking_checker).to receive(:blocking_reason).with('owner/repo', issues: [todo_issue, doing_issue]).
+          # blocking? will be called with except_issue_number: 30 for todo issue
+          allow(blocking_checker).to receive(:blocking?).with('owner/repo', issues: [todo_issue, doing_issue], except_issue_number: 30).and_return(true)
+          allow(blocking_checker).to receive(:blocking_reason).with('owner/repo', issues: [todo_issue, doing_issue], except_issue_number: 30).
             and_return('Issue #31 が soba:doing のため、新しいワークフローの開始をスキップしました')
         end
 
@@ -276,8 +284,68 @@ RSpec.describe Soba::Commands::Workflow::Run do
           expect(github_client).not_to receive(:update_issue_labels)
           expect(Open3).not_to receive(:popen3)
 
+          # Modify sleep to stop loop after first iteration
+          allow_any_instance_of(described_class).to receive(:sleep) do |instance, interval|
+            instance.instance_variable_set(:@running, false)
+            nil
+          end
+
           expect { command.execute({}, {}) }.
             to output(/Issue #31 が soba:doing のため、新しいワークフローの開始をスキップしました/).to_stdout
+        end
+      end
+    end
+
+    context 'when issue is already in progress' do
+      let(:blocking_checker) { instance_double(Soba::Services::WorkflowBlockingChecker) }
+
+      context 'doing issue can transition even when another todo issue exists' do
+        let(:doing_issue) do
+          Soba::Domain::Issue.new(
+            number: 50,
+            title: 'Doing Issue',
+            labels: [{ name: 'soba:doing' }],
+            state: 'open',
+            created_at: Time.now.iso8601,
+            updated_at: Time.now.iso8601
+          )
+        end
+
+        let(:todo_issue) do
+          Soba::Domain::Issue.new(
+            number: 55,
+            title: 'Todo Issue',
+            labels: [{ name: 'soba:todo' }],
+            state: 'open',
+            created_at: Time.now.iso8601,
+            updated_at: Time.now.iso8601
+          )
+        end
+
+        before do
+          allow(github_client).to receive(:issues).and_return([doing_issue, todo_issue])
+          allow(Soba::Services::WorkflowBlockingChecker).to receive(:new).and_return(blocking_checker)
+          # blocking check should NOT happen for doing issue (phase != :todo)
+        end
+
+        it 'allows doing issue to transition to review-requested' do
+          expect(github_client).to receive(:update_issue_labels).with(50, from: 'soba:doing', to: 'soba:review-requested')
+
+          allow(Open3).to receive(:popen3).with('echo', 'Review 50') do |&block|
+            stdin = double('stdin', close: nil)
+            stdout = double('stdout', read: 'Review executed')
+            stderr = double('stderr', read: '')
+            thread = double('thread', value: double(exitstatus: 0))
+            block.call(stdin, stdout, stderr, thread)
+          end
+
+          # Modify sleep to stop loop after first iteration
+          allow_any_instance_of(described_class).to receive(:sleep) do |instance, interval|
+            instance.instance_variable_set(:@running, false)
+            nil
+          end
+
+          expect { command.execute({}, {}) }.to output(/Processing Issue #50/).to_stdout
         end
       end
     end
@@ -299,7 +367,8 @@ RSpec.describe Soba::Commands::Workflow::Run do
       before do
         allow(github_client).to receive(:issues).and_return([todo_issue])
         allow(Soba::Services::WorkflowBlockingChecker).to receive(:new).and_return(blocking_checker)
-        allow(blocking_checker).to receive(:blocking?).with('owner/repo', issues: [todo_issue]).and_return(false)
+        # blocking? will be called with except_issue_number: 40 for todo issue
+        allow(blocking_checker).to receive(:blocking?).and_return(false)
       end
 
       it 'processes todo issues normally' do

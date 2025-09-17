@@ -154,16 +154,25 @@ module Soba
       end
 
       def capture_pane_continuous(pane_id)
-        last_content = ""
+        last_content = nil
 
         loop do
           stdout, _stderr, status = execute_tmux_command('capture-pane', '-t', pane_id, '-p', '-S', '-')
           break unless status.exitstatus == 0
 
           # Yield only new content
-          if stdout != last_content
-            new_lines = stdout[last_content.length..-1] || ""
+          if last_content.nil?
+            # 初回は全体を返す
+            yield stdout unless stdout.empty?
+            last_content = stdout
+          elsif stdout != last_content && stdout.length > last_content.length
+            # コンテンツが増えた場合は差分のみを返す
+            new_lines = stdout[last_content.length..-1]
             yield new_lines unless new_lines.empty?
+            last_content = stdout
+          elsif stdout != last_content
+            # コンテンツが変わったが短くなった場合（画面クリアなど）は全体を返す
+            yield stdout unless stdout.empty?
             last_content = stdout
           end
 

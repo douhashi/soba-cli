@@ -2,7 +2,7 @@
 
 require 'open3'
 require 'fileutils'
-require 'soba/configuration'
+require_relative '../configuration'
 
 module Soba
   module Services

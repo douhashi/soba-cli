@@ -84,9 +84,15 @@ desc "Run workflow automation"
 command :workflow do |c|
   c.desc "Run workflow to process issues"
   c.command :run do |run|
-    run.action do |global_options, options, _args|
+    run.desc "Issue number to process"
+    run.arg_name "[issue_number]"
+
+    run.desc "Disable tmux execution"
+    run.switch ["no-tmux"]
+
+    run.action do |global_options, options, args|
       require_relative "../lib/soba/commands/workflow/run"
-      Soba::Commands::Workflow::Run.new.execute(global_options, options)
+      Soba::Commands::Workflow::Run.new.execute(args, options)
     end
   end
 end

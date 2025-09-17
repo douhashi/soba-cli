@@ -1,6 +1,12 @@
 # frozen_string_literal: true
 
 require 'ostruct'
+require_relative '../configuration'
+require_relative '../infrastructure/github_client'
+require_relative '../infrastructure/tmux_client'
+require_relative '../domain/phase_strategy'
+require_relative 'workflow_executor'
+require_relative 'tmux_session_manager'
 
 module Soba
   module Services
@@ -9,11 +15,39 @@ module Soba
     class IssueProcessor
       attr_reader :github_client, :workflow_executor, :phase_strategy, :config
 
-      def initialize(github_client:, workflow_executor:, phase_strategy:, config:)
-        @github_client = github_client
-        @workflow_executor = workflow_executor
-        @phase_strategy = phase_strategy
-        @config = config
+      def initialize(github_client: nil, workflow_executor: nil, phase_strategy: nil, config: nil)
+        @github_client = github_client || Infrastructure::GitHubClient.new
+        @workflow_executor = workflow_executor || WorkflowExecutor.new(
+          tmux_session_manager: TmuxSessionManager.new(
+            tmux_client: Infrastructure::TmuxClient.new
+          )
+        )
+        @phase_strategy = phase_strategy || Domain::PhaseStrategy.new
+        @config = config || Configuration
+      end
+
+      def run(issue_number, use_tmux: true)
+        # Fetch issue details from GitHub
+        repository = get_repository_from_config
+        issue = @github_client.issue(repository, issue_number)
+
+        # Convert issue to expected format
+        issue_hash = {
+          number: issue.number,
+          title: issue.title,
+          labels: issue.labels.map { |l| l.name || l[:name] },
+        }
+
+        # Process with the specified tmux mode
+        original_use_tmux = @config.config.workflow.use_tmux
+        begin
+          # Temporarily override the config value
+          @config.config.workflow.use_tmux = use_tmux
+          process(issue_hash)
+        ensure
+          # Restore original config value
+          @config.config.workflow.use_tmux = original_use_tmux
+        end
       end
 
       def process(issue)
@@ -76,6 +110,11 @@ module Soba
       end
 
       private
+
+      def get_repository_from_config
+        actual_config = @config.respond_to?(:config) ? @config.config : @config
+        actual_config.github.repository
+      end
 
       def skipped_result(reason)
         {

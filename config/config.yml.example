@@ -18,6 +18,10 @@ workflow:
   # Polling interval in seconds
   interval: 60
 
+  # Use tmux for Claude execution (default: true)
+  # Set to false for CI/CD environments or debugging
+  use_tmux: true
+
   # Maximum concurrent workflows
   max_concurrent: 3
 

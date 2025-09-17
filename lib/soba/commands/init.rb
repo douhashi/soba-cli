@@ -22,6 +22,7 @@ module Soba
             'ready' => 'soba:ready',
             'doing' => 'soba:doing',
             'review_requested' => 'soba:review-requested',
+            'revising' => 'soba:revising',
           },
         },
       }.freeze
@@ -35,6 +36,8 @@ module Soba
         'reviewing' => 'ff6347',       # Tomato
         'done' => '32cd32',            # Lime Green
         'requires_changes' => 'dc143c', # Crimson
+        'revising' => 'ff1493',        # Deep Pink
+        'lgtm' => '00ff00',            # Pure Green
       }.freeze
 
       LABEL_DESCRIPTIONS = {
@@ -46,6 +49,8 @@ module Soba
         'reviewing' => 'Under review',
         'done' => 'Review completed',
         'requires_changes' => 'Changes requested',
+        'revising' => 'Revising based on review feedback',
+        'lgtm' => 'PR approved for auto-merge',
       }.freeze
 
       DEFAULT_PHASE_CONFIG = {
@@ -63,6 +68,11 @@ module Soba
           'command' => 'claude',
           'options' => ['--dangerously-skip-permissions'],
           'parameter' => '/soba:review {{issue-number}}',
+        },
+        'revise' => {
+          'command' => 'claude',
+          'options' => ['--dangerously-skip-permissions'],
+          'parameter' => '/soba:revise {{issue-number}}',
         },
       }.freeze
 
@@ -389,6 +399,7 @@ module Soba
               ready: #{config['workflow']['phase_labels']['ready']}
               doing: #{config['workflow']['phase_labels']['doing']}
               review_requested: #{config['workflow']['phase_labels']['review_requested']}
+              revising: #{config['workflow']['phase_labels']['revising'] || 'soba:revising'}
         YAML
 
         # Add phase configuration if present
@@ -561,6 +572,8 @@ module Soba
             { name: 'soba:reviewing', phase: 'reviewing' },
             { name: 'soba:done', phase: 'done' },
             { name: 'soba:requires-changes', phase: 'requires_changes' },
+            { name: 'soba:revising', phase: 'revising' },
+            { name: 'soba:lgtm', phase: 'lgtm' },
           ]
 
           additional_labels.each do |label_info|

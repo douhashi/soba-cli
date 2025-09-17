@@ -9,14 +9,10 @@ RSpec.describe Soba::Services::WorkflowBlockingChecker do
 
   describe "#blocking?" do
     context "when there are no open issues" do
-      before do
-        allow(github_client).to receive(:issues).
-          with(repository, state: "open").
-          and_return([])
-      end
+      let(:issues) { [] }
 
       it "returns false" do
-        result = checker.blocking?(repository)
+        result = checker.blocking?(repository, issues: issues)
         expect(result).to be false
       end
     end
@@ -29,15 +25,10 @@ RSpec.describe Soba::Services::WorkflowBlockingChecker do
           labels: [{ name: "soba:todo" }]
         )
       end
-
-      before do
-        allow(github_client).to receive(:issues).
-          with(repository, state: "open").
-          and_return([todo_issue])
-      end
+      let(:issues) { [todo_issue] }
 
       it "returns false" do
-        result = checker.blocking?(repository)
+        result = checker.blocking?(repository, issues: issues)
         expect(result).to be false
       end
     end
@@ -50,15 +41,10 @@ RSpec.describe Soba::Services::WorkflowBlockingChecker do
           labels: [{ name: "soba:planning" }]
         )
       end
-
-      before do
-        allow(github_client).to receive(:issues).
-          with(repository, state: "open").
-          and_return([planning_issue])
-      end
+      let(:issues) { [planning_issue] }
 
       it "returns true" do
-        result = checker.blocking?(repository)
+        result = checker.blocking?(repository, issues: issues)
         expect(result).to be true
       end
     end
@@ -71,15 +57,10 @@ RSpec.describe Soba::Services::WorkflowBlockingChecker do
           labels: [{ name: "soba:ready" }]
         )
       end
-
-      before do
-        allow(github_client).to receive(:issues).
-          with(repository, state: "open").
-          and_return([ready_issue])
-      end
+      let(:issues) { [ready_issue] }
 
       it "returns true" do
-        result = checker.blocking?(repository)
+        result = checker.blocking?(repository, issues: issues)
         expect(result).to be true
       end
     end
@@ -92,15 +73,10 @@ RSpec.describe Soba::Services::WorkflowBlockingChecker do
           labels: [{ name: "soba:doing" }]
         )
       end
-
-      before do
-        allow(github_client).to receive(:issues).
-          with(repository, state: "open").
-          and_return([doing_issue])
-      end
+      let(:issues) { [doing_issue] }
 
       it "returns true" do
-        result = checker.blocking?(repository)
+        result = checker.blocking?(repository, issues: issues)
         expect(result).to be true
       end
     end
@@ -113,15 +89,10 @@ RSpec.describe Soba::Services::WorkflowBlockingChecker do
           labels: [{ name: "soba:review-requested" }]
         )
       end
-
-      before do
-        allow(github_client).to receive(:issues).
-          with(repository, state: "open").
-          and_return([review_issue])
-      end
+      let(:issues) { [review_issue] }
 
       it "returns true" do
-        result = checker.blocking?(repository)
+        result = checker.blocking?(repository, issues: issues)
         expect(result).to be true
       end
     end
@@ -142,15 +113,10 @@ RSpec.describe Soba::Services::WorkflowBlockingChecker do
           labels: [{ name: "soba:review-requested" }]
         )
       end
-
-      before do
-        allow(github_client).to receive(:issues).
-          with(repository, state: "open").
-          and_return([planning_issue, review_issue])
-      end
+      let(:issues) { [planning_issue, review_issue] }
 
       it "returns true" do
-        result = checker.blocking?(repository)
+        result = checker.blocking?(repository, issues: issues)
         expect(result).to be true
       end
     end
@@ -163,15 +129,10 @@ RSpec.describe Soba::Services::WorkflowBlockingChecker do
           labels: [{ name: "bug" }, { name: "enhancement" }]
         )
       end
-
-      before do
-        allow(github_client).to receive(:issues).
-          with(repository, state: "open").
-          and_return([other_issue])
-      end
+      let(:issues) { [other_issue] }
 
       it "returns false" do
-        result = checker.blocking?(repository)
+        result = checker.blocking?(repository, issues: issues)
         expect(result).to be false
       end
     end
@@ -192,17 +153,11 @@ RSpec.describe Soba::Services::WorkflowBlockingChecker do
           labels: [{ name: "soba:todo" }]
         )
       end
-
-      before do
-        # 動的検出実装では全てのOpenなIssueを取得
-        allow(github_client).to receive(:issues).
-          with(repository, state: "open").
-          and_return([custom_soba_issue, todo_issue])
-      end
+      let(:issues) { [custom_soba_issue, todo_issue] }
 
       it "blocks with new soba: labels (except soba:todo)" do
         # 動的検出実装により、新しいsoba:*ラベルも検出される
-        result = checker.blocking?(repository)
+        result = checker.blocking?(repository, issues: issues)
         expect(result).to be true
       end
     end
@@ -225,44 +180,24 @@ RSpec.describe Soba::Services::WorkflowBlockingChecker do
           labels: [{ name: "soba:review-requested" }]
         )
       end
-
-      before do
-        allow(github_client).to receive(:issues).
-          with(repository, state: "open").
-          and_return([planning_issue, review_issue])
-      end
+      let(:issues) { [planning_issue, review_issue] }
 
       it "returns all blocking issues" do
-        issues = checker.blocking_issues(repository)
-        expect(issues).to contain_exactly(planning_issue, review_issue)
+        result = checker.blocking_issues(repository, issues: issues)
+        expect(result).to contain_exactly(planning_issue, review_issue)
       end
     end
 
     context "when there are no blocking issues" do
-      before do
-        allow(github_client).to receive(:issues).
-          with(repository, state: "open").
-          and_return([])
-      end
+      let(:issues) { [] }
 
       it "returns empty array" do
-        issues = checker.blocking_issues(repository)
-        expect(issues).to be_empty
+        result = checker.blocking_issues(repository, issues: issues)
+        expect(result).to be_empty
       end
     end
 
-    context "when API call fails" do
-      before do
-        allow(github_client).to receive(:issues).
-          with(repository, state: "open").
-          and_raise(Octokit::Error.new)
-      end
-
-      it "handles the error gracefully and returns empty array" do
-        issues = checker.blocking_issues(repository)
-        expect(issues).to be_empty
-      end
-    end
+    # APIコール失敗のテストは不要になる（外部からissuesを受け取るため）
 
     context "when there are mixed issues (soba:todo and others)" do
       let(:doing_issue) do
@@ -288,16 +223,11 @@ RSpec.describe Soba::Services::WorkflowBlockingChecker do
           labels: [{ name: "bug" }]
         )
       end
-
-      before do
-        allow(github_client).to receive(:issues).
-          with(repository, state: "open").
-          and_return([doing_issue, todo_issue, bug_issue])
-      end
+      let(:issues) { [doing_issue, todo_issue, bug_issue] }
 
       it "returns only soba: labeled issues (except soba:todo)" do
-        issues = checker.blocking_issues(repository)
-        expect(issues).to contain_exactly(doing_issue)
+        result = checker.blocking_issues(repository, issues: issues)
+        expect(result).to contain_exactly(doing_issue)
       end
     end
   end
@@ -311,15 +241,10 @@ RSpec.describe Soba::Services::WorkflowBlockingChecker do
           labels: [{ name: "soba:review-requested" }]
         )
       end
-
-      before do
-        allow(github_client).to receive(:issues).
-          with(repository, state: "open").
-          and_return([review_issue])
-      end
+      let(:issues) { [review_issue] }
 
       it "returns formatted blocking reason" do
-        reason = checker.blocking_reason(repository)
+        reason = checker.blocking_reason(repository, issues: issues)
         expect(reason).to eq("Issue #5 が soba:review-requested のため、新しいワークフローの開始をスキップしました")
       end
     end
@@ -340,28 +265,19 @@ RSpec.describe Soba::Services::WorkflowBlockingChecker do
           labels: [{ name: "soba:doing" }]
         )
       end
-
-      before do
-        allow(github_client).to receive(:issues).
-          with(repository, state: "open").
-          and_return([planning_issue, doing_issue])
-      end
+      let(:issues) { [planning_issue, doing_issue] }
 
       it "returns reason for the first blocking issue" do
-        reason = checker.blocking_reason(repository)
+        reason = checker.blocking_reason(repository, issues: issues)
         expect(reason).to match(/Issue #\d+ が soba:\w+/)
       end
     end
 
     context "when no blocking issues exist" do
-      before do
-        allow(github_client).to receive(:issues).
-          with(repository, state: "open").
-          and_return([])
-      end
+      let(:issues) { [] }
 
       it "returns nil" do
-        reason = checker.blocking_reason(repository)
+        reason = checker.blocking_reason(repository, issues: issues)
         expect(reason).to be_nil
       end
     end

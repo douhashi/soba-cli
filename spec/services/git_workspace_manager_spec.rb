@@ -130,4 +130,24 @@ RSpec.describe Soba::Services::GitWorkspaceManager do
       expect(manager.send(:branch_name, issue_number)).to eq(branch_name)
     end
   end
+
+  describe '#get_worktree_path' do
+    context 'when worktree exists' do
+      it 'returns the worktree path' do
+        expect(Dir).to receive(:exist?).with(worktree_path).and_return(true)
+
+        path = manager.get_worktree_path(issue_number)
+        expect(path).to eq(worktree_path)
+      end
+    end
+
+    context 'when worktree does not exist' do
+      it 'returns nil' do
+        expect(Dir).to receive(:exist?).with(worktree_path).and_return(false)
+
+        path = manager.get_worktree_path(issue_number)
+        expect(path).to be_nil
+      end
+    end
+  end
 end

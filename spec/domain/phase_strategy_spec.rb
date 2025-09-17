@@ -37,6 +37,16 @@ RSpec.describe Soba::Domain::PhaseStrategy do
       end
     end
 
+    context 'when issue has soba:queued label' do
+      let(:labels) { ['soba:queued'] }
+
+      it 'returns nil (already in progress)' do
+        phase = strategy.determine_phase(labels)
+
+        expect(phase).to be_nil
+      end
+    end
+
     context 'when issue has soba:planning label' do
       let(:labels) { ['soba:planning'] }
 
@@ -141,6 +151,22 @@ RSpec.describe Soba::Domain::PhaseStrategy do
   end
 
   describe '#validate_transition' do
+    context 'from soba:todo to soba:queued' do
+      it 'returns true' do
+        result = strategy.validate_transition('soba:todo', 'soba:queued')
+
+        expect(result).to be true
+      end
+    end
+
+    context 'from soba:queued to soba:planning' do
+      it 'returns true' do
+        result = strategy.validate_transition('soba:queued', 'soba:planning')
+
+        expect(result).to be true
+      end
+    end
+
     context 'from soba:todo to soba:planning' do
       it 'returns true' do
         result = strategy.validate_transition('soba:todo', 'soba:planning')

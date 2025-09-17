@@ -42,6 +42,31 @@ RSpec.describe Soba::Services::IssueProcessor do
       }
     end
 
+    context 'when issue has soba:queued label' do
+      let(:issue_labels) { ['soba:queued'] }
+
+      it 'transitions from queued to planning and executes workflow' do
+        expect(github_client).to receive(:update_issue_labels).with(
+          issue[:number],
+          from: 'soba:queued',
+          to: 'soba:planning'
+        )
+
+        expect(workflow_executor).to receive(:execute).with(
+          phase: anything,
+          issue_number: 123,
+          use_tmux: true,
+          setup_workspace: true
+        ).and_return({ success: true, mode: 'tmux' })
+
+        result = processor.process(issue)
+
+        expect(result[:success]).to be true
+        expect(result[:phase]).to eq(:queued_to_planning)
+        expect(result[:label_updated]).to be true
+      end
+    end
+
     context 'when issue needs plan phase' do
       let(:issue_labels) { ['soba:todo', 'enhancement'] }
 

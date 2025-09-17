@@ -31,6 +31,12 @@ module Soba
 end
 ```
 
+### require規則
+
+- **相対パス**: 同一プロジェクト内のファイルは`require_relative`を使用
+- **絶対パス禁止**: `require 'soba/services/foo'`は使わない（パスエラーの原因）
+- **外部gem**: `require 'gem_name'`を使用
+
 ### GLIコマンド構造
 
 ```ruby

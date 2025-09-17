@@ -4,7 +4,8 @@ module Soba
   module Domain
     class PhaseStrategy
       PHASE_TRANSITIONS = {
-        'soba:todo' => 'soba:planning',
+        'soba:todo' => 'soba:queued',
+        'soba:queued' => 'soba:planning',
         'soba:planning' => 'soba:ready',
         'soba:ready' => 'soba:doing',
         'soba:doing' => 'soba:review-requested',
@@ -17,7 +18,7 @@ module Soba
         review: { current: 'soba:review-requested', next: 'soba:reviewing' },
       }.freeze
 
-      IN_PROGRESS_LABELS = %w(soba:planning soba:doing soba:reviewing).freeze
+      IN_PROGRESS_LABELS = %w(soba:queued soba:planning soba:doing soba:reviewing).freeze
 
       def determine_phase(labels)
         return nil if labels.blank?
@@ -52,6 +53,11 @@ module Soba
 
         if !from_label.start_with?('soba:') || !to_label.start_with?('soba:')
           return false
+        end
+
+        # Allow direct transition from soba:todo to soba:planning (legacy path)
+        if from_label == 'soba:todo' && to_label == 'soba:planning'
+          return true
         end
 
         PHASE_TRANSITIONS[from_label] == to_label

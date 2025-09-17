@@ -1,18 +1,30 @@
 # frozen_string_literal: true
 
 require 'open3'
+require 'soba/services/git_workspace_manager'
 
 module Soba
   module Services
     class WorkflowExecutionError < StandardError; end
 
     class WorkflowExecutor
-      def initialize(tmux_session_manager: nil)
+      def initialize(tmux_session_manager: nil, git_workspace_manager: nil)
         @tmux_session_manager = tmux_session_manager
+        @git_workspace_manager = git_workspace_manager || GitWorkspaceManager.new
       end
 
-      def execute(phase:, issue_number:, use_tmux: true)
+      def execute(phase:, issue_number:, use_tmux: true, setup_workspace: true)
         return nil unless phase.command
+
+        # フェーズ開始時にワークスペースをセットアップ
+        if setup_workspace
+          begin
+            @git_workspace_manager.setup_workspace(issue_number)
+          rescue GitWorkspaceManager::GitOperationError => e
+            puts "Warning: Failed to setup workspace: #{e.message}"
+            # ワークスペースのセットアップに失敗しても続行（既存の動作を維持）
+          end
+        end
 
         if use_tmux
           execute_in_tmux(phase: phase, issue_number: issue_number)

@@ -55,7 +55,8 @@ RSpec.describe Soba::Services::IssueProcessor do
         expect(workflow_executor).to receive(:execute).with(
           phase: anything,
           issue_number: 123,
-          use_tmux: true
+          use_tmux: true,
+          setup_workspace: true
         ).and_return({ success: true, session_name: 'soba-repo', window_name: 'issue-123', mode: 'tmux' })
 
         result = processor.process(issue)
@@ -79,7 +80,8 @@ RSpec.describe Soba::Services::IssueProcessor do
           expect(workflow_executor).to receive(:execute).with(
             phase: anything,
             issue_number: 123,
-            use_tmux: true
+            use_tmux: true,
+            setup_workspace: true
           ).and_return({ success: false, error: 'Command failed', mode: 'tmux' })
 
           result = processor.process(issue)
@@ -121,7 +123,8 @@ RSpec.describe Soba::Services::IssueProcessor do
         expect(workflow_executor).to receive(:execute).with(
           phase: anything,
           issue_number: 123,
-          use_tmux: true
+          use_tmux: true,
+          setup_workspace: true
         ).and_return({ success: true, session_name: 'soba-repo', window_name: 'issue-123', mode: 'tmux' })
 
         result = processor.process(issue)
@@ -154,7 +157,8 @@ RSpec.describe Soba::Services::IssueProcessor do
         expect(workflow_executor).to receive(:execute).with(
           phase: anything,
           issue_number: 123,
-          use_tmux: false
+          use_tmux: false,
+          setup_workspace: true
         ).and_return({ success: true, output: 'Plan phase started', mode: 'direct' })
 
         result = processor.process(issue)

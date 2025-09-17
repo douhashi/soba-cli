@@ -27,7 +27,9 @@ module Soba
         # 引数で渡されたissuesからsoba:*ラベル（soba:todoを除く）を持つものを検出
         # except_issue_numberが指定されている場合は、そのissueを除外
         blocking = issues.select do |issue|
-          next false if except_issue_number && issue.number == except_issue_number
+          if except_issue_number && issue.number == except_issue_number
+            next false
+          end
 
           issue.labels.any? do |label|
             label_name = label.is_a?(Hash) ? label[:name] : label.name

@@ -86,7 +86,7 @@ module Soba
               # Process the first issue if available
               if processable_issues.any?
                 issue = processable_issues.first
-                puts "\nProcessing Issue ##{issue.number}: #{issue.title}"
+                puts "\n🚀 Processing Issue ##{issue.number}: #{issue.title}"
 
                 # Convert Domain::Issue to Hash for issue_processor
                 # Extract label names for issue_processor
@@ -109,15 +109,10 @@ module Soba
                     elsif result[:mode] == 'tmux'
                       # Display enhanced tmux information
                       if result[:tmux_info]
-                        tmux_info = result[:tmux_info]
-                        puts "  Tmux execution details:"
-                        puts "    Session: #{tmux_info[:session]}"
-                        puts "    Window: #{tmux_info[:window]}"
-                        puts "    Pane: #{tmux_info[:pane] || 'window root'}"
-                        puts "  Monitor commands:"
-                        tmux_info[:monitor_commands]&.each do |cmd|
-                          puts "    #{cmd}"
-                        end
+                        session_name = result[:tmux_info][:session] || result[:session_name]
+                        puts "  📺 Session: #{session_name}"
+                        puts "  💡 Monitor: soba monitor #{session_name}"
+                        puts "  📁 Log: ~/.soba/logs/#{session_name}.log"
                       else
                         # Fallback to legacy output for backward compatibility
                         puts "  Tmux session started: #{result[:session_name]}" if result[:session_name]
@@ -128,7 +123,7 @@ module Soba
                     end
                   end
                 else
-                  puts "  Failed: #{result[:error]}"
+                  puts "  ❌ Failed: #{result[:error]}"
                 end
               end
 

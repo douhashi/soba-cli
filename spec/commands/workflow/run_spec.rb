@@ -69,14 +69,30 @@ RSpec.describe Soba::Commands::Workflow::Run do
       let(:blocking_checker) { instance_double(Soba::Services::WorkflowBlockingChecker) }
 
       before do
-        allow(github_client).to receive(:issues).and_return(issues_with_todo)
+        allow(github_client).to receive(:issues).with('owner/repo', state: 'open').and_return(issues_with_todo, issues_with_todo)
+        allow(github_client).to receive(:issues).with(no_args).and_return(issues_with_todo, issues_with_todo)
         allow(Soba::Services::WorkflowBlockingChecker).to receive(:new).and_return(blocking_checker)
-        # For todo issue, blocking check is called with except_issue_number
+        # For todo issue, blocking check is called
         allow(blocking_checker).to receive(:blocking?).and_return(false)
       end
 
       it 'updates label and executes workflow' do
-        expect(github_client).to receive(:update_issue_labels).with(1, from: 'soba:todo', to: 'soba:planning')
+        # First, todo is queued
+        expect(github_client).to receive(:update_issue_labels).with(1, from: 'soba:todo', to: 'soba:queued')
+
+        # After queueing, fetch returns the queued issue
+        queued_issue = Soba::Domain::Issue.new(
+          number: 1,
+          title: 'Issue 1',
+          labels: [{ name: 'soba:queued' }],
+          state: 'open',
+          created_at: Time.now.iso8601,
+          updated_at: Time.now.iso8601
+        )
+        allow(github_client).to receive(:issues).and_return(issues_with_todo, [queued_issue])
+
+        # Then queued is processed to planning
+        expect(github_client).to receive(:update_issue_labels).with(1, from: 'soba:queued', to: 'soba:planning')
 
         allow(Open3).to receive(:popen3).with('echo', 'Plan 1') do |&block|
           stdin = double('stdin', close: nil)
@@ -86,7 +102,7 @@ RSpec.describe Soba::Commands::Workflow::Run do
           block.call(stdin, stdout, stderr, thread)
         end
 
-        expect { command.execute({}, {}) }.to output(/Processing Issue #1/).to_stdout
+        expect { command.execute({}, {}) }.to output(/Queued Issue #1.*Processing Issue #1/m).to_stdout
       end
     end
 
@@ -190,16 +206,32 @@ RSpec.describe Soba::Commands::Workflow::Run do
       let(:blocking_checker) { instance_double(Soba::Services::WorkflowBlockingChecker) }
 
       before do
-        allow(github_client).to receive(:issues).and_return(issues)
+        allow(github_client).to receive(:issues).with('owner/repo', state: 'open').and_return(issues, issues)
+        allow(github_client).to receive(:issues).with(no_args).and_return(issues, issues)
         allow(Soba::Services::WorkflowBlockingChecker).to receive(:new).and_return(blocking_checker)
-        allow(blocking_checker).to receive(:blocking?).with('owner/repo', issues: issues).and_return(false)
+        allow(blocking_checker).to receive(:blocking?).and_return(false)
         Soba::Configuration.configure do |c|
           c.phase.plan.command = nil
         end
       end
 
       it 'updates labels but skips workflow execution' do
-        expect(github_client).to receive(:update_issue_labels).with(10, from: 'soba:todo', to: 'soba:planning')
+        # First, todo is queued
+        expect(github_client).to receive(:update_issue_labels).with(10, from: 'soba:todo', to: 'soba:queued')
+
+        # After queueing, fetch returns the queued issue
+        queued_issue = Soba::Domain::Issue.new(
+          number: 10,
+          title: 'Issue 10',
+          labels: [{ name: 'soba:queued' }],
+          state: 'open',
+          created_at: Time.now.iso8601,
+          updated_at: Time.now.iso8601
+        )
+        allow(github_client).to receive(:issues).and_return(issues, issues, [queued_issue])
+
+        # Then queued is processed to planning
+        expect(github_client).to receive(:update_issue_labels).with(10, from: 'soba:queued', to: 'soba:planning')
         expect(Open3).not_to receive(:popen3)
 
         expect { command.execute({}, {}) }.to output(/Workflow skipped/).to_stdout
@@ -294,14 +326,30 @@ RSpec.describe Soba::Commands::Workflow::Run do
       end
 
       before do
-        allow(github_client).to receive(:issues).and_return([todo_issue])
+        allow(github_client).to receive(:issues).with('owner/repo', state: 'open').and_return([todo_issue], [todo_issue])
+        allow(github_client).to receive(:issues).with(no_args).and_return([todo_issue], [todo_issue])
         allow(Soba::Services::WorkflowBlockingChecker).to receive(:new).and_return(blocking_checker)
-        # blocking? will be called with except_issue_number: 40 for todo issue
+        # blocking? will be called for todo issue
         allow(blocking_checker).to receive(:blocking?).and_return(false)
       end
 
       it 'processes todo issues normally' do
-        expect(github_client).to receive(:update_issue_labels).with(40, from: 'soba:todo', to: 'soba:planning')
+        # First, todo is queued
+        expect(github_client).to receive(:update_issue_labels).with(40, from: 'soba:todo', to: 'soba:queued')
+
+        # After queueing, fetch returns the queued issue
+        queued_issue = Soba::Domain::Issue.new(
+          number: 40,
+          title: 'Todo Issue',
+          labels: [{ name: 'soba:queued' }],
+          state: 'open',
+          created_at: Time.now.iso8601,
+          updated_at: Time.now.iso8601
+        )
+        allow(github_client).to receive(:issues).and_return([todo_issue], [todo_issue], [queued_issue])
+
+        # Then queued is processed to planning
+        expect(github_client).to receive(:update_issue_labels).with(40, from: 'soba:queued', to: 'soba:planning')
 
         allow(Open3).to receive(:popen3).with('echo', 'Plan 40') do |&block|
           stdin = double('stdin', close: nil)
@@ -333,7 +381,23 @@ RSpec.describe Soba::Commands::Workflow::Run do
       end
 
       before do
-        allow(github_client).to receive(:issues).and_return([todo_issue])
+        # First, todo is queued
+        allow(github_client).to receive(:update_issue_labels).with(50, from: 'soba:todo', to: 'soba:queued')
+
+        # After queueing, fetch returns the queued issue
+        queued_issue = Soba::Domain::Issue.new(
+          number: 50,
+          title: 'Test Issue',
+          labels: [{ name: 'soba:queued' }],
+          state: 'open',
+          created_at: Time.now.iso8601,
+          updated_at: Time.now.iso8601
+        )
+        allow(github_client).to receive(:issues).and_return([todo_issue], [todo_issue], [queued_issue])
+
+        # Then queued is processed to planning
+        allow(github_client).to receive(:update_issue_labels).with(50, from: 'soba:queued', to: 'soba:planning')
+
         allow(Soba::Services::WorkflowBlockingChecker).to receive(:new).and_return(blocking_checker)
         allow(blocking_checker).to receive(:blocking?).with('owner/repo', issues: [todo_issue]).and_return(false)
         allow(Soba::Services::TmuxSessionManager).to receive(:new).and_return(tmux_session_manager)

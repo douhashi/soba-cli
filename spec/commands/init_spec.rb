@@ -178,6 +178,9 @@ RSpec.describe Soba::Commands::Init do
             with(repository, "soba:review-requested", "ff8c00", "Review requested").
             and_return({ name: "soba:review-requested", color: "ff8c00" })
           expect(github_client).to receive(:create_label).
+            with(repository, "soba:queue", "9370db", "Queued for processing").
+            and_return({ name: "soba:queue", color: "9370db" })
+          expect(github_client).to receive(:create_label).
             with(repository, "soba:reviewing", "ff6347", "Under review").
             and_return({ name: "soba:reviewing", color: "ff6347" })
           expect(github_client).to receive(:create_label).
@@ -227,6 +230,9 @@ RSpec.describe Soba::Commands::Init do
           expect(github_client).to receive(:create_label).
             with(repository, "soba:review-requested", "ff8c00", "Review requested").
             and_return({ name: "soba:review-requested", color: "ff8c00" })
+          expect(github_client).to receive(:create_label).
+            with(repository, "soba:queue", "9370db", "Queued for processing").
+            and_return({ name: "soba:queue", color: "9370db" })
           expect(github_client).to receive(:create_label).
             with(repository, "soba:reviewing", "ff6347", "Under review").
             and_return({ name: "soba:reviewing", color: "ff6347" })

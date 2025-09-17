@@ -31,6 +31,7 @@ module Soba
         'ready' => '228b22',           # Green
         'doing' => 'ffd700',           # Yellow
         'review_requested' => 'ff8c00', # Orange
+        'queue' => '9370db',           # Medium Purple
         'reviewing' => 'ff6347',       # Tomato
         'done' => '32cd32',            # Lime Green
         'requires_changes' => 'dc143c', # Crimson
@@ -41,6 +42,7 @@ module Soba
         'ready' => 'Ready for implementation',
         'doing' => 'In progress',
         'review_requested' => 'Review requested',
+        'queue' => 'Queued for processing',
         'reviewing' => 'Under review',
         'done' => 'Review completed',
         'requires_changes' => 'Changes requested',
@@ -555,6 +557,7 @@ module Soba
 
           # Create additional review-related labels
           additional_labels = [
+            { name: 'soba:queue', phase: 'queue' },
             { name: 'soba:reviewing', phase: 'reviewing' },
             { name: 'soba:done', phase: 'done' },
             { name: 'soba:requires-changes', phase: 'requires_changes' },

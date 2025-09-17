@@ -153,17 +153,17 @@ RSpec.describe Soba::Commands::Workflow::ExecuteIssue do
 
     context "エラーハンドリング" do
       it "Issue番号が指定されない場合のエラー" do
-        allow(STDERR).to receive(:puts)
+        allow(command).to receive(:warn)
         result = command.execute([], options)
-        expect(STDERR).to have_received(:puts).with("Error: Issue number is required")
+        expect(command).to have_received(:warn).with("Error: Issue number is required")
         expect(result).to eq(1)
       end
 
       it "IssueProcessor実行時のエラーをキャッチする" do
         allow(issue_processor).to receive(:run).and_raise(StandardError.new("Processing failed"))
-        allow(STDERR).to receive(:puts)
+        allow(command).to receive(:warn)
         result = command.execute(args, options)
-        expect(STDERR).to have_received(:puts).with("Error: Processing failed")
+        expect(command).to have_received(:warn).with("Error: Processing failed")
         expect(result).to eq(1)
       end
     end

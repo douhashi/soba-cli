@@ -22,6 +22,7 @@ RSpec.describe Soba::Services::WorkflowExecutor do
     context 'with git workspace setup' do
       it 'sets up workspace before executing command' do
         expect(git_workspace_manager).to receive(:setup_workspace).with(123)
+        expect(git_workspace_manager).to receive(:get_worktree_path).with(123).and_return(nil)
         expect(Open3).to receive(:popen3).with('echo', '--test', 'Issue 123') do |&block|
           stdin = double('stdin', close: nil)
           stdout = double('stdout', read: 'Command output')
@@ -38,6 +39,7 @@ RSpec.describe Soba::Services::WorkflowExecutor do
       it 'continues execution even if workspace setup fails' do
         expect(git_workspace_manager).to receive(:setup_workspace).with(456).
           and_raise(Soba::Services::GitWorkspaceManager::GitOperationError.new('Git error'))
+        expect(git_workspace_manager).to receive(:get_worktree_path).with(456).and_return(nil)
         expect(Open3).to receive(:popen3).with('echo', '--test', 'Issue 456') do |&block|
           stdin = double('stdin', close: nil)
           stdout = double('stdout', read: 'Command output')
@@ -53,6 +55,7 @@ RSpec.describe Soba::Services::WorkflowExecutor do
 
       it 'skips workspace setup when setup_workspace is false' do
         expect(git_workspace_manager).not_to receive(:setup_workspace)
+        expect(git_workspace_manager).to receive(:get_worktree_path).with(789).and_return(nil)
         expect(Open3).to receive(:popen3).with('echo', '--test', 'Issue 789') do |&block|
           stdin = double('stdin', close: nil)
           stdout = double('stdout', read: 'Command output')
@@ -86,6 +89,7 @@ RSpec.describe Soba::Services::WorkflowExecutor do
           created: false,
         })
         allow(git_workspace_manager).to receive(:setup_workspace)
+        allow(git_workspace_manager).to receive(:get_worktree_path).and_return(nil)
       end
 
       it 'executes the command in tmux session by default' do
@@ -187,6 +191,7 @@ RSpec.describe Soba::Services::WorkflowExecutor do
     context 'when use_tmux is false' do
       before do
         allow(git_workspace_manager).to receive(:setup_workspace)
+        allow(git_workspace_manager).to receive(:get_worktree_path).and_return(nil)
       end
 
       it 'executes the command directly without tmux' do
@@ -213,6 +218,7 @@ RSpec.describe Soba::Services::WorkflowExecutor do
     context 'when executing commands directly (legacy behavior)' do
       before do
         allow(git_workspace_manager).to receive(:setup_workspace)
+        allow(git_workspace_manager).to receive(:get_worktree_path).and_return(nil)
       end
 
       it 'replaces {{issue-number}} placeholder with actual issue number' do
@@ -278,6 +284,7 @@ RSpec.describe Soba::Services::WorkflowExecutor do
 
       before do
         allow(git_workspace_manager).to receive(:setup_workspace)
+        allow(git_workspace_manager).to receive(:get_worktree_path).and_return(nil)
       end
 
       it 'returns nil' do
@@ -298,6 +305,7 @@ RSpec.describe Soba::Services::WorkflowExecutor do
 
       before do
         allow(git_workspace_manager).to receive(:setup_workspace)
+        allow(git_workspace_manager).to receive(:get_worktree_path).and_return(nil)
       end
 
       it 'handles the exception gracefully' do
@@ -346,6 +354,98 @@ RSpec.describe Soba::Services::WorkflowExecutor do
     end
   end
 
+  describe '#build_command_string' do
+    context 'when parameters need quoting' do
+      let(:phase_config) do
+        double(
+          command: 'claude',
+          options: ['--dangerously-skip-permissions'],
+          parameter: '/soba:plan {{issue-number}}'
+        )
+      end
+
+      it 'quotes the parameter when building command string' do
+        command_string = executor.send(:build_command_string, phase_config, 39)
+
+        expect(command_string).to eq('claude --dangerously-skip-permissions "/soba:plan 39"')
+      end
+    end
+
+    context 'when building command with worktree' do
+      let(:phase_config) do
+        double(
+          command: 'claude',
+          options: [],
+          parameter: '/soba:plan {{issue-number}}'
+        )
+      end
+
+      it 'includes cd to worktree before command' do
+        allow(git_workspace_manager).to receive(:get_worktree_path).with(39).and_return('.git/soba/worktrees/issue-39')
+
+        command_string = executor.send(:build_command_string_with_worktree, phase_config, 39)
+
+        expect(command_string).to eq('cd .git/soba/worktrees/issue-39 && claude "/soba:plan 39"')
+      end
+
+      it 'returns command without cd when worktree is not available' do
+        allow(git_workspace_manager).to receive(:get_worktree_path).with(39).and_return(nil)
+
+        command_string = executor.send(:build_command_string_with_worktree, phase_config, 39)
+
+        expect(command_string).to eq('claude "/soba:plan 39"')
+      end
+    end
+  end
+
+  describe '#execute_direct with worktree' do
+    let(:phase_config) do
+      double(
+        command: 'echo',
+        options: [],
+        parameter: 'test {{issue-number}}'
+      )
+    end
+
+    context 'when executing in worktree' do
+      it 'changes directory to worktree before executing' do
+        allow(git_workspace_manager).to receive(:setup_workspace)
+        allow(git_workspace_manager).to receive(:get_worktree_path).with(123).and_return('/tmp/worktrees/issue-123')
+
+        expect(Dir).to receive(:chdir).with('/tmp/worktrees/issue-123').and_yield
+        expect(Open3).to receive(:popen3).with('echo', 'test 123') do |&block|
+          stdin = double('stdin', close: nil)
+          stdout = double('stdout', read: 'test 123')
+          stderr = double('stderr', read: '')
+          thread = double('thread', value: double(exitstatus: 0))
+          block.call(stdin, stdout, stderr, thread)
+        end
+
+        result = executor.execute(phase: phase_config, issue_number: 123, use_tmux: false)
+
+        expect(result).to include(success: true)
+      end
+
+      it 'executes in current directory when worktree is not available' do
+        allow(git_workspace_manager).to receive(:setup_workspace)
+        allow(git_workspace_manager).to receive(:get_worktree_path).with(123).and_return(nil)
+
+        expect(Dir).not_to receive(:chdir)
+        expect(Open3).to receive(:popen3).with('echo', 'test 123') do |&block|
+          stdin = double('stdin', close: nil)
+          stdout = double('stdout', read: 'test 123')
+          stderr = double('stderr', read: '')
+          thread = double('thread', value: double(exitstatus: 0))
+          block.call(stdin, stdout, stderr, thread)
+        end
+
+        result = executor.execute(phase: phase_config, issue_number: 123, use_tmux: false)
+
+        expect(result).to include(success: true)
+      end
+    end
+  end
+
   describe '#execute_in_tmux' do
     let(:phase_config) do
       double(
@@ -359,6 +459,7 @@ RSpec.describe Soba::Services::WorkflowExecutor do
 
     before do
       allow(Soba::Infrastructure::TmuxClient).to receive(:new).and_return(tmux_client)
+      allow(git_workspace_manager).to receive(:get_worktree_path).and_return(nil)
     end
 
     context 'when executing command in tmux' do
@@ -450,6 +551,7 @@ RSpec.describe Soba::Services::WorkflowExecutor do
 
       before do
         allow(git_workspace_manager).to receive(:setup_workspace)
+        allow(git_workspace_manager).to receive(:get_worktree_path).and_return(nil)
       end
 
       it 'returns nil' do

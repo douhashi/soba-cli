@@ -19,13 +19,16 @@ module Soba
         @logger = logger || Logger.new(STDOUT)
       end
 
-      def blocking?(repository, issues:)
-        !blocking_issues(repository, issues: issues).empty?
+      def blocking?(repository, issues:, except_issue_number: nil)
+        !blocking_issues(repository, issues: issues, except_issue_number: except_issue_number).empty?
       end
 
-      def blocking_issues(repository, issues:)
+      def blocking_issues(repository, issues:, except_issue_number: nil)
         # 引数で渡されたissuesからsoba:*ラベル（soba:todoを除く）を持つものを検出
+        # except_issue_numberが指定されている場合は、そのissueを除外
         blocking = issues.select do |issue|
+          next false if except_issue_number && issue.number == except_issue_number
+
           issue.labels.any? do |label|
             label_name = label.is_a?(Hash) ? label[:name] : label.name
             label_name.start_with?("soba:") && label_name != "soba:todo"
@@ -41,8 +44,8 @@ module Soba
         blocking.compact.uniq { |issue| issue.number }
       end
 
-      def blocking_reason(repository, issues:)
-        blocking = blocking_issues(repository, issues: issues)
+      def blocking_reason(repository, issues:, except_issue_number: nil)
+        blocking = blocking_issues(repository, issues: issues, except_issue_number: except_issue_number)
         return nil if blocking.empty?
 
         issue = blocking.first

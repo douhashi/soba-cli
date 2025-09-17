@@ -64,14 +64,6 @@ module Soba
             begin
               issues = issue_watcher.fetch_issues
 
-              # Check if workflow is blocked by other soba labels
-              if blocking_checker.blocking?(repository, issues: issues)
-                blocking_reason = blocking_checker.blocking_reason(repository, issues: issues)
-                puts "\n#{blocking_reason}"
-                sleep(interval) if @running
-                next
-              end
-
               # Filter issues that need processing
               processable_issues = issues.select do |issue|
                 # Extract label names from hash array - labels are already hashes
@@ -86,6 +78,24 @@ module Soba
               # Process the first issue if available
               if processable_issues.any?
                 issue = processable_issues.first
+
+                # Get current phase for this issue
+                labels = issue.labels.map { |l| l[:name] }
+                current_phase = phase_strategy.determine_phase(labels)
+
+                # Check blocking based on phase
+                if current_phase == :todo
+                  # For new workflow start (todo -> planning), check if any other issue is active
+                  if blocking_checker.blocking?(repository, issues: issues, except_issue_number: issue.number)
+                    blocking_reason = blocking_checker.blocking_reason(repository, issues: issues,
+                                                                                   except_issue_number: issue.number)
+                    puts "\n#{blocking_reason}"
+                    sleep(interval) if @running
+                    next
+                  end
+                  # else: If phase is not :todo (already in progress), allow transition without blocking check
+                end
+
                 puts "\n🚀 Processing Issue ##{issue.number}: #{issue.title}"
 
                 # Convert Domain::Issue to Hash for issue_processor

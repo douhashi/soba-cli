@@ -8,6 +8,37 @@ RSpec.describe Soba::Services::WorkflowBlockingChecker do
   let(:repository) { "owner/repo" }
 
   describe "#blocking?" do
+    context "with except_issue_number parameter" do
+      let(:doing_issue) do
+        double(
+          number: 4,
+          title: "Doing Issue",
+          labels: [{ name: "soba:doing" }]
+        )
+      end
+
+      let(:todo_issue) do
+        double(
+          number: 9,
+          title: "Todo Issue",
+          labels: [{ name: "soba:todo" }]
+        )
+      end
+
+      let(:issues) { [doing_issue, todo_issue] }
+
+      it "excludes the specified issue from blocking check" do
+        # When checking if blocked, except issue #4
+        result = checker.blocking?(repository, issues: issues, except_issue_number: 4)
+        expect(result).to be false
+      end
+
+      it "includes the issue when not excepted" do
+        # When checking if blocked, except issue #9 (todo issue)
+        result = checker.blocking?(repository, issues: issues, except_issue_number: 9)
+        expect(result).to be true
+      end
+    end
     context "when there are no open issues" do
       let(:issues) { [] }
 
@@ -164,6 +195,35 @@ RSpec.describe Soba::Services::WorkflowBlockingChecker do
   end
 
   describe "#blocking_issues" do
+    context "with except_issue_number parameter" do
+      let(:planning_issue) do
+        double(
+          number: 2,
+          title: "Planning Issue",
+          labels: [{ name: "soba:planning" }]
+        )
+      end
+
+      let(:doing_issue) do
+        double(
+          number: 4,
+          title: "Doing Issue",
+          labels: [{ name: "soba:doing" }]
+        )
+      end
+
+      let(:issues) { [planning_issue, doing_issue] }
+
+      it "excludes the specified issue from results" do
+        result = checker.blocking_issues(repository, issues: issues, except_issue_number: 2)
+        expect(result).to contain_exactly(doing_issue)
+      end
+
+      it "returns all blocking issues when no exception" do
+        result = checker.blocking_issues(repository, issues: issues)
+        expect(result).to contain_exactly(planning_issue, doing_issue)
+      end
+    end
     context "when there are blocking issues" do
       let(:planning_issue) do
         double(

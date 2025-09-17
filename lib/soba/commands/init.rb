@@ -31,6 +31,9 @@ module Soba
         'ready' => '228b22',           # Green
         'doing' => 'ffd700',           # Yellow
         'review_requested' => 'ff8c00', # Orange
+        'reviewing' => 'ff6347',       # Tomato
+        'done' => '32cd32',            # Lime Green
+        'requires_changes' => 'dc143c', # Crimson
       }.freeze
 
       LABEL_DESCRIPTIONS = {
@@ -38,6 +41,9 @@ module Soba
         'ready' => 'Ready for implementation',
         'doing' => 'In progress',
         'review_requested' => 'Review requested',
+        'reviewing' => 'Under review',
+        'done' => 'Review completed',
+        'requires_changes' => 'Changes requested',
       }.freeze
 
       DEFAULT_PHASE_CONFIG = {
@@ -50,6 +56,11 @@ module Soba
           'command' => 'claude',
           'options' => ['--dangerously-skip-permissions'],
           'parameter' => '/soba:implement {{issue-number}}',
+        },
+        'review' => {
+          'command' => 'claude',
+          'options' => ['--dangerously-skip-permissions'],
+          'parameter' => '/soba:review {{issue-number}}',
         },
       }.freeze
 
@@ -260,6 +271,34 @@ module Soba
           implement_parameter = DEFAULT_PHASE_CONFIG['implement']['parameter'] if implement_parameter.empty?
         end
 
+        # Review phase command
+        puts ""
+        puts "Review phase command:"
+        print "Enter command (e.g., claude) [#{DEFAULT_PHASE_CONFIG['review']['command']}]: "
+        review_command = $stdin.gets.chomp
+        review_command = DEFAULT_PHASE_CONFIG['review']['command'] if review_command.empty?
+        if review_command.downcase == 'skip'
+          review_command = nil
+        end
+
+        review_options = []
+        review_parameter = nil
+        if review_command
+          default_options = DEFAULT_PHASE_CONFIG['review']['options'].join(',')
+          print "Enter options (comma-separated, e.g., --dangerously-skip-permissions) [#{default_options}]: "
+          options_input = $stdin.gets.chomp
+          if options_input.empty?
+            review_options = DEFAULT_PHASE_CONFIG['review']['options']
+          else
+            review_options = options_input.split(',').map(&:strip).reject(&:empty?)
+          end
+
+          default_param = DEFAULT_PHASE_CONFIG['review']['parameter']
+          print "Enter parameter (use {{issue-number}} for issue number) [#{default_param}]: "
+          review_parameter = $stdin.gets.chomp
+          review_parameter = DEFAULT_PHASE_CONFIG['review']['parameter'] if review_parameter.empty?
+        end
+
         # Create configuration
         config = {
           'github' => {
@@ -278,7 +317,7 @@ module Soba
         }
 
         # Add phase configuration if provided
-        if plan_command || implement_command
+        if plan_command || implement_command || review_command
           config['phase'] = {}
 
           if plan_command
@@ -294,6 +333,14 @@ module Soba
               'command' => implement_command,
               'options' => implement_options,
               'parameter' => implement_parameter,
+            }
+          end
+
+          if review_command
+            config['phase']['review'] = {
+              'command' => review_command,
+              'options' => review_options,
+              'parameter' => review_parameter,
             }
           end
         end
@@ -371,6 +418,20 @@ module Soba
             end
             if config['phase']['implement']['parameter']
               phase_content += "              parameter: '#{config['phase']['implement']['parameter']}'\n"
+            end
+          end
+
+          if config['phase']['review']
+            phase_content += "            review:\n"
+            phase_content += "              command: #{config['phase']['review']['command']}\n"
+            if config['phase']['review']['options'].present?
+              phase_content += "              options:\n"
+              config['phase']['review']['options'].each do |opt|
+                phase_content += "                - #{opt}\n"
+              end
+            end
+            if config['phase']['review']['parameter']
+              phase_content += "              parameter: '#{config['phase']['review']['parameter']}'\n"
             end
           end
 
@@ -472,6 +533,7 @@ module Soba
           created_count = 0
           skipped_count = 0
 
+          # Create phase labels
           phase_labels.each do |phase, label_name|
             if existing_label_names.include?(label_name)
               puts "   ⏩ Label '#{label_name}' already exists, skipping"
@@ -479,6 +541,33 @@ module Soba
             else
               color = LABEL_COLORS[phase]
               description = LABEL_DESCRIPTIONS[phase]
+
+              result = github_client.create_label(repository, label_name, color, description)
+              if result
+                puts "   ✅ Label '#{label_name}' created"
+                created_count += 1
+              else
+                puts "   ⚠️  Label '#{label_name}' could not be created (may already exist)"
+                skipped_count += 1
+              end
+            end
+          end
+
+          # Create additional review-related labels
+          additional_labels = [
+            { name: 'soba:reviewing', phase: 'reviewing' },
+            { name: 'soba:done', phase: 'done' },
+            { name: 'soba:requires-changes', phase: 'requires_changes' },
+          ]
+
+          additional_labels.each do |label_info|
+            label_name = label_info[:name]
+            if existing_label_names.include?(label_name)
+              puts "   ⏩ Label '#{label_name}' already exists, skipping"
+              skipped_count += 1
+            else
+              color = LABEL_COLORS[label_info[:phase]]
+              description = LABEL_DESCRIPTIONS[label_info[:phase]]
 
               result = github_client.create_label(repository, label_name, color, description)
               if result

@@ -150,6 +150,11 @@ RSpec.describe Soba::Configuration do
               options:
                 - --dangerously-skip-permissions
               parameter: '/osoba:implement {{issue-number}}'
+            review:
+              command: claude
+              options:
+                - --dangerously-skip-permissions
+              parameter: '/soba:review {{issue-number}}'
         YAML
       end
 
@@ -163,6 +168,10 @@ RSpec.describe Soba::Configuration do
         expect(config.phase.implement.command).to eq('claude')
         expect(config.phase.implement.options).to eq(['--dangerously-skip-permissions'])
         expect(config.phase.implement.parameter).to eq('/osoba:implement {{issue-number}}')
+
+        expect(config.phase.review.command).to eq('claude')
+        expect(config.phase.review.options).to eq(['--dangerously-skip-permissions'])
+        expect(config.phase.review.parameter).to eq('/soba:review {{issue-number}}')
       end
     end
 
@@ -184,6 +193,7 @@ RSpec.describe Soba::Configuration do
 
         expect(config.phase.plan.command).to be_nil
         expect(config.phase.implement.command).to be_nil
+        expect(config.phase.review.command).to be_nil
       end
     end
   end

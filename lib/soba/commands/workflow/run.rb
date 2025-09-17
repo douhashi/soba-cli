@@ -107,8 +107,22 @@ module Soba
                     if result[:workflow_skipped]
                       puts "  Workflow skipped: #{result[:reason]}"
                     elsif result[:mode] == 'tmux'
-                      puts "  Tmux session started: #{result[:session_name]}" if result[:session_name]
-                      puts "  You can attach with: tmux attach -t #{result[:session_name]}" if result[:session_name]
+                      # Display enhanced tmux information
+                      if result[:tmux_info]
+                        tmux_info = result[:tmux_info]
+                        puts "  Tmux execution details:"
+                        puts "    Session: #{tmux_info[:session]}"
+                        puts "    Window: #{tmux_info[:window]}"
+                        puts "    Pane: #{tmux_info[:pane] || 'window root'}"
+                        puts "  Monitor commands:"
+                        tmux_info[:monitor_commands]&.each do |cmd|
+                          puts "    #{cmd}"
+                        end
+                      else
+                        # Fallback to legacy output for backward compatibility
+                        puts "  Tmux session started: #{result[:session_name]}" if result[:session_name]
+                        puts "  You can attach with: tmux attach -t #{result[:session_name]}" if result[:session_name]
+                      end
                     elsif result[:output]
                       puts "  Workflow output: #{result[:output].strip}"
                     end

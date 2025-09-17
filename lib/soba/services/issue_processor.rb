@@ -58,6 +58,9 @@ module Soba
           # Add tmux-specific fields if present
           result[:mode] = execution_result[:mode] if execution_result[:mode]
           result[:session_name] = execution_result[:session_name] if execution_result[:session_name]
+          result[:window_name] = execution_result[:window_name] if execution_result[:window_name]
+          result[:pane_id] = execution_result[:pane_id] if execution_result[:pane_id]
+          result[:tmux_info] = execution_result[:tmux_info] if execution_result[:tmux_info]
 
           result
         else

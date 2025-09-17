@@ -93,11 +93,12 @@ module Soba
             tmux_client.send_keys("#{session_result[:session_name]}:#{window_result[:window_name]}", command_string)
             pane_id = nil
           else
-            # 既存windowの場合は新規paneを作成
+            # 既存windowの場合は新規paneを作成（水平分割）
             pane_result = @tmux_session_manager.create_phase_pane(
               session_name: session_result[:session_name],
               window_name: window_result[:window_name],
-              phase: phase.name
+              phase: phase.name,
+              vertical: false
             )
             return pane_result unless pane_result[:success]
 

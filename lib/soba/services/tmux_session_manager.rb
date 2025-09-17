@@ -126,7 +126,23 @@ module Soba
         end
       end
 
-      def create_phase_pane(session_name:, window_name:, phase:, vertical: true)
+      def create_phase_pane(session_name:, window_name:, phase:, vertical: true, max_panes: 3)
+        # 現在のペイン一覧を取得
+        existing_panes = @tmux_client.list_panes(session_name, window_name)
+
+        # 最大ペイン数を超えている場合、古いペインを削除
+        if existing_panes.size >= max_panes
+          # start_timeでソート（古い順）
+          sorted_panes = existing_panes.sort_by { |p| p[:start_time] }
+
+          # 最大ペイン数-1になるまで古いペインを削除
+          panes_to_remove = sorted_panes.take(existing_panes.size - max_panes + 1)
+          panes_to_remove.each do |pane|
+            @tmux_client.kill_pane(pane[:id])
+          end
+        end
+
+        # 新しいペインを作成
         pane_id = @tmux_client.split_window(
           session_name: session_name,
           window_name: window_name,
@@ -134,6 +150,9 @@ module Soba
         )
 
         if pane_id
+          # レイアウトを調整
+          @tmux_client.select_layout(session_name, window_name, 'even-horizontal')
+
           { success: true, pane_id: pane_id, phase: phase }
         else
           { success: false, error: "Failed to create pane for phase #{phase}" }

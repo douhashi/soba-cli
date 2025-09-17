@@ -187,6 +187,72 @@ RSpec.describe 'Tmux Integration', type: :integration, skip: 'Requires actual tm
       # Close a pane (not pane 0, which would close the session)
       expect(tmux_client.close_pane(test_session_name, 1)).to be true
     end
+
+    it 'manages panes with automatic cleanup and layout adjustment' do
+      # Create session and window
+      expect(tmux_client.create_session(test_session_name)).to be true
+      expect(tmux_client.create_window(test_session_name, 'test-window')).to be true
+
+      # Test automatic pane limit management
+      4.times do |i|
+        result = tmux_session_manager.create_phase_pane(
+          session_name: test_session_name,
+          window_name: 'test-window',
+          phase: "phase-#{i}",
+          vertical: false
+        )
+        expect(result[:success]).to be true
+      end
+
+      # Verify that only 3 panes exist (max_panes default)
+      panes = tmux_client.list_panes(test_session_name, 'test-window')
+      expect(panes.size).to be <= 3
+    end
+
+    it 'lists panes with creation times' do
+      # Create session and window
+      expect(tmux_client.create_session(test_session_name)).to be true
+      expect(tmux_client.create_window(test_session_name, 'test-window')).to be true
+
+      # Create some panes
+      2.times do
+        tmux_client.split_window(
+          session_name: test_session_name,
+          window_name: 'test-window',
+          vertical: false
+        )
+      end
+
+      # List panes with timestamps
+      panes = tmux_client.list_panes(test_session_name, 'test-window')
+      expect(panes).to be_an(Array)
+      expect(panes.size).to be >= 2
+
+      panes.each do |pane|
+        expect(pane).to have_key(:id)
+        expect(pane).to have_key(:start_time)
+        expect(pane[:id]).to match(/^%\d+$/)
+        expect(pane[:start_time]).to be_a(Integer)
+      end
+    end
+
+    it 'applies layout adjustments' do
+      # Create session and window
+      expect(tmux_client.create_session(test_session_name)).to be true
+      expect(tmux_client.create_window(test_session_name, 'test-window')).to be true
+
+      # Create panes
+      2.times do
+        tmux_client.split_window(
+          session_name: test_session_name,
+          window_name: 'test-window',
+          vertical: false
+        )
+      end
+
+      # Apply layout
+      expect(tmux_client.select_layout(test_session_name, 'test-window', 'even-horizontal')).to be true
+    end
   end
 
   describe 'Session information' do

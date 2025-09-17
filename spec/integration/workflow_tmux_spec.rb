@@ -74,11 +74,13 @@ RSpec.describe 'Workflow Tmux Integration' do
         allow(tmux_client).to receive(:create_window) # Allow but don't expect
 
         # Create new pane for the phase
+        allow(tmux_client).to receive(:list_panes).with('soba-owner-repo-name', 'issue-42').and_return([])
         allow(tmux_client).to receive(:split_window).with(
           session_name: 'soba-owner-repo-name',
           window_name: 'issue-42',
-          vertical: true
+          vertical: false
         ).and_return('%15')
+        allow(tmux_client).to receive(:select_layout).with('soba-owner-repo-name', 'issue-42', 'even-horizontal').and_return(true)
 
         # Send command to the new pane
         allow(tmux_client).to receive(:send_keys).with('%15', 'soba:plan 42').and_return(true)
@@ -151,11 +153,13 @@ RSpec.describe 'Workflow Tmux Integration' do
         allow(tmux_client).to receive(:send_keys).with('soba-owner-repo-name:issue-31', 'soba:plan 31').and_return(true)
 
         # Second phase: window exists, create new pane
+        allow(tmux_client).to receive(:list_panes).with('soba-owner-repo-name', 'issue-31').and_return([])
         allow(tmux_client).to receive(:split_window).with(
           session_name: 'soba-owner-repo-name',
           window_name: 'issue-31',
-          vertical: true
+          vertical: false
         ).and_return('%20')
+        allow(tmux_client).to receive(:select_layout).with('soba-owner-repo-name', 'issue-31', 'even-horizontal').and_return(true)
         allow(tmux_client).to receive(:send_keys).with('%20', 'soba:implement 31').and_return(true)
       end
 

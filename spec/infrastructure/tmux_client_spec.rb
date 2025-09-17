@@ -611,4 +611,90 @@ RSpec.describe Soba::Infrastructure::TmuxClient do
       expect(result).to be_nil
     end
   end
+
+  describe '#list_panes' do
+    let(:session_name) { 'soba-test-session' }
+    let(:window_name) { 'test-window' }
+
+    it 'returns list of panes with creation times' do
+      pane_list = "%0:1734444000\n%1:1734444100\n%2:1734444200"
+      allow(Open3).to receive(:capture3).with(
+        'tmux', 'list-panes', '-t', "#{session_name}:#{window_name}",
+        '-F', '#{pane_id}:#{pane_start_time}'
+      ).and_return([pane_list, '', double(exitstatus: 0)])
+
+      result = client.list_panes(session_name, window_name)
+
+      expect(result).to eq([
+        { id: '%0', start_time: 1734444000 },
+        { id: '%1', start_time: 1734444100 },
+        { id: '%2', start_time: 1734444200 },
+      ])
+    end
+
+    it 'returns empty array when window does not exist' do
+      allow(Open3).to receive(:capture3).with(
+        'tmux', 'list-panes', '-t', "#{session_name}:#{window_name}",
+        '-F', '#{pane_id}:#{pane_start_time}'
+      ).and_return(['', "can't find window", double(exitstatus: 1)])
+
+      result = client.list_panes(session_name, window_name)
+
+      expect(result).to eq([])
+    end
+  end
+
+  describe '#kill_pane' do
+    let(:pane_id) { '%0' }
+
+    it 'kills the specified pane' do
+      allow(Open3).to receive(:capture3).with(
+        'tmux', 'kill-pane', '-t', pane_id
+      ).and_return(['', '', double(exitstatus: 0)])
+
+      result = client.kill_pane(pane_id)
+
+      expect(result).to be true
+      expect(Open3).to have_received(:capture3).with('tmux', 'kill-pane', '-t', pane_id)
+    end
+
+    it 'returns false when pane does not exist' do
+      allow(Open3).to receive(:capture3).with(
+        'tmux', 'kill-pane', '-t', pane_id
+      ).and_return(['', "can't find pane", double(exitstatus: 1)])
+
+      result = client.kill_pane(pane_id)
+
+      expect(result).to be false
+    end
+  end
+
+  describe '#select_layout' do
+    let(:session_name) { 'soba-test-session' }
+    let(:window_name) { 'test-window' }
+    let(:layout) { 'even-horizontal' }
+
+    it 'applies the specified layout' do
+      allow(Open3).to receive(:capture3).with(
+        'tmux', 'select-layout', '-t', "#{session_name}:#{window_name}", layout
+      ).and_return(['', '', double(exitstatus: 0)])
+
+      result = client.select_layout(session_name, window_name, layout)
+
+      expect(result).to be true
+      expect(Open3).to have_received(:capture3).with(
+        'tmux', 'select-layout', '-t', "#{session_name}:#{window_name}", layout
+      )
+    end
+
+    it 'returns false when window does not exist' do
+      allow(Open3).to receive(:capture3).with(
+        'tmux', 'select-layout', '-t', "#{session_name}:#{window_name}", layout
+      ).and_return(['', "can't find window", double(exitstatus: 1)])
+
+      result = client.select_layout(session_name, window_name, layout)
+
+      expect(result).to be false
+    end
+  end
 end

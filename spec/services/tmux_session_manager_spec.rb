@@ -399,11 +399,13 @@ RSpec.describe Soba::Services::TmuxSessionManager do
     let(:phase) { 'planning' }
 
     it 'creates a new pane for the phase' do
+      allow(tmux_client).to receive(:list_panes).and_return([])
       allow(tmux_client).to receive(:split_window).with(
         session_name: session_name,
         window_name: window_name,
         vertical: true
-      ).and_return(0)
+      ).and_return('%0')
+      allow(tmux_client).to receive(:select_layout).and_return(true)
 
       result = manager.create_phase_pane(
         session_name: session_name,
@@ -412,16 +414,18 @@ RSpec.describe Soba::Services::TmuxSessionManager do
       )
 
       expect(result[:success]).to be true
-      expect(result[:pane_id]).to eq(0)
+      expect(result[:pane_id]).to eq('%0')
       expect(result[:phase]).to eq(phase)
     end
 
     it 'supports horizontal splitting' do
+      allow(tmux_client).to receive(:list_panes).and_return([])
       allow(tmux_client).to receive(:split_window).with(
         session_name: session_name,
         window_name: window_name,
         vertical: false
-      ).and_return(1)
+      ).and_return('%1')
+      allow(tmux_client).to receive(:select_layout).and_return(true)
 
       result = manager.create_phase_pane(
         session_name: session_name,
@@ -431,11 +435,84 @@ RSpec.describe Soba::Services::TmuxSessionManager do
       )
 
       expect(result[:success]).to be true
-      expect(result[:pane_id]).to eq(1)
+      expect(result[:pane_id]).to eq('%1')
+    end
+
+    context 'when there are 3 or more existing panes' do
+      it 'removes the oldest pane before creating a new one' do
+        # 3つのペインが既に存在
+        existing_panes = [
+          { id: '%0', start_time: 1734444000 }, # oldest
+          { id: '%1', start_time: 1734444100 },
+          { id: '%2', start_time: 1734444200 },
+        ]
+        allow(tmux_client).to receive(:list_panes).and_return(existing_panes)
+        allow(tmux_client).to receive(:kill_pane).with('%0').and_return(true)
+        allow(tmux_client).to receive(:split_window).and_return('%3')
+        allow(tmux_client).to receive(:select_layout).and_return(true)
+
+        result = manager.create_phase_pane(
+          session_name: session_name,
+          window_name: window_name,
+          phase: phase
+        )
+
+        expect(tmux_client).to have_received(:kill_pane).with('%0')
+        expect(result[:success]).to be true
+        expect(result[:pane_id]).to eq('%3')
+      end
+
+      it 'maintains exactly 3 panes when adding a 4th' do
+        # 4つのペインが既に存在
+        existing_panes = [
+          { id: '%0', start_time: 1734444000 }, # oldest
+          { id: '%1', start_time: 1734444100 }, # second oldest
+          { id: '%2', start_time: 1734444200 },
+          { id: '%3', start_time: 1734444300 },
+        ]
+        allow(tmux_client).to receive(:list_panes).and_return(existing_panes)
+        # 最も古い2つのペインを削除
+        allow(tmux_client).to receive(:kill_pane).with('%0').and_return(true)
+        allow(tmux_client).to receive(:kill_pane).with('%1').and_return(true)
+        allow(tmux_client).to receive(:split_window).and_return('%4')
+        allow(tmux_client).to receive(:select_layout).and_return(true)
+
+        result = manager.create_phase_pane(
+          session_name: session_name,
+          window_name: window_name,
+          phase: phase
+        )
+
+        expect(tmux_client).to have_received(:kill_pane).with('%0')
+        expect(tmux_client).to have_received(:kill_pane).with('%1')
+        expect(result[:success]).to be true
+      end
+    end
+
+    context 'when layout adjustment is needed' do
+      it 'applies even-horizontal layout after creating pane' do
+        allow(tmux_client).to receive(:list_panes).and_return([])
+        allow(tmux_client).to receive(:split_window).and_return('%0')
+        allow(tmux_client).to receive(:select_layout).with(
+          session_name, window_name, 'even-horizontal'
+        ).and_return(true)
+
+        result = manager.create_phase_pane(
+          session_name: session_name,
+          window_name: window_name,
+          phase: phase
+        )
+
+        expect(tmux_client).to have_received(:select_layout).with(
+          session_name, window_name, 'even-horizontal'
+        )
+        expect(result[:success]).to be true
+      end
     end
 
     context 'when pane creation fails' do
       it 'returns an error' do
+        allow(tmux_client).to receive(:list_panes).and_return([])
         allow(tmux_client).to receive(:split_window).and_return(nil)
 
         result = manager.create_phase_pane(
@@ -446,6 +523,30 @@ RSpec.describe Soba::Services::TmuxSessionManager do
 
         expect(result[:success]).to be false
         expect(result[:error]).to match(/Failed to create pane/)
+      end
+    end
+
+    context 'when pane cleanup fails' do
+      it 'continues with pane creation' do
+        existing_panes = [
+          { id: '%0', start_time: 1734444000 },
+          { id: '%1', start_time: 1734444100 },
+          { id: '%2', start_time: 1734444200 },
+        ]
+        allow(tmux_client).to receive(:list_panes).and_return(existing_panes)
+        allow(tmux_client).to receive(:kill_pane).with('%0').and_return(false) # 削除失敗
+        allow(tmux_client).to receive(:split_window).and_return('%3')
+        allow(tmux_client).to receive(:select_layout).and_return(true)
+
+        result = manager.create_phase_pane(
+          session_name: session_name,
+          window_name: window_name,
+          phase: phase
+        )
+
+        expect(tmux_client).to have_received(:kill_pane).with('%0')
+        expect(result[:success]).to be true
+        expect(result[:pane_id]).to eq('%3')
       end
     end
   end

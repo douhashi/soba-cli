@@ -134,7 +134,7 @@ module Soba
 
       def get_phase_config(phase)
         case phase
-        when :plan
+        when :plan, :queued_to_planning
           # config is the Configuration module, get the actual config object
           actual_config = config.respond_to?(:config) ? config.config : config
           plan_config = actual_config.phase.plan

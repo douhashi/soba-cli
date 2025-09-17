@@ -8,6 +8,7 @@ require_relative '../../services/issue_processor'
 require_relative '../../services/workflow_executor'
 require_relative '../../services/tmux_session_manager'
 require_relative '../../services/workflow_blocking_checker'
+require_relative '../../services/queueing_service'
 require_relative '../../domain/phase_strategy'
 
 module Soba
@@ -42,6 +43,10 @@ module Soba
           blocking_checker = Soba::Services::WorkflowBlockingChecker.new(
             github_client: github_client
           )
+          queueing_service = Soba::Services::QueueingService.new(
+            github_client: github_client,
+            blocking_checker: blocking_checker
+          )
 
           repository = Soba::Configuration.config.github.repository
           interval = Soba::Configuration.config.workflow.interval || 10
@@ -64,12 +69,29 @@ module Soba
             begin
               issues = issue_watcher.fetch_issues
 
-              # Filter issues that need processing
+              # Check for todo issues that need queueing
+              todo_issues = issues.select do |issue|
+                labels = issue.labels.map { |l| l[:name] }
+                labels.include?('soba:todo')
+              end
+
+              # Queue todo issues if no active issues exist
+              if todo_issues.any? && !blocking_checker.blocking?(repository, issues: issues)
+                queued_issue = queueing_service.queue_next_issue(repository)
+                if queued_issue
+                  puts "\n✅ Queued Issue ##{queued_issue.number} for processing: #{queued_issue.title}"
+                  # Refresh issues to include the new queued state
+                  issues = issue_watcher.fetch_issues
+                end
+              end
+
+              # Filter issues that need processing (including queued issues)
               processable_issues = issues.select do |issue|
                 # Extract label names from hash array - labels are already hashes
                 labels = issue.labels.map { |l| l[:name] }
                 phase = phase_strategy.determine_phase(labels)
-                !phase.nil?
+                # Process queued issues and other phases
+                !phase.nil? && phase != :plan # Don't process todo directly, wait for queueing
               end
 
               # Sort by issue number (youngest first)
@@ -79,22 +101,8 @@ module Soba
               if processable_issues.any?
                 issue = processable_issues.first
 
-                # Get current phase for this issue
-                labels = issue.labels.map { |l| l[:name] }
-                current_phase = phase_strategy.determine_phase(labels)
-
-                # Check blocking based on phase
-                if current_phase == :todo
-                  # For new workflow start (todo -> planning), check if any other issue is active
-                  if blocking_checker.blocking?(repository, issues: issues, except_issue_number: issue.number)
-                    blocking_reason = blocking_checker.blocking_reason(repository, issues: issues,
-                                                                                   except_issue_number: issue.number)
-                    puts "\n#{blocking_reason}"
-                    sleep(interval) if @running
-                    next
-                  end
-                  # else: If phase is not :todo (already in progress), allow transition without blocking check
-                end
+                # Skip blocking check for non-todo phases
+                # (Blocking is handled during queueing for todo issues)
 
                 puts "\n🚀 Processing Issue ##{issue.number}: #{issue.title}"
 

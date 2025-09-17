@@ -7,6 +7,7 @@ require 'soba/services/issue_watcher'
 require 'soba/services/issue_processor'
 require 'soba/services/workflow_executor'
 require 'soba/services/workflow_blocking_checker'
+require 'soba/services/queueing_service'
 require 'soba/domain/phase_strategy'
 require 'soba/domain/issue'
 require 'soba/configuration'
@@ -409,6 +410,130 @@ RSpec.describe Soba::Commands::Workflow::Run do
           expect { command.execute({}, {}) }.to output(
             /🚀 Processing Issue #50: Test Issue/
           ).to_stdout
+        end
+      end
+    end
+
+    context 'when queueing service integration' do
+      let(:queueing_service) { instance_double(Soba::Services::QueueingService) }
+      let(:blocking_checker) { instance_double(Soba::Services::WorkflowBlockingChecker) }
+
+      context 'when multiple soba:todo issues exist' do
+        let(:todo_issues) do
+          [
+            Soba::Domain::Issue.new(
+              number: 100,
+              title: 'Todo Issue 100',
+              labels: [{ name: 'soba:todo' }],
+              state: 'open',
+              created_at: Time.now.iso8601,
+              updated_at: Time.now.iso8601
+            ),
+            Soba::Domain::Issue.new(
+              number: 101,
+              title: 'Todo Issue 101',
+              labels: [{ name: 'soba:todo' }],
+              state: 'open',
+              created_at: Time.now.iso8601,
+              updated_at: Time.now.iso8601
+            ),
+          ]
+        end
+
+        before do
+          allow(github_client).to receive(:issues).and_return(todo_issues)
+          allow(Soba::Services::WorkflowBlockingChecker).to receive(:new).and_return(blocking_checker)
+          allow(Soba::Services::QueueingService).to receive(:new).and_return(queueing_service)
+          allow(blocking_checker).to receive(:blocking?).and_return(false)
+        end
+
+        it 'queues the first todo issue when no active issues' do
+          expect(queueing_service).to receive(:queue_next_issue).with('owner/repo').and_return(todo_issues.first)
+
+          # Stop after first iteration
+          allow_any_instance_of(described_class).to receive(:sleep) do |instance, _interval|
+            instance.instance_variable_set(:@running, false)
+            nil
+          end
+
+          expect { command.execute({}, {}) }.to output(/Queued Issue #100 for processing/).to_stdout
+        end
+      end
+
+      context 'when active issue exists' do
+        let(:active_issue) do
+          Soba::Domain::Issue.new(
+            number: 90,
+            title: 'Active Issue',
+            labels: [{ name: 'soba:planning' }],
+            state: 'open',
+            created_at: Time.now.iso8601,
+            updated_at: Time.now.iso8601
+          )
+        end
+
+        let(:todo_issue) do
+          Soba::Domain::Issue.new(
+            number: 91,
+            title: 'Todo Issue',
+            labels: [{ name: 'soba:todo' }],
+            state: 'open',
+            created_at: Time.now.iso8601,
+            updated_at: Time.now.iso8601
+          )
+        end
+
+        before do
+          allow(github_client).to receive(:issues).and_return([active_issue, todo_issue])
+          allow(Soba::Services::WorkflowBlockingChecker).to receive(:new).and_return(blocking_checker)
+          allow(Soba::Services::QueueingService).to receive(:new).and_return(queueing_service)
+          allow(blocking_checker).to receive(:blocking?).with('owner/repo', issues: [active_issue, todo_issue]).and_return(true)
+          allow(blocking_checker).to receive(:blocking_reason).and_return('Issue #90 が soba:planning のため、新しいワークフローの開始をスキップしました')
+        end
+
+        it 'skips queueing when active issue is present' do
+          expect(queueing_service).not_to receive(:queue_next_issue)
+
+          # Stop after first iteration
+          allow_any_instance_of(described_class).to receive(:sleep) do |instance, _interval|
+            instance.instance_variable_set(:@running, false)
+            nil
+          end
+
+          expect { command.execute({}, {}) }.not_to output(/Queued Issue/).to_stdout
+        end
+      end
+
+      context 'when soba:queued issue exists' do
+        let(:queued_issue) do
+          Soba::Domain::Issue.new(
+            number: 110,
+            title: 'Queued Issue',
+            labels: [{ name: 'soba:queued' }],
+            state: 'open',
+            created_at: Time.now.iso8601,
+            updated_at: Time.now.iso8601
+          )
+        end
+
+        before do
+          allow(github_client).to receive(:issues).and_return([queued_issue])
+          allow(Soba::Services::WorkflowBlockingChecker).to receive(:new).and_return(blocking_checker)
+          allow(Soba::Services::QueueingService).to receive(:new).and_return(queueing_service)
+        end
+
+        it 'transitions queued issue to planning' do
+          expect(github_client).to receive(:update_issue_labels).with(110, from: 'soba:queued', to: 'soba:planning')
+
+          allow(Open3).to receive(:popen3).with('echo', 'Plan 110') do |&block|
+            stdin = double('stdin', close: nil)
+            stdout = double('stdout', read: 'Plan executed')
+            stderr = double('stderr', read: '')
+            thread = double('thread', value: double(exitstatus: 0))
+            block.call(stdin, stdout, stderr, thread)
+          end
+
+          expect { command.execute({}, {}) }.to output(/Processing Issue #110/).to_stdout
         end
       end
     end

@@ -19,6 +19,11 @@ module Soba
       setting :use_tmux, default: true
     end
 
+    setting :git do
+      setting :worktree_base_path, default: '.git/soba/worktrees'
+      setting :setup_workspace, default: true
+    end
+
     setting :phase do
       setting :plan do
         setting :command
@@ -40,6 +45,8 @@ module Soba
           c.github.repository = nil
           c.workflow.interval = 20
           c.workflow.use_tmux = true
+          c.git.worktree_base_path = '.git/soba/worktrees'
+          c.git.setup_workspace = true
           c.phase.plan.command = nil
           c.phase.plan.options = []
           c.phase.plan.parameter = nil
@@ -107,7 +114,12 @@ module Soba
 
           if data['workflow']
             c.workflow.interval = data.dig('workflow', 'interval') || 20
-            c.workflow.use_tmux = data.dig('workflow', 'use_tmux') != false  # default true
+            c.workflow.use_tmux = data.dig('workflow', 'use_tmux') != false # default true
+          end
+
+          if data['git']
+            c.git.worktree_base_path = data.dig('git', 'worktree_base_path') || '.git/soba/worktrees'
+            c.git.setup_workspace = data.dig('git', 'setup_workspace') != false  # default true
           end
 
           if data['phase']
@@ -143,6 +155,12 @@ module Soba
             interval: 20
             # Use tmux for Claude execution (default: true)
             use_tmux: true
+
+          git:
+            # Base path for git worktrees
+            worktree_base_path: .git/soba/worktrees
+            # Automatically setup workspace on phase start
+            setup_workspace: true
 
           # Phase command configuration (optional)
           # phase:

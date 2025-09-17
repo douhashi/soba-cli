@@ -5,10 +5,15 @@ require "logger"
 module Soba
   module Services
     class WorkflowBlockingChecker
-      SOBA_LABELS = %w(
+      ACTIVE_LABELS = %w(
+        soba:queued
         soba:planning
-        soba:ready
         soba:doing
+        soba:reviewing
+      ).freeze
+
+      WAITING_LABELS = %w(
+        soba:ready
         soba:review-requested
       ).freeze
 
@@ -24,7 +29,7 @@ module Soba
       end
 
       def blocking_issues(repository, issues:, except_issue_number: nil)
-        # 引数で渡されたissuesからsoba:*ラベル（soba:todoを除く）を持つものを検出
+        # 引数で渡されたissuesからACTIVE_LABELSを持つものを検出
         # except_issue_numberが指定されている場合は、そのissueを除外
         blocking = issues.select do |issue|
           if except_issue_number && issue.number == except_issue_number
@@ -33,13 +38,13 @@ module Soba
 
           issue.labels.any? do |label|
             label_name = label.is_a?(Hash) ? label[:name] : label.name
-            label_name.start_with?("soba:") && label_name != "soba:todo"
+            ACTIVE_LABELS.include?(label_name)
           end
         end
 
-        logger&.debug("Found #{blocking.size} blocking issues with soba:* labels")
+        logger&.debug("Found #{blocking.size} blocking issues with ACTIVE_LABELS")
         blocking.each do |issue|
-          labels = issue.labels.map { |l| l.is_a?(Hash) ? l[:name] : l.name }.select { |n| n.start_with?("soba:") }
+          labels = issue.labels.map { |l| l.is_a?(Hash) ? l[:name] : l.name }.select { |n| ACTIVE_LABELS.include?(n) }
           logger&.debug("Issue ##{issue.number}: #{labels.join(', ')}")
         end
 
@@ -53,7 +58,7 @@ module Soba
         issue = blocking.first
         label = issue.labels.find do |l|
           label_name = l.is_a?(Hash) ? l[:name] : l.name
-          label_name.start_with?("soba:")
+          ACTIVE_LABELS.include?(label_name)
         end
         return nil unless label
 

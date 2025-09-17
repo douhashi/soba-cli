@@ -64,6 +64,22 @@ RSpec.describe Soba::Services::WorkflowBlockingChecker do
       end
     end
 
+    context "when soba:queued issue exists" do
+      let(:queued_issue) do
+        double(
+          number: 1,
+          title: "Queued Issue",
+          labels: [{ name: "soba:queued" }]
+        )
+      end
+      let(:issues) { [queued_issue] }
+
+      it "returns true" do
+        result = checker.blocking?(repository, issues: issues)
+        expect(result).to be true
+      end
+    end
+
     context "when soba:planning issue exists" do
       let(:planning_issue) do
         double(
@@ -90,9 +106,9 @@ RSpec.describe Soba::Services::WorkflowBlockingChecker do
       end
       let(:issues) { [ready_issue] }
 
-      it "returns true" do
+      it "returns false" do
         result = checker.blocking?(repository, issues: issues)
-        expect(result).to be true
+        expect(result).to be false
       end
     end
 
@@ -112,6 +128,22 @@ RSpec.describe Soba::Services::WorkflowBlockingChecker do
       end
     end
 
+    context "when soba:reviewing issue exists" do
+      let(:reviewing_issue) do
+        double(
+          number: 6,
+          title: "Reviewing Issue",
+          labels: [{ name: "soba:reviewing" }]
+        )
+      end
+      let(:issues) { [reviewing_issue] }
+
+      it "returns true" do
+        result = checker.blocking?(repository, issues: issues)
+        expect(result).to be true
+      end
+    end
+
     context "when soba:review-requested issue exists" do
       let(:review_issue) do
         double(
@@ -122,9 +154,9 @@ RSpec.describe Soba::Services::WorkflowBlockingChecker do
       end
       let(:issues) { [review_issue] }
 
-      it "returns true" do
+      it "returns false" do
         result = checker.blocking?(repository, issues: issues)
-        expect(result).to be true
+        expect(result).to be false
       end
     end
 
@@ -137,14 +169,14 @@ RSpec.describe Soba::Services::WorkflowBlockingChecker do
         )
       end
 
-      let(:review_issue) do
+      let(:doing_issue) do
         double(
-          number: 5,
-          title: "Review Issue",
-          labels: [{ name: "soba:review-requested" }]
+          number: 4,
+          title: "Doing Issue",
+          labels: [{ name: "soba:doing" }]
         )
       end
-      let(:issues) { [planning_issue, review_issue] }
+      let(:issues) { [planning_issue, doing_issue] }
 
       it "returns true" do
         result = checker.blocking?(repository, issues: issues)
@@ -168,6 +200,54 @@ RSpec.describe Soba::Services::WorkflowBlockingChecker do
       end
     end
 
+    context "when ACTIVE_LABELS and WAITING_LABELS are mixed" do
+      let(:ready_issue) do
+        double(
+          number: 3,
+          title: "Ready Issue",
+          labels: [{ name: "soba:ready" }]
+        )
+      end
+
+      let(:planning_issue) do
+        double(
+          number: 2,
+          title: "Planning Issue",
+          labels: [{ name: "soba:planning" }]
+        )
+      end
+      let(:issues) { [ready_issue, planning_issue] }
+
+      it "returns true when ACTIVE_LABELS are present" do
+        result = checker.blocking?(repository, issues: issues)
+        expect(result).to be true
+      end
+    end
+
+    context "when only WAITING_LABELS exist" do
+      let(:ready_issue) do
+        double(
+          number: 3,
+          title: "Ready Issue",
+          labels: [{ name: "soba:ready" }]
+        )
+      end
+
+      let(:review_requested_issue) do
+        double(
+          number: 5,
+          title: "Review Requested Issue",
+          labels: [{ name: "soba:review-requested" }]
+        )
+      end
+      let(:issues) { [ready_issue, review_requested_issue] }
+
+      it "returns false when only WAITING_LABELS are present" do
+        result = checker.blocking?(repository, issues: issues)
+        expect(result).to be false
+      end
+    end
+
     context "when new soba: label exists (not in hardcoded list)" do
       let(:custom_soba_issue) do
         double(
@@ -186,10 +266,10 @@ RSpec.describe Soba::Services::WorkflowBlockingChecker do
       end
       let(:issues) { [custom_soba_issue, todo_issue] }
 
-      it "blocks with new soba: labels (except soba:todo)" do
-        # 動的検出実装により、新しいsoba:*ラベルも検出される
+      it "does not block with new soba: labels (only ACTIVE_LABELS block)" do
+        # 静的定義実装により、ACTIVE_LABELSにない新しいsoba:*ラベルは検出されない
         result = checker.blocking?(repository, issues: issues)
-        expect(result).to be true
+        expect(result).to be false
       end
     end
   end
@@ -233,18 +313,18 @@ RSpec.describe Soba::Services::WorkflowBlockingChecker do
         )
       end
 
-      let(:review_issue) do
+      let(:doing_issue) do
         double(
-          number: 5,
-          title: "Review Issue",
-          labels: [{ name: "soba:review-requested" }]
+          number: 4,
+          title: "Doing Issue",
+          labels: [{ name: "soba:doing" }]
         )
       end
-      let(:issues) { [planning_issue, review_issue] }
+      let(:issues) { [planning_issue, doing_issue] }
 
       it "returns all blocking issues" do
         result = checker.blocking_issues(repository, issues: issues)
-        expect(result).to contain_exactly(planning_issue, review_issue)
+        expect(result).to contain_exactly(planning_issue, doing_issue)
       end
     end
 
@@ -294,18 +374,18 @@ RSpec.describe Soba::Services::WorkflowBlockingChecker do
 
   describe "#blocking_reason" do
     context "when a single blocking issue exists" do
-      let(:review_issue) do
+      let(:planning_issue) do
         double(
-          number: 5,
-          title: "Review Issue",
-          labels: [{ name: "soba:review-requested" }]
+          number: 2,
+          title: "Planning Issue",
+          labels: [{ name: "soba:planning" }]
         )
       end
-      let(:issues) { [review_issue] }
+      let(:issues) { [planning_issue] }
 
       it "returns formatted blocking reason" do
         reason = checker.blocking_reason(repository, issues: issues)
-        expect(reason).to eq("Issue #5 が soba:review-requested のため、新しいワークフローの開始をスキップしました")
+        expect(reason).to eq("Issue #2 が soba:planning のため、新しいワークフローの開始をスキップしました")
       end
     end
 

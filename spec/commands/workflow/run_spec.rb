@@ -24,6 +24,7 @@ RSpec.describe Soba::Commands::Workflow::Run do
       c.github.repository = 'owner/repo'
       c.workflow.interval = 10
       c.workflow.use_tmux = false # Disable tmux for tests
+      c.git.setup_workspace = false # Disable workspace setup for tests
       c.phase.plan.command = 'echo'
       c.phase.plan.options = []
       c.phase.plan.parameter = 'Plan {{issue-number}}'

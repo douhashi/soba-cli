@@ -104,38 +104,6 @@ command :workflow do |c|
   end
 end
 
-desc "Monitor Claude Code sessions"
-command :monitor do |c|
-  c.desc "Session number or name to monitor"
-  c.arg_name "[session]"
-
-  c.desc "Follow existing log file only"
-  c.switch ["follow-log"]
-
-  c.desc "List all sessions"
-  c.switch [:l, :list]
-
-  c.desc "Cleanup old logs (days)"
-  c.flag [:cleanup], type: Integer
-
-  c.action do |_global_options, options, args|
-    require_relative "../lib/soba/commands/monitor"
-
-    # Build args array for command
-    cmd_args = []
-    cmd_args << args[0] if args[0]
-    cmd_args << "--follow-log" if options["follow-log"]
-    cmd_args << "--list" if options[:list]
-
-    if options[:cleanup]
-      cmd_args << "--cleanup"
-      cmd_args << options[:cleanup].to_s
-    end
-
-    Soba::Commands::Monitor.new.execute(cmd_args)
-  end
-end
-
 pre do |global, _command, _options, _args|
   if global[:verbose]
     Soba.logger.level = :debug

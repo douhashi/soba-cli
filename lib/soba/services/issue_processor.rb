@@ -7,6 +7,7 @@ require_relative '../infrastructure/tmux_client'
 require_relative '../domain/phase_strategy'
 require_relative 'workflow_executor'
 require_relative 'tmux_session_manager'
+require_relative 'git_workspace_manager'
 
 module Soba
   module Services
@@ -17,13 +18,14 @@ module Soba
 
       def initialize(github_client: nil, workflow_executor: nil, phase_strategy: nil, config: nil)
         @github_client = github_client || Infrastructure::GitHubClient.new
+        @config = config || Configuration
         @workflow_executor = workflow_executor || WorkflowExecutor.new(
           tmux_session_manager: TmuxSessionManager.new(
             tmux_client: Infrastructure::TmuxClient.new
-          )
+          ),
+          git_workspace_manager: GitWorkspaceManager.new(configuration: @config)
         )
         @phase_strategy = phase_strategy || Domain::PhaseStrategy.new
-        @config = config || Configuration
       end
 
       def run(issue_number, use_tmux: true)
@@ -73,11 +75,13 @@ module Soba
         if phase_config&.command
           actual_config = config.respond_to?(:config) ? config.config : config
           use_tmux = actual_config.workflow.use_tmux
+          setup_workspace = actual_config.git.setup_workspace
 
           execution_result = workflow_executor.execute(
             phase: phase_config,
             issue_number: issue[:number],
-            use_tmux: use_tmux
+            use_tmux: use_tmux,
+            setup_workspace: setup_workspace
           )
 
           result = {

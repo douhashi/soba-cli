@@ -1,9 +1,9 @@
 # frozen_string_literal: true
 
 require "spec_helper"
-require "soba/commands/workflow/run"
+require "soba/commands/workflow/execute_issue"
 
-RSpec.describe Soba::Commands::Workflow::Run do
+RSpec.describe Soba::Commands::Workflow::ExecuteIssue do
   let(:workflow_config) { double("workflow", use_tmux: true) }
   let(:github_config) { double("github", repository: "owner/repo") }
   let(:config_object) { double("config", workflow: workflow_config, github: github_config) }

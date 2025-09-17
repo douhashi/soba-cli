@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 require 'open3'
-require 'soba/services/git_workspace_manager'
+require_relative 'git_workspace_manager'
 
 module Soba
   module Services

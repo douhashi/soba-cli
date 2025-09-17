@@ -70,7 +70,7 @@ RSpec.describe Soba::Commands::Workflow::Run do
       before do
         allow(github_client).to receive(:issues).and_return(issues_with_todo)
         allow(Soba::Services::WorkflowBlockingChecker).to receive(:new).and_return(blocking_checker)
-        allow(blocking_checker).to receive(:blocking?).with('owner/repo').and_return(false)
+        allow(blocking_checker).to receive(:blocking?).with('owner/repo', issues: issues_with_todo).and_return(false)
       end
 
       it 'updates label and executes workflow' do
@@ -107,7 +107,7 @@ RSpec.describe Soba::Commands::Workflow::Run do
       before do
         allow(github_client).to receive(:issues).and_return(issues_with_ready)
         allow(Soba::Services::WorkflowBlockingChecker).to receive(:new).and_return(blocking_checker)
-        allow(blocking_checker).to receive(:blocking?).with('owner/repo').and_return(false)
+        allow(blocking_checker).to receive(:blocking?).with('owner/repo', issues: issues_with_ready).and_return(false)
       end
 
       it 'updates label and executes workflow' do
@@ -152,8 +152,8 @@ RSpec.describe Soba::Commands::Workflow::Run do
       before do
         allow(github_client).to receive(:issues).and_return(issues_in_progress)
         allow(Soba::Services::WorkflowBlockingChecker).to receive(:new).and_return(blocking_checker)
-        allow(blocking_checker).to receive(:blocking?).with('owner/repo').and_return(true)
-        allow(blocking_checker).to receive(:blocking_reason).with('owner/repo').
+        allow(blocking_checker).to receive(:blocking?).with('owner/repo', issues: issues_in_progress).and_return(true)
+        allow(blocking_checker).to receive(:blocking_reason).with('owner/repo', issues: issues_in_progress).
           and_return('Issue #4 が soba:planning のため、新しいワークフローの開始をスキップしました')
       end
 
@@ -184,7 +184,7 @@ RSpec.describe Soba::Commands::Workflow::Run do
       before do
         allow(github_client).to receive(:issues).and_return(issues)
         allow(Soba::Services::WorkflowBlockingChecker).to receive(:new).and_return(blocking_checker)
-        allow(blocking_checker).to receive(:blocking?).with('owner/repo').and_return(false)
+        allow(blocking_checker).to receive(:blocking?).with('owner/repo', issues: issues).and_return(false)
         Soba::Configuration.configure do |c|
           c.phase.plan.command = nil
         end
@@ -227,8 +227,8 @@ RSpec.describe Soba::Commands::Workflow::Run do
         before do
           allow(github_client).to receive(:issues).and_return([todo_issue, review_issue])
           allow(Soba::Services::WorkflowBlockingChecker).to receive(:new).and_return(blocking_checker)
-          allow(blocking_checker).to receive(:blocking?).with('owner/repo').and_return(true)
-          allow(blocking_checker).to receive(:blocking_reason).with('owner/repo').
+          allow(blocking_checker).to receive(:blocking?).with('owner/repo', issues: [todo_issue, review_issue]).and_return(true)
+          allow(blocking_checker).to receive(:blocking_reason).with('owner/repo', issues: [todo_issue, review_issue]).
             and_return('Issue #21 が soba:review-requested のため、新しいワークフローの開始をスキップしました')
         end
 
@@ -267,8 +267,8 @@ RSpec.describe Soba::Commands::Workflow::Run do
         before do
           allow(github_client).to receive(:issues).and_return([todo_issue, doing_issue])
           allow(Soba::Services::WorkflowBlockingChecker).to receive(:new).and_return(blocking_checker)
-          allow(blocking_checker).to receive(:blocking?).with('owner/repo').and_return(true)
-          allow(blocking_checker).to receive(:blocking_reason).with('owner/repo').
+          allow(blocking_checker).to receive(:blocking?).with('owner/repo', issues: [todo_issue, doing_issue]).and_return(true)
+          allow(blocking_checker).to receive(:blocking_reason).with('owner/repo', issues: [todo_issue, doing_issue]).
             and_return('Issue #31 が soba:doing のため、新しいワークフローの開始をスキップしました')
         end
 
@@ -299,7 +299,7 @@ RSpec.describe Soba::Commands::Workflow::Run do
       before do
         allow(github_client).to receive(:issues).and_return([todo_issue])
         allow(Soba::Services::WorkflowBlockingChecker).to receive(:new).and_return(blocking_checker)
-        allow(blocking_checker).to receive(:blocking?).with('owner/repo').and_return(false)
+        allow(blocking_checker).to receive(:blocking?).with('owner/repo', issues: [todo_issue]).and_return(false)
       end
 
       it 'processes todo issues normally' do
@@ -337,7 +337,7 @@ RSpec.describe Soba::Commands::Workflow::Run do
       before do
         allow(github_client).to receive(:issues).and_return([todo_issue])
         allow(Soba::Services::WorkflowBlockingChecker).to receive(:new).and_return(blocking_checker)
-        allow(blocking_checker).to receive(:blocking?).with('owner/repo').and_return(false)
+        allow(blocking_checker).to receive(:blocking?).with('owner/repo', issues: [todo_issue]).and_return(false)
         allow(Soba::Services::TmuxSessionManager).to receive(:new).and_return(tmux_session_manager)
         allow(Soba::Services::WorkflowExecutor).to receive(:new).and_return(workflow_executor)
         allow(Soba::Services::IssueProcessor).to receive(:new).and_return(issue_processor)

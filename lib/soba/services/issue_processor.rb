@@ -165,6 +165,20 @@ module Soba
           else
             nil
           end
+        when :review
+          actual_config = config.respond_to?(:config) ? config.config : config
+          review_config = actual_config.phase.review
+          values = review_config.instance_variable_get(:@_values)
+
+          if values
+            OpenStruct.new(
+              command: values[:command],
+              options: values[:options],
+              parameter: values[:parameter]
+            )
+          else
+            nil
+          end
         else
           nil
         end

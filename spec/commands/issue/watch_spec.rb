@@ -64,6 +64,10 @@ RSpec.describe Soba::Commands::Issue::Watch do
         allow(workflow_mock).to receive(:interval=)
         allow(workflow_mock).to receive(:use_tmux=)
 
+        git_mock = double(worktree_base_path: '.git/soba/worktrees', setup_workspace: true)
+        allow(git_mock).to receive(:worktree_base_path=)
+        allow(git_mock).to receive(:setup_workspace=)
+
         phase_mock = double
         allow(phase_mock).to receive_message_chain(:plan, :command=)
         allow(phase_mock).to receive_message_chain(:plan, :options=)
@@ -76,6 +80,7 @@ RSpec.describe Soba::Commands::Issue::Watch do
           double(
             github: github_mock,
             workflow: workflow_mock,
+            git: git_mock,
             phase: phase_mock
           )
         )

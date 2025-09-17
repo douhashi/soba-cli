@@ -9,12 +9,14 @@ require 'soba/configuration'
 RSpec.describe 'Workflow Tmux Integration' do
   let(:tmux_client) { instance_double(Soba::Infrastructure::TmuxClient) }
   let(:tmux_session_manager) { Soba::Services::TmuxSessionManager.new(tmux_client: tmux_client) }
-  let(:workflow_executor) { Soba::Services::WorkflowExecutor.new(tmux_session_manager: tmux_session_manager) }
+  let(:git_workspace_manager) { instance_double(Soba::Services::GitWorkspaceManager) }
+  let(:workflow_executor) { Soba::Services::WorkflowExecutor.new(tmux_session_manager: tmux_session_manager, git_workspace_manager: git_workspace_manager) }
 
   before do
     allow(Soba::Configuration).to receive(:config).and_return(
       double(github: double(repository: 'owner/repo-name'))
     )
+    allow(git_workspace_manager).to receive(:setup_workspace)
   end
 
   describe 'executing workflow in new tmux structure' do

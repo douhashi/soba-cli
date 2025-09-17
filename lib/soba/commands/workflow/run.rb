@@ -65,8 +65,8 @@ module Soba
               issues = issue_watcher.fetch_issues
 
               # Check if workflow is blocked by other soba labels
-              if blocking_checker.blocking?(repository)
-                blocking_reason = blocking_checker.blocking_reason(repository)
+              if blocking_checker.blocking?(repository, issues: issues)
+                blocking_reason = blocking_checker.blocking_reason(repository, issues: issues)
                 puts "\n#{blocking_reason}"
                 sleep(interval) if @running
                 next

@@ -22,7 +22,6 @@ module Soba
             'ready' => 'soba:ready',
             'doing' => 'soba:doing',
             'review_requested' => 'soba:review-requested',
-            'revising' => 'soba:revising',
           },
         },
       }.freeze
@@ -399,7 +398,6 @@ module Soba
               ready: #{config['workflow']['phase_labels']['ready']}
               doing: #{config['workflow']['phase_labels']['doing']}
               review_requested: #{config['workflow']['phase_labels']['review_requested']}
-              revising: #{config['workflow']['phase_labels']['revising'] || 'soba:revising'}
         YAML
 
         # Add phase configuration if present

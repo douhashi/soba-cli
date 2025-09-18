@@ -8,7 +8,8 @@ require 'soba/configuration'
 
 RSpec.describe 'Workflow Tmux Integration' do
   let(:tmux_client) { instance_double(Soba::Infrastructure::TmuxClient) }
-  let(:tmux_session_manager) { Soba::Services::TmuxSessionManager.new(tmux_client: tmux_client) }
+  let(:lock_manager) { instance_double(Soba::Infrastructure::LockManager) }
+  let(:tmux_session_manager) { Soba::Services::TmuxSessionManager.new(tmux_client: tmux_client, lock_manager: lock_manager) }
   let(:git_workspace_manager) { instance_double(Soba::Services::GitWorkspaceManager) }
   let(:workflow_executor) { Soba::Services::WorkflowExecutor.new(tmux_session_manager: tmux_session_manager, git_workspace_manager: git_workspace_manager) }
 
@@ -18,6 +19,7 @@ RSpec.describe 'Workflow Tmux Integration' do
     )
     allow(git_workspace_manager).to receive(:setup_workspace)
     allow(git_workspace_manager).to receive(:get_worktree_path).and_return(nil)
+    allow(lock_manager).to receive(:with_lock).and_yield
   end
 
   describe 'executing workflow in new tmux structure' do
@@ -37,8 +39,8 @@ RSpec.describe 'Workflow Tmux Integration' do
         allow(tmux_client).to receive(:session_exists?).with('soba-owner-repo-name').and_return(false)
         allow(tmux_client).to receive(:create_session).with('soba-owner-repo-name').and_return(true)
 
-        # Window doesn't exist (new issue)
-        allow(tmux_client).to receive(:window_exists?).with('soba-owner-repo-name', 'issue-42').and_return(false)
+        # Window doesn't exist (new issue) - called twice: before and after creation for verification
+        allow(tmux_client).to receive(:window_exists?).with('soba-owner-repo-name', 'issue-42').and_return(false, true)
         allow(tmux_client).to receive(:create_window).with('soba-owner-repo-name', 'issue-42').and_return(true)
 
         # Send command to the first pane

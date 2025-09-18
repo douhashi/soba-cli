@@ -560,6 +560,51 @@ RSpec.describe Soba::Infrastructure::TmuxClient do
 
       expect(result).to be false
     end
+
+    context 'edge cases for window name matching' do
+      it 'does not match partial window names' do
+        windows_list = "0: test-window-2* (1 panes) [80x24]\n1: my-test-window (1 panes) [80x24]"
+        allow(Open3).to receive(:capture3).with('tmux', 'list-windows', '-t', session_name).
+          and_return([windows_list, '', double(exitstatus: 0)])
+
+        result = client.window_exists?(session_name, window_name)
+
+        expect(result).to be false
+      end
+
+      it 'matches exact window name with issue prefix' do
+        window_name = 'issue-58'
+        windows_list = "0: issue-58* (1 panes) [80x24]\n1: issue-58-2 (1 panes) [80x24]"
+        allow(Open3).to receive(:capture3).with('tmux', 'list-windows', '-t', session_name).
+          and_return([windows_list, '', double(exitstatus: 0)])
+
+        result = client.window_exists?(session_name, window_name)
+
+        expect(result).to be true
+      end
+
+      it 'handles window names with special characters' do
+        window_name = 'issue-58'
+        windows_list = "0: bash* (1 panes) [80x24]\n1: issue-58 (2 panes) [80x24]\n2: issue-58-backup (1 panes) [80x24]"
+        allow(Open3).to receive(:capture3).with('tmux', 'list-windows', '-t', session_name).
+          and_return([windows_list, '', double(exitstatus: 0)])
+
+        result = client.window_exists?(session_name, window_name)
+
+        expect(result).to be true
+      end
+
+      it 'correctly identifies duplicate window names' do
+        window_name = 'issue-58'
+        windows_list = "0: issue-58 (1 panes) [80x24]\n1: issue-58 (1 panes) [80x24]"
+        allow(Open3).to receive(:capture3).with('tmux', 'list-windows', '-t', session_name).
+          and_return([windows_list, '', double(exitstatus: 0)])
+
+        result = client.window_exists?(session_name, window_name)
+
+        expect(result).to be true
+      end
+    end
   end
 
   describe '#split_window' do

@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "logger"
+require_relative "../configuration"
 
 module Soba
   module Services
@@ -112,7 +113,9 @@ module Soba
         # Determine the target label based on what's being removed
         target_label = determine_target_label(violation[:label])
 
+        repository = Configuration.config.github.repository if defined?(Configuration)
         github_client.update_issue_labels(
+          repository,
           violation[:issue_number],
           from: violation[:label],
           to: target_label

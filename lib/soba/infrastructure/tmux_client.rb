@@ -252,6 +252,20 @@ module Soba
         false
       end
 
+      def tmux_installed?
+        _stdout, _stderr, _status = execute_tmux_command('list-sessions')
+        true
+      rescue Errno::ENOENT
+        false
+      end
+
+      def attach_to_window(window_id)
+        # Use system call to attach to tmux session
+        system("tmux", "attach-session", "-t", window_id)
+      rescue Errno::ENOENT
+        false
+      end
+
       private
 
       def execute_tmux_command(*args)
@@ -264,7 +278,8 @@ module Soba
 
       def parse_window_list(output)
         output.lines.map do |line|
-          match = line.match(/^\d+:\s+([^\*\s]+)/)
+          # Handle both active (*) and inactive (-) window markers
+          match = line.match(/^\d+:\s+(\S+?)[\*\-]?\s/)
           match[1] if match
         end.compact
       end

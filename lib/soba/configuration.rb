@@ -18,6 +18,8 @@ module Soba
       setting :interval, default: 20
       setting :use_tmux, default: true
       setting :auto_merge_enabled, default: true
+      setting :closed_issue_cleanup_enabled, default: true
+      setting :closed_issue_cleanup_interval, default: 300 # 5 minutes in seconds
     end
 
     setting :git do
@@ -52,6 +54,8 @@ module Soba
           c.workflow.interval = 20
           c.workflow.use_tmux = true
           c.workflow.auto_merge_enabled = true
+          c.workflow.closed_issue_cleanup_enabled = true
+          c.workflow.closed_issue_cleanup_interval = 300
           c.git.worktree_base_path = '.git/soba/worktrees'
           c.git.setup_workspace = true
           c.phase.plan.command = nil
@@ -126,6 +130,9 @@ module Soba
             c.workflow.interval = data.dig('workflow', 'interval') || 20
             c.workflow.use_tmux = data.dig('workflow', 'use_tmux') != false # default true
             c.workflow.auto_merge_enabled = data.dig('workflow', 'auto_merge_enabled') != false # default true
+            cleanup_enabled = data.dig('workflow', 'closed_issue_cleanup_enabled')
+            c.workflow.closed_issue_cleanup_enabled = cleanup_enabled != false # default true
+            c.workflow.closed_issue_cleanup_interval = data.dig('workflow', 'closed_issue_cleanup_interval') || 300
           end
 
           if data['git']
@@ -173,6 +180,10 @@ module Soba
             use_tmux: true
             # Enable automatic merging of PRs with soba:lgtm label (default: true)
             auto_merge_enabled: true
+            # Enable automatic cleanup of tmux windows for closed issues (default: true)
+            closed_issue_cleanup_enabled: true
+            # Cleanup interval in seconds (default: 300 = 5 minutes)
+            closed_issue_cleanup_interval: 300
 
           git:
             # Base path for git worktrees

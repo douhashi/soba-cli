@@ -244,6 +244,14 @@ module Soba
         false
       end
 
+      def kill_window(session_name, window_name)
+        target = "#{session_name}:#{window_name}"
+        _stdout, _stderr, status = execute_tmux_command('kill-window', '-t', target)
+        status.exitstatus == 0
+      rescue Errno::ENOENT
+        false
+      end
+
       private
 
       def execute_tmux_command(*args)

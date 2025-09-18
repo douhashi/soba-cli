@@ -88,9 +88,34 @@ command :start do |c|
   c.desc "Disable tmux execution"
   c.switch ["no-tmux"]
 
+  c.desc "Run in foreground mode (default is daemon mode)"
+  c.switch [:f, :foreground]
+
   c.action do |global_options, options, args|
     require_relative "../lib/soba/commands/start"
     result = Soba::Commands::Start.new.execute(global_options, options, args)
+    if result.is_a?(Integer) && result != 0
+      exit(result)
+    end
+  end
+end
+
+desc "Show daemon status"
+command :status do |c|
+  c.action do |global_options, options, args|
+    require_relative "../lib/soba/commands/status"
+    result = Soba::Commands::Status.new.execute(global_options, options, args)
+    if result.is_a?(Integer) && result != 0
+      exit(result)
+    end
+  end
+end
+
+desc "Stop daemon"
+command :stop do |c|
+  c.action do |global_options, options, args|
+    require_relative "../lib/soba/commands/stop"
+    result = Soba::Commands::Stop.new.execute(global_options, options, args)
     if result.is_a?(Integer) && result != 0
       exit(result)
     end

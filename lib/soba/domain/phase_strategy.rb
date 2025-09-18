@@ -10,6 +10,9 @@ module Soba
         'soba:ready' => 'soba:doing',
         'soba:doing' => 'soba:review-requested',
         'soba:review-requested' => 'soba:reviewing',
+        'soba:reviewing' => 'soba:requires-changes',
+        'soba:requires-changes' => 'soba:revising',
+        'soba:revising' => 'soba:review-requested',
       }.freeze
 
       PHASE_MAPPINGS = {
@@ -17,9 +20,10 @@ module Soba
         queued_to_planning: { current: 'soba:queued', next: 'soba:planning' },
         implement: { current: 'soba:ready', next: 'soba:doing' },
         review: { current: 'soba:review-requested', next: 'soba:reviewing' },
+        revise: { current: 'soba:requires-changes', next: 'soba:revising' },
       }.freeze
 
-      IN_PROGRESS_LABELS = %w(soba:planning soba:doing soba:reviewing).freeze
+      IN_PROGRESS_LABELS = %w(soba:planning soba:doing soba:reviewing soba:revising).freeze
 
       def determine_phase(labels)
         return nil if labels.blank?
@@ -32,6 +36,7 @@ module Soba
         return :queued_to_planning if labels.include?('soba:queued')
         return :implement if labels.include?('soba:ready')
         return :review if labels.include?('soba:review-requested')
+        return :revise if labels.include?('soba:requires-changes')
 
         nil
       end

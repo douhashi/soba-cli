@@ -77,6 +77,26 @@ RSpec.describe Soba::Domain::PhaseStrategy do
       end
     end
 
+    context 'when issue has soba:requires-changes label' do
+      let(:labels) { ['soba:requires-changes'] }
+
+      it 'returns :revise phase' do
+        phase = strategy.determine_phase(labels)
+
+        expect(phase).to eq(:revise)
+      end
+    end
+
+    context 'when issue has soba:revising label' do
+      let(:labels) { ['soba:revising'] }
+
+      it 'returns nil (already in progress)' do
+        phase = strategy.determine_phase(labels)
+
+        expect(phase).to be_nil
+      end
+    end
+
     context 'when issue has no soba labels' do
       let(:labels) { ['bug', 'enhancement'] }
 
@@ -138,6 +158,14 @@ RSpec.describe Soba::Domain::PhaseStrategy do
         label = strategy.next_label(:queued_to_planning)
 
         expect(label).to eq('soba:planning')
+      end
+    end
+
+    context 'for revise phase' do
+      it 'returns soba:revising' do
+        label = strategy.next_label(:revise)
+
+        expect(label).to eq('soba:revising')
       end
     end
 
@@ -215,6 +243,30 @@ RSpec.describe Soba::Domain::PhaseStrategy do
       end
     end
 
+    context 'from soba:reviewing to soba:requires-changes' do
+      it 'returns true' do
+        result = strategy.validate_transition('soba:reviewing', 'soba:requires-changes')
+
+        expect(result).to be true
+      end
+    end
+
+    context 'from soba:requires-changes to soba:revising' do
+      it 'returns true' do
+        result = strategy.validate_transition('soba:requires-changes', 'soba:revising')
+
+        expect(result).to be true
+      end
+    end
+
+    context 'from soba:revising to soba:review-requested' do
+      it 'returns true' do
+        result = strategy.validate_transition('soba:revising', 'soba:review-requested')
+
+        expect(result).to be true
+      end
+    end
+
     context 'from soba:todo directly to soba:doing' do
       it 'returns false (invalid transition)' do
         result = strategy.validate_transition('soba:todo', 'soba:doing')
@@ -278,6 +330,14 @@ RSpec.describe Soba::Domain::PhaseStrategy do
         label = strategy.current_label_for_phase(:queued_to_planning)
 
         expect(label).to eq('soba:queued')
+      end
+    end
+
+    context 'for revise phase' do
+      it 'returns soba:requires-changes' do
+        label = strategy.current_label_for_phase(:revise)
+
+        expect(label).to eq('soba:requires-changes')
       end
     end
 

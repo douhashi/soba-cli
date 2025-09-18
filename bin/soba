@@ -105,7 +105,9 @@ command :status do |c|
   c.action do |global_options, options, args|
     require_relative "../lib/soba/commands/status"
     result = Soba::Commands::Status.new.execute(global_options, options, args)
-    exit(result) if result.is_a?(Integer) && result != 0
+    if result.is_a?(Integer) && result != 0
+      exit(result)
+    end
   end
 end
 
@@ -114,7 +116,9 @@ command :stop do |c|
   c.action do |global_options, options, args|
     require_relative "../lib/soba/commands/stop"
     result = Soba::Commands::Stop.new.execute(global_options, options, args)
-    exit(result) if result.is_a?(Integer) && result != 0
+    if result.is_a?(Integer) && result != 0
+      exit(result)
+    end
   end
 end
 

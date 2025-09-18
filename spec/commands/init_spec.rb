@@ -39,6 +39,8 @@ RSpec.describe Soba::Commands::Init do
         expect(config['workflow']['phase_labels']['ready']).to eq('soba:ready')
         expect(config['workflow']['phase_labels']['doing']).to eq('soba:doing')
         expect(config['workflow']['phase_labels']['review_requested']).to eq('soba:review-requested')
+        expect(config['workflow']['closed_issue_cleanup_enabled']).to eq(true)
+        expect(config['workflow']['closed_issue_cleanup_interval']).to eq(300)
         expect(config['phase']).to be_nil
       end
 
@@ -52,6 +54,8 @@ RSpec.describe Soba::Commands::Init do
         config = YAML.safe_load_file(config_path)
         expect(config['github']['token']).to eq('secret_token')
         expect(config['workflow']['auto_merge_enabled']).to eq(true)
+        expect(config['workflow']['closed_issue_cleanup_enabled']).to eq(true)
+        expect(config['workflow']['closed_issue_cleanup_interval']).to eq(300)
       end
 
       it "accepts custom phase labels" do
@@ -67,6 +71,8 @@ RSpec.describe Soba::Commands::Init do
         expect(config['workflow']['phase_labels']['doing']).to eq('doing')
         expect(config['workflow']['phase_labels']['review_requested']).to eq('review')
         expect(config['workflow']['auto_merge_enabled']).to eq(true)
+        expect(config['workflow']['closed_issue_cleanup_enabled']).to eq(true)
+        expect(config['workflow']['closed_issue_cleanup_interval']).to eq(300)
       end
 
       it "accepts workflow phase commands" do
@@ -78,6 +84,8 @@ RSpec.describe Soba::Commands::Init do
 
         config = YAML.safe_load_file(config_path)
         expect(config['workflow']['auto_merge_enabled']).to eq(true)
+        expect(config['workflow']['closed_issue_cleanup_enabled']).to eq(true)
+        expect(config['workflow']['closed_issue_cleanup_interval']).to eq(300)
         expect(config['phase']['plan']['command']).to eq('claude')
         expect(config['phase']['plan']['options']).to eq(['--dangerously-skip-permissions'])
         expect(config['phase']['plan']['parameter']).to eq('/soba:plan {{issue-number}}')
@@ -102,6 +110,8 @@ RSpec.describe Soba::Commands::Init do
         # Check that config applies default values when Enter is pressed
         config = YAML.safe_load_file(config_path)
         expect(config['workflow']['auto_merge_enabled']).to eq(true)
+        expect(config['workflow']['closed_issue_cleanup_enabled']).to eq(true)
+        expect(config['workflow']['closed_issue_cleanup_interval']).to eq(300)
         expect(config['phase']['plan']['command']).to eq('claude')
         expect(config['phase']['plan']['options']).to eq(['--dangerously-skip-permissions'])
         expect(config['phase']['plan']['parameter']).to eq('/soba:plan {{issue-number}}')
@@ -124,6 +134,8 @@ RSpec.describe Soba::Commands::Init do
         config = YAML.safe_load_file(config_path)
         # phase設定が作成され、デフォルト値が適用されていることを確認
         expect(config['workflow']['auto_merge_enabled']).to eq(true)
+        expect(config['workflow']['closed_issue_cleanup_enabled']).to eq(true)
+        expect(config['workflow']['closed_issue_cleanup_interval']).to eq(300)
         expect(config['phase']).not_to be_nil
         expect(config['phase']['plan']['command']).to eq('claude')
         expect(config['phase']['plan']['options']).to eq(['--dangerously-skip-permissions'])
@@ -146,6 +158,8 @@ RSpec.describe Soba::Commands::Init do
 
         config = YAML.safe_load_file(config_path)
         expect(config['workflow']['auto_merge_enabled']).to eq(true)
+        expect(config['workflow']['closed_issue_cleanup_enabled']).to eq(true)
+        expect(config['workflow']['closed_issue_cleanup_interval']).to eq(300)
         expect(config['phase']['plan']['command']).to eq('custom-claude')
         expect(config['phase']['plan']['options']).to eq(['--dangerously-skip-permissions'])
         expect(config['phase']['plan']['parameter']).to eq('/soba:plan {{issue-number}}')
@@ -284,6 +298,8 @@ RSpec.describe Soba::Commands::Init do
         expect { command.execute }.to output(/Configuration created successfully/).to_stdout
 
         config = YAML.safe_load_file(config_path)
+        expect(config['workflow']['closed_issue_cleanup_enabled']).to eq(true)
+        expect(config['workflow']['closed_issue_cleanup_interval']).to eq(300)
         expect(config['phase']['plan']['command']).to eq('claude')
         expect(config['phase']['plan']['options']).to eq(['--dangerously-skip-permissions'])
         expect(config['phase']['plan']['parameter']).to eq('/soba:plan {{issue-number}}')
@@ -495,6 +511,8 @@ RSpec.describe Soba::Commands::Init do
         expect(config['workflow']['phase_labels']['ready']).to eq('soba:ready')
         expect(config['workflow']['phase_labels']['doing']).to eq('soba:doing')
         expect(config['workflow']['phase_labels']['review_requested']).to eq('soba:review-requested')
+        expect(config['workflow']['closed_issue_cleanup_enabled']).to eq(true)
+        expect(config['workflow']['closed_issue_cleanup_interval']).to eq(300)
 
         # Phase configuration should be present with default values
         expect(config['phase']).not_to be_nil

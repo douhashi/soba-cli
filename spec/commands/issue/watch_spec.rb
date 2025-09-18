@@ -81,6 +81,9 @@ RSpec.describe Soba::Commands::Issue::Watch do
         allow(phase_mock).to receive_message_chain(:review, :command=)
         allow(phase_mock).to receive_message_chain(:review, :options=)
         allow(phase_mock).to receive_message_chain(:review, :parameter=)
+        allow(phase_mock).to receive_message_chain(:revise, :command=)
+        allow(phase_mock).to receive_message_chain(:revise, :options=)
+        allow(phase_mock).to receive_message_chain(:revise, :parameter=)
 
         allow(Soba::Configuration).to receive(:config).and_return(
           double(

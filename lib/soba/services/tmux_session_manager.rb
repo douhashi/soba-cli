@@ -2,14 +2,16 @@
 
 require 'active_support/core_ext/object/blank'
 require_relative '../configuration'
+require_relative '../infrastructure/lock_manager'
 
 module Soba
   module Services
     class TmuxSessionManager
       SESSION_PREFIX = 'soba-claude'
 
-      def initialize(tmux_client:)
+      def initialize(tmux_client:, lock_manager: nil)
         @tmux_client = tmux_client
+        @lock_manager = lock_manager || Soba::Infrastructure::LockManager.new
       end
 
       def start_claude_session(issue_number:, command:)
@@ -114,16 +116,27 @@ module Soba
 
       def create_issue_window(session_name:, issue_number:)
         window_name = "issue-#{issue_number}"
+        lock_name = "window-#{session_name}-#{window_name}"
 
-        if @tmux_client.window_exists?(session_name, window_name)
-          { success: true, window_name: window_name, created: false }
-        else
-          if @tmux_client.create_window(session_name, window_name)
-            { success: true, window_name: window_name, created: true }
+        @lock_manager.with_lock(lock_name, timeout: 5) do
+          # Double check for existing window to prevent duplicates
+          if @tmux_client.window_exists?(session_name, window_name)
+            { success: true, window_name: window_name, created: false }
           else
-            { success: false, error: "Failed to create window for issue #{issue_number}" }
+            if @tmux_client.create_window(session_name, window_name)
+              # Verify creation was successful
+              if @tmux_client.window_exists?(session_name, window_name)
+                { success: true, window_name: window_name, created: true }
+              else
+                { success: false, error: "Window creation verification failed for issue #{issue_number}" }
+              end
+            else
+              { success: false, error: "Failed to create window for issue #{issue_number}" }
+            end
           end
         end
+      rescue Soba::Infrastructure::LockTimeoutError => e
+        { success: false, error: "Lock acquisition failed: #{e.message}" }
       end
 
       def create_phase_pane(session_name:, window_name:, phase:, vertical: true, max_panes: 3)

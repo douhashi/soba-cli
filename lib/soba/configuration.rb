@@ -17,6 +17,7 @@ module Soba
     setting :workflow do
       setting :interval, default: 20
       setting :use_tmux, default: true
+      setting :auto_merge_enabled, default: true
     end
 
     setting :git do
@@ -50,6 +51,7 @@ module Soba
           c.github.repository = nil
           c.workflow.interval = 20
           c.workflow.use_tmux = true
+          c.workflow.auto_merge_enabled = true
           c.git.worktree_base_path = '.git/soba/worktrees'
           c.git.setup_workspace = true
           c.phase.plan.command = nil
@@ -123,6 +125,7 @@ module Soba
           if data['workflow']
             c.workflow.interval = data.dig('workflow', 'interval') || 20
             c.workflow.use_tmux = data.dig('workflow', 'use_tmux') != false # default true
+            c.workflow.auto_merge_enabled = data.dig('workflow', 'auto_merge_enabled') != false # default true
           end
 
           if data['git']
@@ -168,6 +171,8 @@ module Soba
             interval: 20
             # Use tmux for Claude execution (default: true)
             use_tmux: true
+            # Enable automatic merging of PRs with soba:lgtm label (default: true)
+            auto_merge_enabled: true
 
           git:
             # Base path for git worktrees

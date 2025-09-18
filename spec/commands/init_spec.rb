@@ -23,7 +23,7 @@ RSpec.describe Soba::Commands::Init do
 
     context "when config file does not exist" do
       it "creates a new configuration file" do
-        input = StringIO.new("douhashi/soba\n1\n20\n\n\n\n\nskip\nskip\nskip\n")
+        input = StringIO.new("douhashi/soba\n1\n20\n\n\n\n\n\n\nskip\nskip\nskip\n")
         allow($stdin).to receive(:gets) { input.gets }
         allow($stdin).to receive(:noecho).and_yield(input)
 
@@ -132,7 +132,7 @@ RSpec.describe Soba::Commands::Init do
 
       it "allows partial customization with some default values" do
         # plan commandはカスタマイズ、他はデフォルト値を使用
-        input = StringIO.new("douhashi/soba\n1\n20\n\n\n\n\ncustom-claude\n\n\n\n\n\n\n\n\n")
+        input = StringIO.new("douhashi/soba\n1\n20\n\n\n\n\n\ncustom-claude\n\n\n\n\n\n\n\n\n")
         allow($stdin).to receive(:gets) { input.gets }
         allow($stdin).to receive(:noecho).and_yield(input)
 
@@ -404,7 +404,7 @@ RSpec.describe Soba::Commands::Init do
       end
 
       it "adds .soba to .gitignore when requested" do
-        input = StringIO.new("douhashi/soba\n1\n20\n\n\n\n\nskip\nskip\nskip\ny\n")
+        input = StringIO.new("douhashi/soba\n1\n20\n\n\n\n\n\nskip\nskip\nskip\ny\n")
         allow($stdin).to receive(:gets) { input.gets }
 
         expect { command.execute }.to output(/Added .soba\/ to .gitignore/).to_stdout
@@ -415,7 +415,7 @@ RSpec.describe Soba::Commands::Init do
 
       it "does not add .soba when already present" do
         File.write(gitignore_path, "*.log\n.soba/\n")
-        input = StringIO.new("douhashi/soba\n1\n20\n\n\n\n\nskip\nskip\nskip\n")
+        input = StringIO.new("douhashi/soba\n1\n20\n\n\n\n\n\nskip\nskip\nskip\n")
         allow($stdin).to receive(:gets) { input.gets }
 
         expect { command.execute }.not_to output(/Add .soba\/ to .gitignore/).to_stdout

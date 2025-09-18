@@ -60,9 +60,10 @@ RSpec.describe Soba::Commands::Issue::Watch do
         allow(github_mock).to receive(:token=)
         allow(github_mock).to receive(:repository=)
 
-        workflow_mock = double(interval: 20, use_tmux: true)
+        workflow_mock = double(interval: 20, use_tmux: true, auto_merge_enabled: true)
         allow(workflow_mock).to receive(:interval=)
         allow(workflow_mock).to receive(:use_tmux=)
+        allow(workflow_mock).to receive(:auto_merge_enabled=)
 
         git_mock = double(worktree_base_path: '.git/soba/worktrees', setup_workspace: true)
         allow(git_mock).to receive(:worktree_base_path=)

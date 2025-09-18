@@ -61,6 +61,7 @@ module Soba
 
           puts "Starting workflow monitor for #{repository}"
           puts "Polling interval: #{interval} seconds"
+          puts "Auto-merge enabled: #{Soba::Configuration.config.workflow.auto_merge_enabled}"
           puts "Press Ctrl+C to stop"
 
           @running = true
@@ -99,18 +100,20 @@ module Soba
               # Sort by issue number (youngest first)
               processable_issues.sort_by!(&:number)
 
-              # Check for approved PRs that need auto-merge
-              merge_result = auto_merge_service.execute
-              if merge_result[:merged_count] > 0
-                puts "\n🎯 Auto-merged #{merge_result[:merged_count]} PR(s)"
-                merge_result[:details][:merged].each do |pr|
-                  puts "  ✅ PR ##{pr[:number]}: #{pr[:title]}"
+              # Check for approved PRs that need auto-merge (if enabled)
+              if Soba::Configuration.config.workflow.auto_merge_enabled
+                merge_result = auto_merge_service.execute
+                if merge_result[:merged_count] > 0
+                  puts "\n🎯 Auto-merged #{merge_result[:merged_count]} PR(s)"
+                  merge_result[:details][:merged].each do |pr|
+                    puts "  ✅ PR ##{pr[:number]}: #{pr[:title]}"
+                  end
                 end
-              end
-              if merge_result[:failed_count] > 0
-                puts "\n⚠️  Failed to merge #{merge_result[:failed_count]} PR(s)"
-                merge_result[:details][:failed].each do |pr|
-                  puts "  ❌ PR ##{pr[:number]}: #{pr[:reason]}"
+                if merge_result[:failed_count] > 0
+                  puts "\n⚠️  Failed to merge #{merge_result[:failed_count]} PR(s)"
+                  merge_result[:details][:failed].each do |pr|
+                    puts "  ❌ PR ##{pr[:number]}: #{pr[:reason]}"
+                  end
                 end
               end
 

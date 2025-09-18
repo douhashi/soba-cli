@@ -10,13 +10,6 @@ RSpec.describe 'Tebako Binary Build Integration', :integration do
   let(:dist_dir) { File.join(project_root, 'dist') }
   let(:binary_path) { File.join(dist_dir, 'soba-linux-x64') }
 
-  before(:all) do
-    # Skip if Docker is not available (CI environment check)
-    unless system('which docker > /dev/null 2>&1')
-      skip 'Docker is not available, skipping Tebako build tests'
-    end
-  end
-
   describe 'build script validation' do
     it 'validates the build environment' do
       stdout, stderr, status = Open3.capture3("#{script_path} --validate")
@@ -25,7 +18,9 @@ RSpec.describe 'Tebako Binary Build Integration', :integration do
         expect(stdout).to include('Validation completed successfully')
       else
         # Docker might not be running, which is acceptable in test environment
-        expect(stderr).to include('Docker')
+        # Check both stdout and stderr for Docker-related messages
+        output = stdout + stderr
+        expect(output).to include('Docker')
       end
     end
 
@@ -49,18 +44,21 @@ RSpec.describe 'Tebako Binary Build Integration', :integration do
   end
 
   describe 'Docker availability check' do
+    before do
+      # Skip this entire describe block if Docker is not installed
+      unless system('which docker > /dev/null 2>&1')
+        skip 'Docker is not installed, skipping Docker-related tests'
+      end
+    end
+
     it 'checks for Docker installation' do
       stdout, stderr, _status = Open3.capture3("#{script_path} --check-docker")
       output = stdout + stderr
 
-      if system('which docker > /dev/null 2>&1')
-        if system('docker info > /dev/null 2>&1')
-          expect(output).to include('Docker is available')
-        else
-          expect(output).to include('Docker daemon is not running')
-        end
+      if system('docker info > /dev/null 2>&1')
+        expect(output).to include('Docker is available')
       else
-        expect(output).to include('Docker is not available')
+        expect(output).to include('Docker daemon is not running')
       end
     end
   end

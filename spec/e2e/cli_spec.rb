@@ -64,4 +64,52 @@ RSpec.describe "CLI", type: :e2e do
       expect(output).to include("Repository: owner/repo")
     end
   end
+
+  describe "soba start" do
+    it "shows start command in help" do
+      output, status = Open3.capture2("#{soba_bin} --help")
+      expect(status).to be_success
+      expect(output).to include("start")
+    end
+
+    context "ワークフロー実行モード（引数なし）" do
+      it "設定エラーの場合適切なメッセージを表示" do
+        Dir.mktmpdir do |dir|
+          Dir.chdir(dir) do
+            output, error, status = Open3.capture3("#{soba_bin} start 2>&1")
+            expect(status).not_to be_success
+            expect(output + error).to include("GitHub repository is not set")
+          end
+        end
+      end
+    end
+
+    context "単一Issue実行モード（Issue番号指定）" do
+      it "Issue番号なしでエラーメッセージを表示" do
+        output, error, status = Open3.capture3("#{soba_bin} start \"\" 2>&1")
+        expect(status).not_to be_success
+        expect(output + error).to include("Error: Issue number is required")
+      end
+
+      it "--no-tmuxオプションが利用可能" do
+        Dir.mktmpdir do |dir|
+          Dir.chdir(dir) do
+            # テスト用設定を作成してエラーを回避
+            FileUtils.mkdir_p('.soba')
+            File.write('.soba/config.yml', <<~YAML)
+              github:
+                token: test_token
+                repository: test/repo
+              workflow:
+                use_tmux: true
+            YAML
+
+            output, error, _status = Open3.capture3("#{soba_bin} start 123 --no-tmux 2>&1")
+            # メッセージが表示されることを確認（IssueProcessorのエラーは想定内）
+            expect(output + error).to include("Running in direct mode")
+          end
+        end
+      end
+    end
+  end
 end

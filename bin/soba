@@ -80,27 +80,18 @@ command :config do |c|
   end
 end
 
-desc "Run workflow automation"
-command :workflow do |c|
-  c.desc "Run workflow to process issues"
-  c.command :run do |run|
-    run.desc "Issue number to process (optional)"
-    run.arg_name "[issue_number]"
+desc "Start workflow automation"
+command :start do |c|
+  c.desc "Issue number to process (optional)"
+  c.arg_name "[issue_number]"
 
-    run.desc "Disable tmux execution"
-    run.switch ["no-tmux"]
+  c.desc "Disable tmux execution"
+  c.switch ["no-tmux"]
 
-    run.action do |global_options, options, args|
-      if args.empty?
-        # 自動実行モード（既存の動作）
-        require_relative "../lib/soba/commands/workflow/run"
-        Soba::Commands::Workflow::Run.new.execute(global_options, options)
-      else
-        # 単一Issue実行モード（新しい動作）
-        require_relative "../lib/soba/commands/workflow/execute_issue"
-        Soba::Commands::Workflow::ExecuteIssue.new.execute(args, options)
-      end
-    end
+  c.action do |global_options, options, args|
+    require_relative "../lib/soba/commands/start"
+    result = Soba::Commands::Start.new.execute(global_options, options, args)
+    exit(result) if result.is_a?(Integer) && result != 0
   end
 end
 

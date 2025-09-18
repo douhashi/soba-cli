@@ -36,17 +36,17 @@ sobaのtmux管理機能は、Claude Codeの実行環境をtmuxセッション内
 ### セッション管理
 
 #### 命名規則
-セッション名は以下の形式で管理されます：
+セッション名は以下の形式で統一されています：
 ```
 soba-{repository}
 ```
-- `repository`: GitHubリポジトリ名（スラッシュ等の特殊文字はハイフンに置換）
+- `repository`: GitHubリポジトリ名（スラッシュやドットはハイフンに変換）
 
 #### ライフサイクル
-1. **作成**: `find_or_create_repository_session` - リポジトリセッションを作成/取得
-2. **ウィンドウ作成**: `create_issue_window` - Issue用のウィンドウを作成
-3. **ペイン作成**: `create_phase_pane` - フェーズ実行用のペインを作成
-4. **削除**: tmuxコマンドで手動削除またはシステム終了時
+1. **作成**: `find_or_create_repository_session` - リポジトリ用セッションを作成または取得
+2. **ウィンドウ作成**: `create_issue_window` - Issue用ウィンドウを作成
+3. **ペイン作成**: `create_phase_pane` - フェーズ用ペインを作成
+4. **クリーンアップ**: 自動または手動でセッション・ウィンドウ・ペインを削除
 
 ### ペイン操作
 
@@ -79,12 +79,14 @@ soba-{repository}
 
 ### 自動クリーンアップ
 
-新形式では、リポジトリごとに1つのセッションを維持し、Issueごとにウィンドウを作成するため、
-古いセッションのクリーンアップは不要になりました。
+クローズされたIssueのウィンドウは自動的に削除されます：
+- `soba start`コマンド実行時に自動チェック
+- GitHub APIでIssueステータスを確認
+- クローズされたIssueのウィンドウを自動削除
 
 ## 使用例
 
-### リポジトリセッションとIssueウィンドウの作成
+### リポジトリセッションの作成
 
 ```ruby
 # TmuxSessionManagerのインスタンス作成
@@ -92,38 +94,47 @@ manager = Soba::Services::TmuxSessionManager.new(
   tmux_client: Soba::Infrastructure::TmuxClient.new
 )
 
-# リポジトリセッションの作成/取得
+# リポジトリセッションの作成または取得
 result = manager.find_or_create_repository_session
+
 if result[:success]
   session_name = result[:session_name]
   # => "soba-owner-repo"
-
-  # Issue用ウィンドウの作成
-  window_result = manager.create_issue_window(
-    session_name: session_name,
-    issue_number: 24
-  )
-  # => { success: true, window_name: "issue-24", created: true }
 end
+```
+
+### Issueウィンドウの作成
+
+```ruby
+# Issueごとのウィンドウを作成
+window_result = manager.create_issue_window(
+  session_name: "soba-owner-repo",
+  issue_number: 42
+)
+# => {
+#   success: true,
+#   window_name: "issue-42",
+#   created: true
+# }
 ```
 
 ### 並行実行の管理
 
 ```ruby
-# 1つのリポジトリセッション内で複数のIssueを並行処理
+# リポジトリセッション内で複数Issueを並行処理
 session_result = manager.find_or_create_repository_session
-session_name = session_result[:session_name]
 
-# 複数のIssue用ウィンドウを作成
 [24, 25, 26].each do |issue_number|
   window_result = manager.create_issue_window(
-    session_name: session_name,
+    session_name: session_result[:session_name],
     issue_number: issue_number
   )
 
-  if window_result[:success]
-    puts "Issue ##{issue_number}: window created - #{window_result[:window_name]}"
-  end
+  pane_result = manager.create_phase_pane(
+    session_name: session_result[:session_name],
+    window_name: window_result[:window_name],
+    phase: 'implementation'
+  )
 end
 ```
 
@@ -154,16 +165,20 @@ phases.each do |phase|
 end
 ```
 
-### Issueウィンドウの検索
+### クリーンアップ実行
 
 ```ruby
-# 特定のIssueのウィンドウを検索
-window_target = manager.find_issue_window('owner/repo', 42)
-# => "soba-owner-repo:issue-42" or nil
+# クローズされたIssueのウィンドウを削除
+manager = Soba::Services::TmuxSessionManager.new
+sessions = manager.list_soba_sessions
 
-# リポジトリ内の全Issueウィンドウを一覧表示
-windows = manager.list_issue_windows('owner/repo')
-# => [{ window: "issue-42", title: "Fix bug" }, ...]
+sessions.each do |session_name|
+  windows = @tmux_client.list_windows(session_name)
+  windows.select { |w| w.start_with?('issue-') }.each do |window|
+    issue_number = window.match(/issue-(\d+)/)[1]
+    # GitHub APIでクローズ状態を確認して削除
+  end
+end
 ```
 
 ## エラーハンドリング
@@ -199,7 +214,7 @@ end
 RSpec.describe Soba::Services::TmuxSessionManager do
   let(:tmux_client) { instance_double(Soba::Infrastructure::TmuxClient) }
 
-  it "creates repository session with correct name format" do
+  it "creates repository session with correct name" do
     allow(tmux_client).to receive(:session_exists?).and_return(false)
     allow(tmux_client).to receive(:create_session).and_return(true)
 
@@ -212,32 +227,27 @@ end
 ### 実環境での統合テスト
 ```ruby
 RSpec.describe "Tmux Integration", integration: true do
-  it "manages repository session and issue windows" do
-    # リポジトリセッション作成
-    session_result = manager.find_or_create_repository_session
-    expect(session_result[:success]).to be true
-
-    # Issueウィンドウ作成
-    window_result = manager.create_issue_window(
-      session_name: session_result[:session_name],
+  it "manages window lifecycle" do
+    session = manager.find_or_create_repository_session
+    window = manager.create_issue_window(
+      session_name: session[:session_name],
       issue_number: 99
     )
-    expect(window_result[:success]).to be true
+    expect(window[:success]).to be true
 
-    # フェーズペイン作成
-    pane_result = manager.create_phase_pane(
-      session_name: session_result[:session_name],
-      window_name: window_result[:window_name],
-      phase: 'testing'
+    pane = manager.create_phase_pane(
+      session_name: session[:session_name],
+      window_name: window[:window_name],
+      phase: 'test'
     )
-    expect(pane_result[:success]).to be true
+    expect(pane[:success]).to be true
   end
 end
 ```
 
 ## 注意事項
 
-- tmuxセッションは手動でアタッチ可能（`tmux attach-session -t セッション名`）
-- リポジトリごとに1つのセッションを維持し、Issueごとにウィンドウを作成
-- セッション名は`soba-{repository}`形式で統一
+- tmuxセッションは手動でアタッチ可能（`tmux attach-session -t soba-{repository}`）
+- リポジトリごとに1つのセッションを使用し、Issue単位でウィンドウを管理
+- フェーズごとにペインを作成し、最大3ペインまで自動管理
 - tmuxがインストールされていない環境では動作しない

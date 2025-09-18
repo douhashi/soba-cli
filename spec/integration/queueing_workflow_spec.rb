@@ -8,6 +8,7 @@ require 'soba/services/issue_processor'
 require 'soba/services/workflow_executor'
 require 'soba/services/workflow_blocking_checker'
 require 'soba/services/queueing_service'
+require 'soba/services/auto_merge_service'
 require 'soba/domain/phase_strategy'
 require 'soba/domain/issue'
 require 'soba/configuration'
@@ -16,9 +17,17 @@ RSpec.describe 'Queueing Workflow Integration' do
   let(:github_client) { double('GitHubClient') }
   let(:command) { Soba::Commands::Workflow::Run.new }
   let(:repository) { 'owner/repo' }
+  let(:auto_merge_service) { instance_double(Soba::Services::AutoMergeService) }
 
   before do
     allow(Soba::Infrastructure::GitHubClient).to receive(:new).and_return(github_client)
+    allow(Soba::Services::AutoMergeService).to receive(:new).and_return(auto_merge_service)
+    # Mock auto-merge service to return no PRs by default
+    allow(auto_merge_service).to receive(:execute).and_return(
+      merged_count: 0,
+      failed_count: 0,
+      details: { merged: [], failed: [] }
+    )
 
     Soba::Configuration.reset_config
     Soba::Configuration.configure do |c|

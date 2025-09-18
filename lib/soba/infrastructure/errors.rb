@@ -10,6 +10,8 @@ module Soba
 
     class NetworkError < GitHubClientError; end
 
+    class MergeConflictError < GitHubClientError; end
+
     class TmuxError < StandardError; end
 
     class TmuxSessionNotFound < TmuxError; end

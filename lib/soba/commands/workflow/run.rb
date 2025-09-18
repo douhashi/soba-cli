@@ -9,6 +9,7 @@ require_relative '../../services/workflow_executor'
 require_relative '../../services/tmux_session_manager'
 require_relative '../../services/workflow_blocking_checker'
 require_relative '../../services/queueing_service'
+require_relative '../../services/auto_merge_service'
 require_relative '../../domain/phase_strategy'
 
 module Soba
@@ -47,6 +48,7 @@ module Soba
             github_client: github_client,
             blocking_checker: blocking_checker
           )
+          auto_merge_service = Soba::Services::AutoMergeService.new
 
           repository = Soba::Configuration.config.github.repository
           interval = Soba::Configuration.config.workflow.interval || 10
@@ -96,6 +98,21 @@ module Soba
 
               # Sort by issue number (youngest first)
               processable_issues.sort_by!(&:number)
+
+              # Check for approved PRs that need auto-merge
+              merge_result = auto_merge_service.execute
+              if merge_result[:merged_count] > 0
+                puts "\n🎯 Auto-merged #{merge_result[:merged_count]} PR(s)"
+                merge_result[:details][:merged].each do |pr|
+                  puts "  ✅ PR ##{pr[:number]}: #{pr[:title]}"
+                end
+              end
+              if merge_result[:failed_count] > 0
+                puts "\n⚠️  Failed to merge #{merge_result[:failed_count]} PR(s)"
+                merge_result[:details][:failed].each do |pr|
+                  puts "  ❌ PR ##{pr[:number]}: #{pr[:reason]}"
+                end
+              end
 
               # Process the first issue if available
               if processable_issues.any?

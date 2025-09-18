@@ -165,6 +165,113 @@ module Soba
         raise
       end
 
+      def search_pull_requests(repository:, labels: [])
+        logger.info "Searching pull requests", repository: repository, labels: labels
+
+        query_parts = ["type:pr", "is:open", "repo:#{repository}"]
+        query_parts += labels.map { |label| "label:#{label}" }
+        query = query_parts.join(" ")
+
+        response = with_error_handling do
+          with_rate_limit_check do
+            @octokit.search_issues(query)
+          end
+        end
+
+        response.items.map do |pr|
+          {
+            number: pr.number,
+            title: pr.title,
+            state: pr.state,
+            labels: pr.labels.map { |l| { name: l.name } },
+          }
+        end
+      rescue => e
+        logger.error "Failed to search pull requests", error: e.message, repository: repository
+        raise
+      end
+
+      def merge_pull_request(repository, pr_number, merge_method: "squash")
+        logger.info "Merging pull request", repository: repository, pr_number: pr_number, merge_method: merge_method
+
+        response = with_error_handling do
+          with_rate_limit_check do
+            @octokit.merge_pull_request(repository, pr_number, nil, merge_method: merge_method)
+          end
+        end
+
+        {
+          sha: response.sha,
+          merged: response.merged,
+          message: response.message,
+        }
+      rescue Octokit::MethodNotAllowed => e
+        logger.error "Pull request not mergeable", repository: repository, pr_number: pr_number, error: e.message
+        raise MergeConflictError, "Pull request is not mergeable: #{e.message}"
+      rescue => e
+        logger.error "Failed to merge pull request", error: e.message, repository: repository, pr_number: pr_number
+        raise
+      end
+
+      def get_pull_request(repository, pr_number)
+        logger.info "Fetching pull request", repository: repository, pr_number: pr_number
+
+        response = with_error_handling do
+          with_rate_limit_check do
+            @octokit.pull_request(repository, pr_number)
+          end
+        end
+
+        {
+          number: response.number,
+          title: response.title,
+          body: response.body,
+          state: response.state,
+          mergeable: response.mergeable,
+          mergeable_state: response.mergeable_state,
+        }
+      rescue => e
+        logger.error "Failed to fetch pull request", error: e.message, repository: repository, pr_number: pr_number
+        raise
+      end
+
+      def get_pr_issue_number(repository, pr_number)
+        logger.info "Extracting issue number from PR", repository: repository, pr_number: pr_number
+
+        pr = get_pull_request(repository, pr_number)
+        body = pr[:body] || ""
+
+        # Match patterns like: fixes #123, closes #456, resolves #789
+        match = body.match(/(?:fixes|closes|resolves|fix|close|resolve)\s+#(\d+)/i)
+        return match[1].to_i if match
+
+        nil
+      rescue => e
+        logger.error "Failed to extract issue number", error: e.message, repository: repository, pr_number: pr_number
+        nil
+      end
+
+      def close_issue_with_label(repository, issue_number, label:)
+        logger.info "Closing issue with label", repository: repository, issue_number: issue_number, label: label
+
+        with_error_handling do
+          with_rate_limit_check do
+            # Close the issue
+            @octokit.close_issue(repository, issue_number)
+
+            # Add label
+            @octokit.add_labels_to_an_issue(repository, issue_number, [label])
+          end
+        end
+
+        logger.info "Issue closed and labeled successfully", repository: repository, issue_number: issue_number
+        true
+      rescue => e
+        logger.error "Failed to close issue with label", error: e.message, repository: repository,
+                                                         issue_number: issue_number
+        raise
+      end
+
       private
 
       def build_middleware_stack

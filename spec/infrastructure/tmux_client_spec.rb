@@ -560,6 +560,51 @@ RSpec.describe Soba::Infrastructure::TmuxClient do
 
       expect(result).to be false
     end
+
+    context 'edge cases for window name matching' do
+      it 'does not match partial window names' do
+        windows_list = "0: test-window-2* (1 panes) [80x24]\n1: my-test-window (1 panes) [80x24]"
+        allow(Open3).to receive(:capture3).with('tmux', 'list-windows', '-t', session_name).
+          and_return([windows_list, '', double(exitstatus: 0)])
+
+        result = client.window_exists?(session_name, window_name)
+
+        expect(result).to be false
+      end
+
+      it 'matches exact window name with issue prefix' do
+        window_name = 'issue-58'
+        windows_list = "0: issue-58* (1 panes) [80x24]\n1: issue-58-2 (1 panes) [80x24]"
+        allow(Open3).to receive(:capture3).with('tmux', 'list-windows', '-t', session_name).
+          and_return([windows_list, '', double(exitstatus: 0)])
+
+        result = client.window_exists?(session_name, window_name)
+
+        expect(result).to be true
+      end
+
+      it 'handles window names with special characters' do
+        window_name = 'issue-58'
+        windows_list = "0: bash* (1 panes) [80x24]\n1: issue-58 (2 panes) [80x24]\n2: issue-58-backup (1 panes) [80x24]"
+        allow(Open3).to receive(:capture3).with('tmux', 'list-windows', '-t', session_name).
+          and_return([windows_list, '', double(exitstatus: 0)])
+
+        result = client.window_exists?(session_name, window_name)
+
+        expect(result).to be true
+      end
+
+      it 'correctly identifies duplicate window names' do
+        window_name = 'issue-58'
+        windows_list = "0: issue-58 (1 panes) [80x24]\n1: issue-58 (1 panes) [80x24]"
+        allow(Open3).to receive(:capture3).with('tmux', 'list-windows', '-t', session_name).
+          and_return([windows_list, '', double(exitstatus: 0)])
+
+        result = client.window_exists?(session_name, window_name)
+
+        expect(result).to be true
+      end
+    end
   end
 
   describe '#split_window' do
@@ -602,13 +647,53 @@ RSpec.describe Soba::Infrastructure::TmuxClient do
         '-v', '-P', '-F', '#{pane_id}'
       ).and_return(['', "can't find window", double(exitstatus: 1)])
 
-      result = client.split_window(
+      result, error = client.split_window(
         session_name: session_name,
         window_name: window_name,
         vertical: true
       )
 
       expect(result).to be_nil
+      expect(error).to be_a(Hash)
+    end
+
+    context 'with error details' do
+      it 'returns error details when split fails' do
+        error_message = "can't find window: soba-test-session:test-window"
+        allow(Open3).to receive(:capture3).with(
+          'tmux', 'split-window', '-t', "#{session_name}:#{window_name}",
+          '-v', '-P', '-F', '#{pane_id}'
+        ).and_return(['', error_message, double(exitstatus: 1)])
+
+        result, error = client.split_window(
+          session_name: session_name,
+          window_name: window_name,
+          vertical: true
+        )
+
+        expect(result).to be_nil
+        expect(error).to include(:stderr)
+        expect(error[:stderr]).to eq(error_message)
+        expect(error[:command]).to eq(['tmux', 'split-window', '-t', "#{session_name}:#{window_name}", '-v', '-P', '-F', '#{pane_id}'])
+        expect(error[:exit_status]).to eq(1)
+      end
+
+      it 'returns error details for pane limit exceeded' do
+        error_message = "create pane failed: pane too small"
+        allow(Open3).to receive(:capture3).with(
+          'tmux', 'split-window', '-t', "#{session_name}:#{window_name}",
+          '-v', '-P', '-F', '#{pane_id}'
+        ).and_return(['', error_message, double(exitstatus: 1)])
+
+        result, error = client.split_window(
+          session_name: session_name,
+          window_name: window_name,
+          vertical: true
+        )
+
+        expect(result).to be_nil
+        expect(error[:stderr]).to eq(error_message)
+      end
     end
   end
 

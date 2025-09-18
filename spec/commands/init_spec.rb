@@ -497,6 +497,11 @@ RSpec.describe Soba::Commands::Init do
         expect(config['phase']['review']['command']).to eq('claude')
         expect(config['phase']['review']['options']).to eq(['--dangerously-skip-permissions'])
         expect(config['phase']['review']['parameter']).to eq('/soba:review {{issue-number}}')
+
+        expect(config['phase']['revise']).not_to be_nil
+        expect(config['phase']['revise']['command']).to eq('claude')
+        expect(config['phase']['revise']['options']).to eq(['--dangerously-skip-permissions'])
+        expect(config['phase']['revise']['parameter']).to eq('/soba:revise {{issue-number}}')
       end
 
       it "fails when GitHub repository cannot be detected" do

@@ -446,6 +446,20 @@ module Soba
             end
           end
 
+          if config['phase']['revise']
+            phase_content += "            revise:\n"
+            phase_content += "              command: #{config['phase']['revise']['command']}\n"
+            if config['phase']['revise']['options'].present?
+              phase_content += "              options:\n"
+              config['phase']['revise']['options'].each do |opt|
+                phase_content += "                - #{opt}\n"
+              end
+            end
+            if config['phase']['revise']['parameter']
+              phase_content += "              parameter: '#{config['phase']['revise']['parameter']}'\n"
+            end
+          end
+
           # Remove extra indentation to match YAML structure
           phase_content = phase_content.gsub(/^          /, '')
           config_content += phase_content

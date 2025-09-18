@@ -129,6 +129,64 @@ RSpec.describe Soba::Configuration do
     end
   end
 
+  describe 'auto-merge configuration' do
+    context 'when auto_merge_enabled is not specified' do
+      before do
+        FileUtils.mkdir_p(config_dir)
+        File.write(config_file, <<~YAML)
+          github:
+            token: test_token
+            repository: owner/repo
+          workflow:
+            interval: 20
+        YAML
+      end
+
+      it 'defaults to true' do
+        config = described_class.load!(path: config_file)
+        expect(config.workflow.auto_merge_enabled).to be true
+      end
+    end
+
+    context 'when auto_merge_enabled is explicitly set to false' do
+      before do
+        FileUtils.mkdir_p(config_dir)
+        File.write(config_file, <<~YAML)
+          github:
+            token: test_token
+            repository: owner/repo
+          workflow:
+            interval: 20
+            auto_merge_enabled: false
+        YAML
+      end
+
+      it 'loads as false' do
+        config = described_class.load!(path: config_file)
+        expect(config.workflow.auto_merge_enabled).to be false
+      end
+    end
+
+    context 'when auto_merge_enabled is explicitly set to true' do
+      before do
+        FileUtils.mkdir_p(config_dir)
+        File.write(config_file, <<~YAML)
+          github:
+            token: test_token
+            repository: owner/repo
+          workflow:
+            interval: 20
+            auto_merge_enabled: true
+        YAML
+      end
+
+      it 'loads as true' do
+        config = described_class.load!(path: config_file)
+        expect(config.workflow.auto_merge_enabled).to be true
+      end
+    end
+  end
+
   describe 'phase configuration' do
     context 'when phase settings are provided' do
       before do

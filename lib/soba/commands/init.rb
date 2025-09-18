@@ -221,6 +221,13 @@ module Soba
         review_label = $stdin.gets.chomp
         review_label = 'soba:review-requested' if review_label.empty?
 
+        # Auto-merge configuration
+        puts ""
+        print "Enable auto-merge for PRs with soba:lgtm label? (y/n) [y]: "
+        auto_merge = $stdin.gets.chomp.downcase
+        auto_merge = 'y' if auto_merge.empty?
+        auto_merge_enabled = auto_merge != 'n'
+
         # Workflow commands configuration
         puts ""
         puts "Workflow commands configuration (optional):"
@@ -318,6 +325,7 @@ module Soba
           },
           'workflow' => {
             'interval' => interval,
+            'auto_merge_enabled' => auto_merge_enabled,
             'phase_labels' => {
               'planning' => planning_label,
               'ready' => ready_label,
@@ -391,6 +399,9 @@ module Soba
           workflow:
             # Issue polling interval in seconds
             interval: #{config['workflow']['interval']}
+
+            # Enable automatic merging of PRs with soba:lgtm label
+            auto_merge_enabled: #{config['workflow']['auto_merge_enabled']}
 
             # Phase labels for tracking issue progress
             phase_labels:

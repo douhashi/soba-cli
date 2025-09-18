@@ -12,6 +12,8 @@ require_relative '../services/queueing_service'
 require_relative '../services/auto_merge_service'
 require_relative '../services/closed_issue_window_cleaner'
 require_relative '../domain/phase_strategy'
+require_relative '../services/pid_manager'
+require_relative '../services/daemon_service'
 
 module Soba
   module Commands
@@ -40,14 +42,59 @@ module Soba
 
       private
 
-      def execute_workflow(global_options, _options)
+      def log_output(message, options, daemon_service = nil)
+        if options[:foreground]
+          puts message
+        else
+          daemon_service&.log(message)
+        end
+      end
+
+      def execute_workflow(global_options, options)
+        # Daemon mode setup
+        unless options[:foreground]
+          pid_file = File.expand_path('~/.soba/soba.pid')
+          log_file = File.expand_path('~/.soba/logs/daemon.log')
+
+          pid_manager = Soba::Services::PidManager.new(pid_file)
+          daemon_service = Soba::Services::DaemonService.new(
+            pid_manager: pid_manager,
+            log_file: log_file
+          )
+
+          # Check if already running
+          if daemon_service.already_running?
+            pid = pid_manager.read
+            puts "Daemon is already running (PID: #{pid})"
+            puts "Use 'soba stop' to stop the daemon or 'soba status' to check status"
+            return 1
+          end
+
+          # Daemonize
+          puts "Starting daemon..."
+          daemon_service.daemonize!
+
+          # Log startup
+          daemon_service.log("Daemon started successfully (PID: #{Process.pid})")
+
+          # Setup signal handlers for daemon
+          daemon_service.setup_signal_handlers do
+            @running = false
+          end
+        end
+
         Soba::Configuration.load!
 
         config = Soba::Configuration.config
         unless config&.github&.repository
-          puts "Error: GitHub repository is not configured"
-          puts "Please run 'soba init' or set repository in .soba/config.yml"
-          return
+          message = "Error: GitHub repository is not configured\n" \
+                    "Please run 'soba init' or set repository in .soba/config.yml"
+          if options[:foreground]
+            puts message
+          else
+            daemon_service.log(message) if defined?(daemon_service)
+          end
+          return 1
         end
 
         github_client = Soba::Infrastructure::GitHubClient.new
@@ -90,15 +137,26 @@ module Soba
           interval: interval
         )
 
-        puts "Starting workflow monitor for #{repository}"
-        puts "Polling interval: #{interval} seconds"
-        puts "Auto-merge enabled: #{Soba::Configuration.config.workflow.auto_merge_enabled}"
-        puts "Closed issue cleanup enabled: #{Soba::Configuration.config.workflow.closed_issue_cleanup_enabled}"
-        puts "Press Ctrl+C to stop"
+        # Log or print based on mode
+        startup_message = [
+          "Starting workflow monitor for #{repository}",
+          "Polling interval: #{interval} seconds",
+          "Auto-merge enabled: #{Soba::Configuration.config.workflow.auto_merge_enabled}",
+          "Closed issue cleanup enabled: #{Soba::Configuration.config.workflow.closed_issue_cleanup_enabled}",
+        ]
+
+        if options[:foreground]
+          startup_message.each { |msg| puts msg }
+          puts "Press Ctrl+C to stop"
+        else
+          startup_message.each { |msg| daemon_service.log(msg) if defined?(daemon_service) }
+        end
 
         @running = true
-        Signal.trap('INT') { @running = false }
-        Signal.trap('TERM') { @running = false }
+        if options[:foreground]
+          Signal.trap('INT') { @running = false }
+          Signal.trap('TERM') { @running = false }
+        end
 
         while @running
           begin

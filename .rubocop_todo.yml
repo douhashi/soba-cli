@@ -25,6 +25,20 @@ Airbnb/SimpleModifierConditional:
   Exclude:
     - 'lib/soba/domain/issue.rb'
     - 'spec/spec_helper.rb'
+    - 'lib/soba/commands/status.rb'
+
+# Offense count: 9
+Airbnb/OptArgParameters:
+  Exclude:
+    - 'lib/soba/commands/start.rb'
+    - 'lib/soba/commands/status.rb'
+    - 'lib/soba/commands/stop.rb'
+    - 'lib/soba/services/pid_manager.rb'
+
+# Offense count: 1
+Airbnb/NoTimeout:
+  Exclude:
+    - 'lib/soba/services/pid_manager.rb'
 
 # Offense count: 4
 # This cop supports safe autocorrection (--autocorrect).

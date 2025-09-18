@@ -196,7 +196,7 @@ module Soba
 
         response = with_error_handling do
           with_rate_limit_check do
-            @octokit.merge_pull_request(repository, pr_number, nil, merge_method: merge_method)
+            @octokit.merge_pull_request(repository, pr_number, "", merge_method: merge_method)
           end
         end
 

@@ -54,6 +54,17 @@ module Soba
       end
 
       def find_next_candidate(issues)
+        # アクティブまたは中間状態のsobaラベルを持つIssueが存在する場合はnilを返す
+        active_or_intermediate_issues = issues.select do |issue|
+          issue.labels.any? do |label|
+            label_name = label[:name]
+            WorkflowBlockingChecker::ACTIVE_LABELS.include?(label_name) ||
+              WorkflowBlockingChecker::INTERMEDIATE_LABELS.include?(label_name)
+          end
+        end
+
+        return nil unless active_or_intermediate_issues.empty?
+
         todo_issues = issues.select do |issue|
           issue.labels.any? { |label| label[:name] == TODO_LABEL }
         end

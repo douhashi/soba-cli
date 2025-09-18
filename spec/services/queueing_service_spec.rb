@@ -81,6 +81,27 @@ RSpec.describe Soba::Services::QueueingService do
           expect(github_client).to have_received(:update_issue_labels).with(1, from: "soba:todo", to: "soba:queued")
           expect(logger).to have_received(:info).with("Issue #1 を soba:queued に遷移させました: Todo Issue")
         end
+
+        context "when another issue becomes active before label update" do
+          before do
+            # 最初のチェック時はブロッキングなし
+            call_count = 0
+            allow(blocking_checker).to receive(:blocking?) do |_, issues:|
+              call_count += 1
+              !(call_count == 1)
+            end
+            allow(blocking_checker).to receive(:blocking_reason).and_return("Issue #2 が soba:planning のため、新しいワークフローの開始をスキップしました")
+            allow(logger).to receive(:warn)
+          end
+
+          it "detects race condition and skips queueing" do
+            result = service.queue_next_issue(repository)
+
+            expect(result).to be_nil
+            expect(github_client).not_to have_received(:update_issue_labels)
+            expect(logger).to have_received(:warn).with(match(/競合状態を検出しました/))
+          end
+        end
       end
 
       context "and multiple todo issues exist" do
@@ -313,6 +334,12 @@ RSpec.describe Soba::Services::QueueingService do
         labels: [{ name: "soba:todo" }]
       )
     end
+    let(:issues) { [] }
+
+    before do
+      allow(github_client).to receive(:issues).with(repository, state: "open").and_return(issues)
+      allow(blocking_checker).to receive(:blocking?).with(repository, issues: issues).and_return(false)
+    end
 
     context "when label update succeeds" do
       before do
@@ -320,8 +347,9 @@ RSpec.describe Soba::Services::QueueingService do
       end
 
       it "updates the issue labels and logs success" do
-        service.send(:transition_to_queued, issue)
+        result = service.send(:transition_to_queued, issue, repository)
 
+        expect(result).to be true
         expect(github_client).to have_received(:update_issue_labels).with(1, from: "soba:todo", to: "soba:queued")
         expect(logger).to have_received(:info).with("Issue #1 を soba:queued に遷移させました: Todo Issue")
       end
@@ -334,8 +362,26 @@ RSpec.describe Soba::Services::QueueingService do
       end
 
       it "logs error and re-raises exception" do
-        expect { service.send(:transition_to_queued, issue) }.to raise_error(StandardError, "GitHub API error")
+        expect { service.send(:transition_to_queued, issue, repository) }.to raise_error(StandardError, "GitHub API error")
         expect(logger).to have_received(:error).with("Issue #1 のラベル更新に失敗しました: GitHub API error")
+      end
+    end
+
+    context "when race condition is detected" do
+      before do
+        allow(blocking_checker).to receive(:blocking?).with(repository, issues: issues).and_return(true)
+        allow(blocking_checker).to receive(:blocking_reason).with(repository, issues: issues).and_return("Issue #2 が soba:planning のため、新しいワークフローの開始をスキップしました")
+        allow(logger).to receive(:warn)
+        allow(github_client).to receive(:update_issue_labels)  # スパイとして設定
+      end
+
+      it "returns nil without updating labels" do
+        result = service.send(:transition_to_queued, issue, repository)
+
+        expect(result).to be_nil
+        expect(github_client).not_to have_received(:update_issue_labels)
+        expect(logger).to have_received(:warn).with("競合状態を検出しました: Issue #2 が soba:planning のため、新しいワークフローの開始をスキップしました")
+        expect(logger).to have_received(:warn).with("Issue #1 のキューイングをスキップします")
       end
     end
   end

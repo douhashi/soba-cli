@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 require 'spec_helper'
-require 'soba/commands/workflow/run'
+require 'soba/commands/start'
 require 'soba/infrastructure/github_client'
 require 'soba/services/issue_watcher'
 require 'soba/services/issue_processor'
@@ -16,7 +16,7 @@ require 'soba/configuration'
 
 RSpec.describe 'Queueing Workflow Integration' do
   let(:github_client) { double('GitHubClient') }
-  let(:command) { Soba::Commands::Workflow::Run.new }
+  let(:command) { Soba::Commands::Start.new }
   let(:repository) { 'owner/repo' }
   let(:auto_merge_service) { instance_double(Soba::Services::AutoMergeService) }
   let(:tmux_client) { instance_double(Soba::Infrastructure::TmuxClient) }
@@ -60,7 +60,7 @@ RSpec.describe 'Queueing Workflow Integration' do
 
     # Mock the infinite loop - run only once
     @execution_count = 0
-    allow_any_instance_of(Soba::Commands::Workflow::Run).to receive(:sleep) do |instance|
+    allow_any_instance_of(Soba::Commands::Start).to receive(:sleep) do |instance|
       @execution_count += 1
       instance.instance_variable_set(:@running, false) if @execution_count >= 1
     end
@@ -169,12 +169,12 @@ RSpec.describe 'Queueing Workflow Integration' do
 
         # Allow one more loop iteration to process the queued issue
         @execution_count = 0
-        allow_any_instance_of(Soba::Commands::Workflow::Run).to receive(:sleep) do |instance|
+        allow_any_instance_of(Soba::Commands::Start).to receive(:sleep) do |instance|
           @execution_count += 1
           instance.instance_variable_set(:@running, false) if @execution_count >= 2
         end
 
-        expect { command.execute({}, {}) }.to output(
+        expect { command.execute({}, {}, []) }.to output(
           /✅ Queued Issue #10 for processing.*🚀 Processing Issue #10/m
         ).to_stdout
       end
@@ -224,7 +224,7 @@ RSpec.describe 'Queueing Workflow Integration' do
           block.call(stdin, stdout, stderr, thread) if block
         end
 
-        expect { command.execute({}, {}) }.not_to output(/Queued Issue/).to_stdout
+        expect { command.execute({}, {}, []) }.not_to output(/Queued Issue/).to_stdout
       end
     end
 
@@ -255,7 +255,7 @@ RSpec.describe 'Queueing Workflow Integration' do
           block.call(stdin, stdout, stderr, thread)
         end
 
-        expect { command.execute({}, {}) }.to output(
+        expect { command.execute({}, {}, []) }.to output(
           /🚀 Processing Issue #50.*Phase: queued_to_planning/m
         ).to_stdout
       end
@@ -315,12 +315,12 @@ RSpec.describe 'Queueing Workflow Integration' do
 
         # Allow one more loop iteration to process the queued issue
         @execution_count = 0
-        allow_any_instance_of(Soba::Commands::Workflow::Run).to receive(:sleep) do |instance|
+        allow_any_instance_of(Soba::Commands::Start).to receive(:sleep) do |instance|
           @execution_count += 1
           instance.instance_variable_set(:@running, false) if @execution_count >= 2
         end
 
-        expect { command.execute({}, {}) }.to output(
+        expect { command.execute({}, {}, []) }.to output(
           /✅ Queued Issue #10 for processing/
         ).to_stdout
       end
@@ -367,7 +367,7 @@ RSpec.describe 'Queueing Workflow Integration' do
         block.call(stdin, stdout, stderr, thread) if block
       end
 
-      command.execute({}, {})
+      command.execute({}, {}, [])
     end
   end
 end

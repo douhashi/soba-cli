@@ -23,7 +23,7 @@ RSpec.describe Soba::Commands::Init do
 
     context "when config file does not exist" do
       it "creates a new configuration file" do
-        input = StringIO.new("douhashi/soba\n1\n20\n\n\n\n\n\nskip\nskip\nskip\n")
+        input = StringIO.new("douhashi/soba\n1\n20\n\n\n\n\n\n\nskip\nskip\nskip\n")
         allow($stdin).to receive(:gets) { input.gets }
         allow($stdin).to receive(:noecho).and_yield(input)
 
@@ -34,6 +34,7 @@ RSpec.describe Soba::Commands::Init do
         expect(config['github']['repository']).to eq('douhashi/soba')
         expect(config['github']['token']).to eq('${GITHUB_TOKEN}')
         expect(config['workflow']['interval']).to eq(20)
+        expect(config['workflow']['auto_merge_enabled']).to eq(true)
         expect(config['workflow']['phase_labels']['planning']).to eq('soba:planning')
         expect(config['workflow']['phase_labels']['ready']).to eq('soba:ready')
         expect(config['workflow']['phase_labels']['doing']).to eq('soba:doing')
@@ -42,7 +43,7 @@ RSpec.describe Soba::Commands::Init do
       end
 
       it "accepts direct token input" do
-        input = StringIO.new("douhashi/soba\n2\n30\n\n\n\n\n\nskip\nskip\nskip\n")
+        input = StringIO.new("douhashi/soba\n2\n30\n\n\n\n\n\n\n\nskip\nskip\nskip\n")
         allow($stdin).to receive(:gets) { input.gets }
         allow($stdin).to receive(:noecho).and_yield(StringIO.new("secret_token\n"))
 
@@ -50,10 +51,11 @@ RSpec.describe Soba::Commands::Init do
 
         config = YAML.safe_load_file(config_path)
         expect(config['github']['token']).to eq('secret_token')
+        expect(config['workflow']['auto_merge_enabled']).to eq(true)
       end
 
       it "accepts custom phase labels" do
-        input = StringIO.new("douhashi/soba\n1\n20\nplanning\nready\ndoing\nreview\n\nskip\nskip\nskip\n")
+        input = StringIO.new("douhashi/soba\n1\n20\nplanning\nready\ndoing\nreview\n\n\nskip\nskip\nskip\n")
         allow($stdin).to receive(:gets) { input.gets }
         allow($stdin).to receive(:noecho).and_yield(input)
 
@@ -64,16 +66,18 @@ RSpec.describe Soba::Commands::Init do
         expect(config['workflow']['phase_labels']['ready']).to eq('ready')
         expect(config['workflow']['phase_labels']['doing']).to eq('doing')
         expect(config['workflow']['phase_labels']['review_requested']).to eq('review')
+        expect(config['workflow']['auto_merge_enabled']).to eq(true)
       end
 
       it "accepts workflow phase commands" do
-        input = StringIO.new("douhashi/soba\n1\n20\n\n\n\n\n\nclaude\n--dangerously-skip-permissions\n/soba:plan {{issue-number}}\nclaude\n--dangerously-skip-permissions\n/soba:implement {{issue-number}}\nclaude\n--dangerously-skip-permissions\n/soba:review {{issue-number}}\n")
+        input = StringIO.new("douhashi/soba\n1\n20\n\n\n\n\n\n\nclaude\n--dangerously-skip-permissions\n/soba:plan {{issue-number}}\nclaude\n--dangerously-skip-permissions\n/soba:implement {{issue-number}}\nclaude\n--dangerously-skip-permissions\n/soba:review {{issue-number}}\n")
         allow($stdin).to receive(:gets) { input.gets }
         allow($stdin).to receive(:noecho).and_yield(input)
 
         expect { command.execute }.to output(/Configuration created successfully/).to_stdout
 
         config = YAML.safe_load_file(config_path)
+        expect(config['workflow']['auto_merge_enabled']).to eq(true)
         expect(config['phase']['plan']['command']).to eq('claude')
         expect(config['phase']['plan']['options']).to eq(['--dangerously-skip-permissions'])
         expect(config['phase']['plan']['parameter']).to eq('/soba:plan {{issue-number}}')
@@ -86,7 +90,7 @@ RSpec.describe Soba::Commands::Init do
       end
 
       it "shows default values in prompts and applies them on empty input" do
-        input = StringIO.new("douhashi/soba\n1\n20\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n")
+        input = StringIO.new("douhashi/soba\n1\n20\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n")
         allow($stdin).to receive(:gets) { input.gets }
         allow($stdin).to receive(:noecho).and_yield(input)
 
@@ -97,6 +101,7 @@ RSpec.describe Soba::Commands::Init do
 
         # Check that config applies default values when Enter is pressed
         config = YAML.safe_load_file(config_path)
+        expect(config['workflow']['auto_merge_enabled']).to eq(true)
         expect(config['phase']['plan']['command']).to eq('claude')
         expect(config['phase']['plan']['options']).to eq(['--dangerously-skip-permissions'])
         expect(config['phase']['plan']['parameter']).to eq('/soba:plan {{issue-number}}')
@@ -110,7 +115,7 @@ RSpec.describe Soba::Commands::Init do
 
       it "applies default values for phase commands when empty input is given" do
         # すべてのプロンプトで空入力（Enterキー）を入力
-        input = StringIO.new("douhashi/soba\n1\n20\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n")
+        input = StringIO.new("douhashi/soba\n1\n20\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n")
         allow($stdin).to receive(:gets) { input.gets }
         allow($stdin).to receive(:noecho).and_yield(input)
 
@@ -118,6 +123,7 @@ RSpec.describe Soba::Commands::Init do
 
         config = YAML.safe_load_file(config_path)
         # phase設定が作成され、デフォルト値が適用されていることを確認
+        expect(config['workflow']['auto_merge_enabled']).to eq(true)
         expect(config['phase']).not_to be_nil
         expect(config['phase']['plan']['command']).to eq('claude')
         expect(config['phase']['plan']['options']).to eq(['--dangerously-skip-permissions'])
@@ -132,13 +138,14 @@ RSpec.describe Soba::Commands::Init do
 
       it "allows partial customization with some default values" do
         # plan commandはカスタマイズ、他はデフォルト値を使用
-        input = StringIO.new("douhashi/soba\n1\n20\n\n\n\n\n\ncustom-claude\n\n\n\n\n\n\n\n\n")
+        input = StringIO.new("douhashi/soba\n1\n20\n\n\n\n\n\n\ncustom-claude\n\n\n\n\n\n\n\n\n\n")
         allow($stdin).to receive(:gets) { input.gets }
         allow($stdin).to receive(:noecho).and_yield(input)
 
         expect { command.execute }.to output(/Configuration created successfully/).to_stdout
 
         config = YAML.safe_load_file(config_path)
+        expect(config['workflow']['auto_merge_enabled']).to eq(true)
         expect(config['phase']['plan']['command']).to eq('custom-claude')
         expect(config['phase']['plan']['options']).to eq(['--dangerously-skip-permissions'])
         expect(config['phase']['plan']['parameter']).to eq('/soba:plan {{issue-number}}')
@@ -159,7 +166,7 @@ RSpec.describe Soba::Commands::Init do
         end
 
         it "creates labels after configuration file is created" do
-          input = StringIO.new("#{repository}\n1\n20\n\n\n\n\n\nskip\nskip\nskip\ny\n")
+          input = StringIO.new("#{repository}\n1\n20\n\n\n\n\n\n\n\nskip\nskip\nskip\ny\n")
           allow($stdin).to receive(:gets) { input.gets }
           allow($stdin).to receive(:noecho).and_yield(input)
 
@@ -202,7 +209,7 @@ RSpec.describe Soba::Commands::Init do
         end
 
         it "skips label creation when user declines" do
-          input = StringIO.new("#{repository}\n1\n20\n\n\n\n\n\nskip\nskip\nskip\nn\n")
+          input = StringIO.new("#{repository}\n1\n20\n\n\n\n\n\n\n\nskip\nskip\nskip\nn\n")
           allow($stdin).to receive(:gets) { input.gets }
           allow($stdin).to receive(:noecho).and_yield(input)
 
@@ -214,7 +221,7 @@ RSpec.describe Soba::Commands::Init do
         end
 
         it "skips existing labels" do
-          input = StringIO.new("#{repository}\n1\n20\n\n\n\n\n\nskip\nskip\nskip\ny\n")
+          input = StringIO.new("#{repository}\n1\n20\n\n\n\n\n\n\nskip\nskip\nskip\ny\n")
           allow($stdin).to receive(:gets) { input.gets }
           allow($stdin).to receive(:noecho).and_yield(input)
 
@@ -253,7 +260,7 @@ RSpec.describe Soba::Commands::Init do
         end
 
         it "handles label creation errors gracefully" do
-          input = StringIO.new("#{repository}\n1\n20\n\n\n\n\n\nskip\nskip\nskip\ny\n")
+          input = StringIO.new("#{repository}\n1\n20\n\n\n\n\n\n\nskip\nskip\nskip\ny\n")
           allow($stdin).to receive(:gets) { input.gets }
           allow($stdin).to receive(:noecho).and_yield(input)
 
@@ -289,7 +296,7 @@ RSpec.describe Soba::Commands::Init do
       end
 
       it "skips workflow commands when skip is entered" do
-        input = StringIO.new("douhashi/soba\n1\n20\n\n\n\n\n\nskip\nskip\nskip\n")
+        input = StringIO.new("douhashi/soba\n1\n20\n\n\n\n\n\n\nskip\nskip\nskip\n")
         allow($stdin).to receive(:gets) { input.gets }
         allow($stdin).to receive(:noecho).and_yield(input)
 
@@ -300,7 +307,7 @@ RSpec.describe Soba::Commands::Init do
       end
 
       it "validates repository format" do
-        input = StringIO.new("invalid\ndouhashi/soba\n1\n20\n\n\n\n\n\nskip\nskip\nskip\n")
+        input = StringIO.new("invalid\ndouhashi/soba\n1\n20\n\n\n\n\n\n\nskip\nskip\nskip\n")
         allow($stdin).to receive(:gets) { input.gets }
 
         expect { command.execute }.to output(/Invalid format/).to_stdout
@@ -308,10 +315,11 @@ RSpec.describe Soba::Commands::Init do
         expect(config_path).to exist
         config = YAML.safe_load_file(config_path)
         expect(config['github']['repository']).to eq('douhashi/soba')
+        expect(config['workflow']['auto_merge_enabled']).to eq(true)
       end
 
       it "uses default values when empty input" do
-        input = StringIO.new("douhashi/soba\n\n\n\n\n\n\n\nskip\nskip\nskip\n")
+        input = StringIO.new("douhashi/soba\n\n\n\n\n\n\n\n\nskip\nskip\nskip\n")
         allow($stdin).to receive(:gets) { input.gets }
 
         expect { command.execute }.to output(/Configuration created successfully/).to_stdout
@@ -319,6 +327,7 @@ RSpec.describe Soba::Commands::Init do
         config = YAML.safe_load_file(config_path)
         expect(config['github']['token']).to eq('${GITHUB_TOKEN}')
         expect(config['workflow']['interval']).to eq(20)
+        expect(config['workflow']['auto_merge_enabled']).to eq(true)
         expect(config['workflow']['phase_labels']['planning']).to eq('soba:planning')
         expect(config['workflow']['phase_labels']['ready']).to eq('soba:ready')
         expect(config['workflow']['phase_labels']['doing']).to eq('soba:doing')
@@ -330,39 +339,42 @@ RSpec.describe Soba::Commands::Init do
           allow(Dir).to receive(:exist?).with('.git').and_return(true)
           allow(command).to receive(:`).with('git config --get remote.origin.url 2>/dev/null').and_return("https://github.com/user/repo.git\n")
 
-          input = StringIO.new("\n1\n20\n\n\n\n\n\nskip\nskip\nskip\n")
+          input = StringIO.new("\n1\n20\n\n\n\n\n\n\nskip\nskip\nskip\n")
           allow($stdin).to receive(:gets) { input.gets }
 
           expect { command.execute }.to output(/\[user\/repo\]/).to_stdout
 
           config = YAML.safe_load_file(config_path)
           expect(config['github']['repository']).to eq('user/repo')
+          expect(config['workflow']['auto_merge_enabled']).to eq(true)
         end
 
         it "handles SSH format git remote" do
           allow(Dir).to receive(:exist?).with('.git').and_return(true)
           allow(command).to receive(:`).with('git config --get remote.origin.url 2>/dev/null').and_return("git@github.com:owner/project.git\n")
 
-          input = StringIO.new("\n1\n20\n\n\n\n\n\nskip\nskip\nskip\n")
+          input = StringIO.new("\n1\n20\n\n\n\n\n\n\nskip\nskip\nskip\n")
           allow($stdin).to receive(:gets) { input.gets }
 
           expect { command.execute }.to output(/\[owner\/project\]/).to_stdout
 
           config = YAML.safe_load_file(config_path)
           expect(config['github']['repository']).to eq('owner/project')
+          expect(config['workflow']['auto_merge_enabled']).to eq(true)
         end
 
         it "allows manual override of detected repository" do
           allow(Dir).to receive(:exist?).with('.git').and_return(true)
           allow(command).to receive(:`).with('git config --get remote.origin.url 2>/dev/null').and_return("https://github.com/user/repo.git\n")
 
-          input = StringIO.new("different/repo\n1\n20\n\n\n\n\n\nskip\nskip\nskip\n")
+          input = StringIO.new("different/repo\n1\n20\n\n\n\n\n\n\nskip\nskip\nskip\n")
           allow($stdin).to receive(:gets) { input.gets }
 
           expect { command.execute }.to output(/\[user\/repo\]/).to_stdout
 
           config = YAML.safe_load_file(config_path)
           expect(config['github']['repository']).to eq('different/repo')
+          expect(config['workflow']['auto_merge_enabled']).to eq(true)
         end
       end
     end
@@ -374,7 +386,7 @@ RSpec.describe Soba::Commands::Init do
       end
 
       it "asks for confirmation before overwriting" do
-        input = StringIO.new("y\ndouhashi/soba\n1\n20\n\n\n\n\n\nskip\nskip\nskip\n")
+        input = StringIO.new("y\ndouhashi/soba\n1\n20\n\n\n\n\n\n\nskip\nskip\nskip\n")
         allow($stdin).to receive(:gets) { input.gets }
 
         expect { command.execute }.to output(
@@ -383,6 +395,7 @@ RSpec.describe Soba::Commands::Init do
 
         config = YAML.safe_load_file(config_path)
         expect(config['github']).not_to be_nil
+        expect(config['workflow']['auto_merge_enabled']).to eq(true)
       end
 
       it "does not overwrite when user declines" do
@@ -404,7 +417,7 @@ RSpec.describe Soba::Commands::Init do
       end
 
       it "adds .soba to .gitignore when requested" do
-        input = StringIO.new("douhashi/soba\n1\n20\n\n\n\n\n\nskip\nskip\nskip\n\ny\n")
+        input = StringIO.new("douhashi/soba\n1\n20\n\n\n\n\n\n\nskip\nskip\nskip\n\ny\n")
         allow($stdin).to receive(:gets) { input.gets }
         allow($stdin).to receive(:noecho).and_yield(input)
 
@@ -416,7 +429,7 @@ RSpec.describe Soba::Commands::Init do
 
       it "does not add .soba when already present" do
         File.write(gitignore_path, "*.log\n.soba/\n")
-        input = StringIO.new("douhashi/soba\n1\n20\n\n\n\n\n\nskip\nskip\nskip\n")
+        input = StringIO.new("douhashi/soba\n1\n20\n\n\n\n\n\n\nskip\nskip\nskip\n")
         allow($stdin).to receive(:gets) { input.gets }
 
         expect { command.execute }.not_to output(/Add .soba\/ to .gitignore/).to_stdout
@@ -427,7 +440,7 @@ RSpec.describe Soba::Commands::Init do
       it "detects when GITHUB_TOKEN is set" do
         allow(ENV).to receive(:[]).and_return(nil)
         allow(ENV).to receive(:[]).with('GITHUB_TOKEN').and_return('test_token')
-        input = StringIO.new("douhashi/soba\n1\n20\n\n\n\n\n\nskip\nskip\nskip\n")
+        input = StringIO.new("douhashi/soba\n1\n20\n\n\n\n\n\n\nskip\nskip\nskip\n")
         allow($stdin).to receive(:gets) { input.gets }
 
         expect { command.execute }.to output(/GITHUB_TOKEN environment variable is set/).to_stdout
@@ -436,7 +449,7 @@ RSpec.describe Soba::Commands::Init do
       it "warns when GITHUB_TOKEN is not set" do
         allow(ENV).to receive(:[]).and_return(nil)
         allow(ENV).to receive(:[]).with('GITHUB_TOKEN').and_return(nil)
-        input = StringIO.new("douhashi/soba\n1\n20\n\n\n\n\n\nskip\nskip\nskip\n")
+        input = StringIO.new("douhashi/soba\n1\n20\n\n\n\n\n\n\nskip\nskip\nskip\n")
         allow($stdin).to receive(:gets) { input.gets }
 
         expect { command.execute }.to output(/GITHUB_TOKEN environment variable is not set/).to_stdout
@@ -477,6 +490,7 @@ RSpec.describe Soba::Commands::Init do
         expect(config['github']['repository']).to eq('douhashi/soba')
         expect(config['github']['token']).to eq('${GITHUB_TOKEN}')
         expect(config['workflow']['interval']).to eq(20)
+        expect(config['workflow']['auto_merge_enabled']).to eq(true)
         expect(config['workflow']['phase_labels']['planning']).to eq('soba:planning')
         expect(config['workflow']['phase_labels']['ready']).to eq('soba:ready')
         expect(config['workflow']['phase_labels']['doing']).to eq('soba:doing')

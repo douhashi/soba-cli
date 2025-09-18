@@ -76,7 +76,13 @@ RSpec.describe "CLI", type: :e2e do
       it "設定エラーの場合適切なメッセージを表示" do
         Dir.mktmpdir do |dir|
           Dir.chdir(dir) do
-            output, error, status = Open3.capture3("#{soba_bin} start 2>&1")
+            # Use test-specific PID file to avoid conflicts with running daemon
+            env = {
+              'SOBA_TEST_PID_FILE' => File.join(dir, 'test_soba.pid'),
+              'SOBA_TEST_LOG_FILE' => File.join(dir, 'test_daemon.log'),
+              'SOBA_TEST_STATUS_FILE' => File.join(dir, 'test_status.json'),
+            }
+            output, error, status = Open3.capture3(env, "#{soba_bin} start --foreground 2>&1")
             expect(status).not_to be_success
             expect(output + error).to include("GitHub repository is not set")
           end

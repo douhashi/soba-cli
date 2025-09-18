@@ -116,11 +116,67 @@ RSpec.describe Soba::Commands::Open do
     end
 
     context 'when no issue number is provided and no --list option' do
-      it 'raises an error' do
-        expect { command.execute(nil) }.to raise_error(
-          ArgumentError,
-          /Issue番号を指定するか、--listオプションを使用してください/
-        )
+      let(:tmux_session_manager) { instance_double(Soba::Services::TmuxSessionManager) }
+      let(:tmux_client) { instance_double(Soba::Infrastructure::TmuxClient) }
+
+      before do
+        allow(Soba::Services::TmuxSessionManager).to receive(:new).and_return(tmux_session_manager)
+        allow(Soba::Infrastructure::TmuxClient).to receive(:new).and_return(tmux_client)
+        allow(tmux_client).to receive(:tmux_installed?).and_return(true)
+      end
+
+      context 'when repository session exists' do
+        before do
+          allow(tmux_session_manager).to receive(:find_repository_session).and_return({
+            success: true,
+            session_name: 'soba-test-repo',
+            exists: true,
+          })
+        end
+
+        it 'attaches to the repository session' do
+          expect(tmux_client).to receive(:attach_to_session).with('soba-test-repo')
+          command.execute(nil)
+        end
+
+        it 'outputs success message' do
+          allow(tmux_client).to receive(:attach_to_session)
+          expect { command.execute(nil) }.
+            to output(/リポジトリのセッション soba-test-repo にアタッチします/).to_stdout
+        end
+      end
+
+      context 'when repository session does not exist' do
+        before do
+          allow(tmux_session_manager).to receive(:find_repository_session).and_return({
+            success: true,
+            session_name: 'soba-test-repo',
+            exists: false,
+          })
+        end
+
+        it 'raises an error with helpful message' do
+          expect { command.execute(nil) }.to raise_error(
+            Soba::Commands::Open::SessionNotFoundError,
+            /リポジトリのセッション soba-test-repo が見つかりません/
+          )
+        end
+      end
+
+      context 'when repository configuration is missing' do
+        before do
+          allow(tmux_session_manager).to receive(:find_repository_session).and_return({
+            success: false,
+            error: 'Repository configuration not found',
+          })
+        end
+
+        it 'raises an error with configuration message' do
+          expect { command.execute(nil) }.to raise_error(
+            ArgumentError,
+            /Repository configuration not found/
+          )
+        end
       end
     end
   end

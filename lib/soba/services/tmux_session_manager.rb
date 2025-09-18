@@ -32,6 +32,21 @@ module Soba
         end
       end
 
+      def find_repository_session
+        repository = Configuration.config.github.repository
+
+        return { success: false, error: 'Repository configuration not found' } if repository.blank?
+
+        # Convert repository name to session-safe format
+        session_name = "soba-#{repository.gsub(/[\/._]/, '-')}"
+
+        if @tmux_client.session_exists?(session_name)
+          { success: true, session_name: session_name, exists: true }
+        else
+          { success: true, session_name: session_name, exists: false }
+        end
+      end
+
       def create_issue_window(session_name:, issue_number:)
         window_name = "issue-#{issue_number}"
         lock_name = "window-#{session_name}-#{window_name}"

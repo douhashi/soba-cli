@@ -647,13 +647,53 @@ RSpec.describe Soba::Infrastructure::TmuxClient do
         '-v', '-P', '-F', '#{pane_id}'
       ).and_return(['', "can't find window", double(exitstatus: 1)])
 
-      result = client.split_window(
+      result, error = client.split_window(
         session_name: session_name,
         window_name: window_name,
         vertical: true
       )
 
       expect(result).to be_nil
+      expect(error).to be_a(Hash)
+    end
+
+    context 'with error details' do
+      it 'returns error details when split fails' do
+        error_message = "can't find window: soba-test-session:test-window"
+        allow(Open3).to receive(:capture3).with(
+          'tmux', 'split-window', '-t', "#{session_name}:#{window_name}",
+          '-v', '-P', '-F', '#{pane_id}'
+        ).and_return(['', error_message, double(exitstatus: 1)])
+
+        result, error = client.split_window(
+          session_name: session_name,
+          window_name: window_name,
+          vertical: true
+        )
+
+        expect(result).to be_nil
+        expect(error).to include(:stderr)
+        expect(error[:stderr]).to eq(error_message)
+        expect(error[:command]).to eq(['tmux', 'split-window', '-t', "#{session_name}:#{window_name}", '-v', '-P', '-F', '#{pane_id}'])
+        expect(error[:exit_status]).to eq(1)
+      end
+
+      it 'returns error details for pane limit exceeded' do
+        error_message = "create pane failed: pane too small"
+        allow(Open3).to receive(:capture3).with(
+          'tmux', 'split-window', '-t', "#{session_name}:#{window_name}",
+          '-v', '-P', '-F', '#{pane_id}'
+        ).and_return(['', error_message, double(exitstatus: 1)])
+
+        result, error = client.split_window(
+          session_name: session_name,
+          window_name: window_name,
+          vertical: true
+        )
+
+        expect(result).to be_nil
+        expect(error[:stderr]).to eq(error_message)
+      end
     end
   end
 

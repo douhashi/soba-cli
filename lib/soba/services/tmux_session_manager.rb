@@ -139,7 +139,21 @@ module Soba
         { success: false, error: "Lock acquisition failed: #{e.message}" }
       end
 
-      def create_phase_pane(session_name:, window_name:, phase:, vertical: true, max_panes: 3)
+      def create_phase_pane(session_name:, window_name:, phase:, vertical: true, max_panes: 3, max_retries: 3)
+        # 前提条件チェック
+        unless @tmux_client.session_exists?(session_name)
+          return { success: false, error: "Session does not exist: #{session_name}" }
+        end
+
+        unless @tmux_client.window_exists?(session_name, window_name)
+          return { success: false, error: "Window does not exist: #{window_name}" }
+        end
+
+        # tmuxサーバーの応答性チェック
+        if @tmux_client.list_sessions.nil?
+          return { success: false, error: 'tmux server is not responding' }
+        end
+
         # 現在のペイン一覧を取得
         existing_panes = @tmux_client.list_panes(session_name, window_name)
 
@@ -155,12 +169,40 @@ module Soba
           end
         end
 
-        # 新しいペインを作成
-        pane_id = @tmux_client.split_window(
-          session_name: session_name,
-          window_name: window_name,
-          vertical: vertical
-        )
+        # リトライロジック付きでペインを作成
+        pane_id = nil
+        error_details = nil
+        retry_count = 0
+        retry_delays = [0.5, 1, 2] # 指数バックオフ
+
+        max_retries.times do |attempt|
+          result = @tmux_client.split_window(
+            session_name: session_name,
+            window_name: window_name,
+            vertical: vertical
+          )
+
+          # 結果を確認
+          if result.is_a?(Array)
+            pane_id, error_details = result
+          else
+            pane_id = result
+          end
+
+          if pane_id
+            # 成功した場合はループを抜ける
+            break
+          else
+            retry_count = attempt + 1
+            if error_details && retry_count < max_retries
+              Soba.logger.warn(
+                "Pane creation failed (attempt #{retry_count}/#{max_retries}): " \
+                "#{error_details[:stderr]} (exit status: #{error_details[:exit_status]})"
+              )
+              sleep(retry_delays[attempt] || 2)
+            end
+          end
+        end
 
         if pane_id
           # レイアウトを調整
@@ -168,7 +210,15 @@ module Soba
 
           { success: true, pane_id: pane_id, phase: phase }
         else
-          { success: false, error: "Failed to create pane for phase #{phase}" }
+          error_message = "Failed to create pane for phase #{phase}"
+          if error_details
+            error_message += ": #{error_details[:stderr]}"
+            Soba.logger.error(
+              "Pane creation failed after #{retry_count} retries: " \
+              "#{error_details[:stderr]} (exit status: #{error_details[:exit_status]})"
+            )
+          end
+          { success: false, error: error_message }
         end
       end
 

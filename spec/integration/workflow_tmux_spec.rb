@@ -76,6 +76,7 @@ RSpec.describe 'Workflow Tmux Integration' do
         allow(tmux_client).to receive(:create_window) # Allow but don't expect
 
         # Create new pane for the phase
+        allow(tmux_client).to receive(:list_sessions).and_return(['soba-owner-repo-name'])
         allow(tmux_client).to receive(:list_panes).with('soba-owner-repo-name', 'issue-42').and_return([])
         allow(tmux_client).to receive(:split_window).with(
           session_name: 'soba-owner-repo-name',
@@ -155,6 +156,7 @@ RSpec.describe 'Workflow Tmux Integration' do
         allow(tmux_client).to receive(:send_keys).with('soba-owner-repo-name:issue-31', 'soba:plan 31').and_return(true)
 
         # Second phase: window exists, create new pane
+        allow(tmux_client).to receive(:list_sessions).and_return(['soba-owner-repo-name'])
         allow(tmux_client).to receive(:list_panes).with('soba-owner-repo-name', 'issue-31').and_return([])
         allow(tmux_client).to receive(:split_window).with(
           session_name: 'soba-owner-repo-name',

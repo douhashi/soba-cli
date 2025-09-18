@@ -17,6 +17,7 @@ module Soba
         },
         'workflow' => {
           'interval' => 20,
+          'auto_merge_enabled' => true,
           'phase_labels' => {
             'planning' => 'soba:planning',
             'ready' => 'soba:ready',

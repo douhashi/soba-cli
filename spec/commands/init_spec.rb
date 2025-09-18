@@ -34,6 +34,7 @@ RSpec.describe Soba::Commands::Init do
         expect(config['github']['repository']).to eq('douhashi/soba')
         expect(config['github']['token']).to eq('${GITHUB_TOKEN}')
         expect(config['workflow']['interval']).to eq(20)
+        expect(config['workflow']['auto_merge_enabled']).to eq(true)
         expect(config['workflow']['phase_labels']['planning']).to eq('soba:planning')
         expect(config['workflow']['phase_labels']['ready']).to eq('soba:ready')
         expect(config['workflow']['phase_labels']['doing']).to eq('soba:doing')
@@ -50,6 +51,7 @@ RSpec.describe Soba::Commands::Init do
 
         config = YAML.safe_load_file(config_path)
         expect(config['github']['token']).to eq('secret_token')
+        expect(config['workflow']['auto_merge_enabled']).to eq(true)
       end
 
       it "accepts custom phase labels" do
@@ -64,6 +66,7 @@ RSpec.describe Soba::Commands::Init do
         expect(config['workflow']['phase_labels']['ready']).to eq('ready')
         expect(config['workflow']['phase_labels']['doing']).to eq('doing')
         expect(config['workflow']['phase_labels']['review_requested']).to eq('review')
+        expect(config['workflow']['auto_merge_enabled']).to eq(true)
       end
 
       it "accepts workflow phase commands" do
@@ -74,6 +77,7 @@ RSpec.describe Soba::Commands::Init do
         expect { command.execute }.to output(/Configuration created successfully/).to_stdout
 
         config = YAML.safe_load_file(config_path)
+        expect(config['workflow']['auto_merge_enabled']).to eq(true)
         expect(config['phase']['plan']['command']).to eq('claude')
         expect(config['phase']['plan']['options']).to eq(['--dangerously-skip-permissions'])
         expect(config['phase']['plan']['parameter']).to eq('/soba:plan {{issue-number}}')
@@ -97,6 +101,7 @@ RSpec.describe Soba::Commands::Init do
 
         # Check that config applies default values when Enter is pressed
         config = YAML.safe_load_file(config_path)
+        expect(config['workflow']['auto_merge_enabled']).to eq(true)
         expect(config['phase']['plan']['command']).to eq('claude')
         expect(config['phase']['plan']['options']).to eq(['--dangerously-skip-permissions'])
         expect(config['phase']['plan']['parameter']).to eq('/soba:plan {{issue-number}}')
@@ -118,6 +123,7 @@ RSpec.describe Soba::Commands::Init do
 
         config = YAML.safe_load_file(config_path)
         # phase設定が作成され、デフォルト値が適用されていることを確認
+        expect(config['workflow']['auto_merge_enabled']).to eq(true)
         expect(config['phase']).not_to be_nil
         expect(config['phase']['plan']['command']).to eq('claude')
         expect(config['phase']['plan']['options']).to eq(['--dangerously-skip-permissions'])
@@ -132,13 +138,14 @@ RSpec.describe Soba::Commands::Init do
 
       it "allows partial customization with some default values" do
         # plan commandはカスタマイズ、他はデフォルト値を使用
-        input = StringIO.new("douhashi/soba\n1\n20\n\n\n\n\n\ncustom-claude\n\n\n\n\n\n\n\n\n")
+        input = StringIO.new("douhashi/soba\n1\n20\n\n\n\n\n\ncustom-claude\n\n\n\n\n\n\n\n\n\n")
         allow($stdin).to receive(:gets) { input.gets }
         allow($stdin).to receive(:noecho).and_yield(input)
 
         expect { command.execute }.to output(/Configuration created successfully/).to_stdout
 
         config = YAML.safe_load_file(config_path)
+        expect(config['workflow']['auto_merge_enabled']).to eq(true)
         expect(config['phase']['plan']['command']).to eq('custom-claude')
         expect(config['phase']['plan']['options']).to eq(['--dangerously-skip-permissions'])
         expect(config['phase']['plan']['parameter']).to eq('/soba:plan {{issue-number}}')
@@ -308,6 +315,7 @@ RSpec.describe Soba::Commands::Init do
         expect(config_path).to exist
         config = YAML.safe_load_file(config_path)
         expect(config['github']['repository']).to eq('douhashi/soba')
+        expect(config['workflow']['auto_merge_enabled']).to eq(true)
       end
 
       it "uses default values when empty input" do
@@ -319,6 +327,7 @@ RSpec.describe Soba::Commands::Init do
         config = YAML.safe_load_file(config_path)
         expect(config['github']['token']).to eq('${GITHUB_TOKEN}')
         expect(config['workflow']['interval']).to eq(20)
+        expect(config['workflow']['auto_merge_enabled']).to eq(true)
         expect(config['workflow']['phase_labels']['planning']).to eq('soba:planning')
         expect(config['workflow']['phase_labels']['ready']).to eq('soba:ready')
         expect(config['workflow']['phase_labels']['doing']).to eq('soba:doing')
@@ -337,6 +346,7 @@ RSpec.describe Soba::Commands::Init do
 
           config = YAML.safe_load_file(config_path)
           expect(config['github']['repository']).to eq('user/repo')
+          expect(config['workflow']['auto_merge_enabled']).to eq(true)
         end
 
         it "handles SSH format git remote" do
@@ -350,6 +360,7 @@ RSpec.describe Soba::Commands::Init do
 
           config = YAML.safe_load_file(config_path)
           expect(config['github']['repository']).to eq('owner/project')
+          expect(config['workflow']['auto_merge_enabled']).to eq(true)
         end
 
         it "allows manual override of detected repository" do
@@ -363,6 +374,7 @@ RSpec.describe Soba::Commands::Init do
 
           config = YAML.safe_load_file(config_path)
           expect(config['github']['repository']).to eq('different/repo')
+          expect(config['workflow']['auto_merge_enabled']).to eq(true)
         end
       end
     end
@@ -383,6 +395,7 @@ RSpec.describe Soba::Commands::Init do
 
         config = YAML.safe_load_file(config_path)
         expect(config['github']).not_to be_nil
+        expect(config['workflow']['auto_merge_enabled']).to eq(true)
       end
 
       it "does not overwrite when user declines" do
@@ -477,6 +490,7 @@ RSpec.describe Soba::Commands::Init do
         expect(config['github']['repository']).to eq('douhashi/soba')
         expect(config['github']['token']).to eq('${GITHUB_TOKEN}')
         expect(config['workflow']['interval']).to eq(20)
+        expect(config['workflow']['auto_merge_enabled']).to eq(true)
         expect(config['workflow']['phase_labels']['planning']).to eq('soba:planning')
         expect(config['workflow']['phase_labels']['ready']).to eq('soba:ready')
         expect(config['workflow']['phase_labels']['doing']).to eq('soba:doing')

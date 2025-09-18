@@ -97,6 +97,22 @@ command :start do |c|
   end
 end
 
+desc "Open tmux session for an issue"
+command :open do |c|
+  c.desc "Issue number to open"
+  c.arg_name "[issue_number]"
+
+  c.desc "List active issue sessions"
+  c.switch [:l, :list]
+
+  c.action do |global_options, options, args|
+    require_relative "../lib/soba/commands/open"
+    command = Soba::Commands::Open.new
+    issue_number = args[0] unless args.empty?
+    command.execute(issue_number, list: options[:list])
+  end
+end
+
 pre do |global, _command, _options, _args|
   if global[:verbose]
     Soba.logger.level = :debug

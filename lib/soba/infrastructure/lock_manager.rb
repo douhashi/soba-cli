@@ -24,13 +24,15 @@ module Soba
         loop do
           # Check for stale lock
           if File.exist?(lock_file) && stale_threshold > 0
-            if Time.now - File.mtime(lock_file) > stale_threshold
-              # Remove stale lock
-              begin
+            begin
+              if Time.now - File.mtime(lock_file) > stale_threshold
+                # Remove stale lock
                 File.delete(lock_file)
-              rescue
-                nil
               end
+            rescue Errno::ENOENT
+              # File was deleted by another process, continue
+            rescue
+              # Other errors, ignore and continue
             end
           end
 

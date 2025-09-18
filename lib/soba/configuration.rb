@@ -43,6 +43,11 @@ module Soba
         setting :options, default: []
         setting :parameter
       end
+      setting :revise do
+        setting :command
+        setting :options, default: []
+        setting :parameter
+      end
     end
 
     class << self
@@ -67,6 +72,9 @@ module Soba
           c.phase.review.command = nil
           c.phase.review.options = []
           c.phase.review.parameter = nil
+          c.phase.revise.command = nil
+          c.phase.revise.options = []
+          c.phase.revise.parameter = nil
         end
       end
 
@@ -155,6 +163,11 @@ module Soba
               c.phase.review.command = data.dig('phase', 'review', 'command')
               c.phase.review.options = data.dig('phase', 'review', 'options') || []
               c.phase.review.parameter = data.dig('phase', 'review', 'parameter')
+            end
+            if data['phase']['revise']
+              c.phase.revise.command = data.dig('phase', 'revise', 'command')
+              c.phase.revise.options = data.dig('phase', 'revise', 'options') || []
+              c.phase.revise.parameter = data.dig('phase', 'revise', 'parameter')
             end
           end
         end

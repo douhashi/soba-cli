@@ -44,6 +44,7 @@ namespace :build do
   end
 end
 
-task environment: [] do
-  # Environment setup task (can be expanded if needed)
+task :environment do
+  # Load the soba environment for build tasks
+  require_relative '../soba'
 end

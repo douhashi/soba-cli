@@ -102,7 +102,6 @@ command :workflow do |c|
       end
     end
   end
-
 end
 
 pre do |global, _command, _options, _args|

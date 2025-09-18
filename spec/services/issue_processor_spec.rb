@@ -47,6 +47,7 @@ RSpec.describe Soba::Services::IssueProcessor do
 
       it 'transitions from queued to planning and executes workflow' do
         expect(github_client).to receive(:update_issue_labels).with(
+          'owner/repo',
           issue[:number],
           from: 'soba:queued',
           to: 'soba:planning'
@@ -72,6 +73,7 @@ RSpec.describe Soba::Services::IssueProcessor do
 
       it 'updates label and executes workflow in tmux by default' do
         expect(github_client).to receive(:update_issue_labels).with(
+          'owner/repo',
           issue[:number],
           from: 'soba:todo',
           to: 'soba:planning'
@@ -122,7 +124,12 @@ RSpec.describe Soba::Services::IssueProcessor do
 
       context 'when label update fails' do
         it 'does not execute workflow and returns error' do
-          expect(github_client).to receive(:update_issue_labels).and_raise(
+          expect(github_client).to receive(:update_issue_labels).with(
+            'owner/repo',
+            issue[:number],
+            from: 'soba:todo',
+            to: 'soba:planning'
+          ).and_raise(
             StandardError.new('API error')
           )
 
@@ -174,6 +181,7 @@ RSpec.describe Soba::Services::IssueProcessor do
 
       it 'executes workflow directly without tmux' do
         expect(github_client).to receive(:update_issue_labels).with(
+          'owner/repo',
           issue[:number],
           from: 'soba:todo',
           to: 'soba:planning'
@@ -244,6 +252,7 @@ RSpec.describe Soba::Services::IssueProcessor do
 
       it 'updates label but skips workflow execution' do
         expect(github_client).to receive(:update_issue_labels).with(
+          'owner/repo',
           issue[:number],
           from: 'soba:todo',
           to: 'soba:planning'

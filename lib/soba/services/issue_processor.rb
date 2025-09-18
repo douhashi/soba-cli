@@ -61,7 +61,9 @@ module Soba
         next_label = phase_strategy.next_label(phase)
 
         begin
+          repository = get_repository_from_config
           github_client.update_issue_labels(
+            repository,
             issue[:number],
             from: current_label,
             to: next_label

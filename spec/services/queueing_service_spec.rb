@@ -71,14 +71,14 @@ RSpec.describe Soba::Services::QueueingService do
 
       context "and todo issue exists" do
         before do
-          allow(github_client).to receive(:update_issue_labels).with(1, from: "soba:todo", to: "soba:queued")
+          allow(github_client).to receive(:update_issue_labels).with("owner/repo", 1, from: "soba:todo", to: "soba:queued")
         end
 
         it "queues the todo issue" do
           result = service.queue_next_issue(repository)
 
           expect(result).to eq(todo_issue)
-          expect(github_client).to have_received(:update_issue_labels).with(1, from: "soba:todo", to: "soba:queued")
+          expect(github_client).to have_received(:update_issue_labels).with("owner/repo", 1, from: "soba:todo", to: "soba:queued")
           expect(logger).to have_received(:info).with("Issue #1 を soba:queued に遷移させました: Todo Issue")
         end
 
@@ -135,21 +135,21 @@ RSpec.describe Soba::Services::QueueingService do
         let(:issues) { [todo_issue_1, todo_issue_2, todo_issue_3] }
 
         before do
-          allow(github_client).to receive(:update_issue_labels).with(1, from: "soba:todo", to: "soba:queued")
+          allow(github_client).to receive(:update_issue_labels).with("owner/repo", 1, from: "soba:todo", to: "soba:queued")
         end
 
         it "queues the todo issue with smallest number" do
           result = service.queue_next_issue(repository)
 
           expect(result).to eq(todo_issue_2)
-          expect(github_client).to have_received(:update_issue_labels).with(1, from: "soba:todo", to: "soba:queued")
+          expect(github_client).to have_received(:update_issue_labels).with("owner/repo", 1, from: "soba:todo", to: "soba:queued")
           expect(logger).to have_received(:info).with("Issue #1 を soba:queued に遷移させました: Todo Issue 1")
         end
       end
 
       context "when label update fails" do
         before do
-          allow(github_client).to receive(:update_issue_labels).with(1, from: "soba:todo", to: "soba:queued").and_raise(StandardError, "GitHub API error")
+          allow(github_client).to receive(:update_issue_labels).with("owner/repo", 1, from: "soba:todo", to: "soba:queued").and_raise(StandardError, "GitHub API error")
           allow(logger).to receive(:error)
         end
 
@@ -193,14 +193,14 @@ RSpec.describe Soba::Services::QueueingService do
       before do
         allow(github_client).to receive(:issues).with(repository, state: "open").and_return(issues)
         allow(blocking_checker).to receive(:blocking?).with(repository, issues: issues).and_return(false)
-        allow(github_client).to receive(:update_issue_labels).with(2, from: "soba:todo", to: "soba:queued")
+        allow(github_client).to receive(:update_issue_labels).with("owner/repo", 2, from: "soba:todo", to: "soba:queued")
       end
 
       it "queues only the todo issue" do
         result = service.queue_next_issue(repository)
 
         expect(result).to eq(todo_issue)
-        expect(github_client).to have_received(:update_issue_labels).with(2, from: "soba:todo", to: "soba:queued")
+        expect(github_client).to have_received(:update_issue_labels).with("owner/repo", 2, from: "soba:todo", to: "soba:queued")
       end
     end
   end
@@ -415,21 +415,21 @@ RSpec.describe Soba::Services::QueueingService do
 
     context "when label update succeeds" do
       before do
-        allow(github_client).to receive(:update_issue_labels).with(1, from: "soba:todo", to: "soba:queued")
+        allow(github_client).to receive(:update_issue_labels).with("owner/repo", 1, from: "soba:todo", to: "soba:queued")
       end
 
       it "updates the issue labels and logs success" do
         result = service.send(:transition_to_queued, issue, repository)
 
         expect(result).to be true
-        expect(github_client).to have_received(:update_issue_labels).with(1, from: "soba:todo", to: "soba:queued")
+        expect(github_client).to have_received(:update_issue_labels).with("owner/repo", 1, from: "soba:todo", to: "soba:queued")
         expect(logger).to have_received(:info).with("Issue #1 を soba:queued に遷移させました: Todo Issue")
       end
     end
 
     context "when label update fails" do
       before do
-        allow(github_client).to receive(:update_issue_labels).with(1, from: "soba:todo", to: "soba:queued").and_raise(StandardError, "GitHub API error")
+        allow(github_client).to receive(:update_issue_labels).with("owner/repo", 1, from: "soba:todo", to: "soba:queued").and_raise(StandardError, "GitHub API error")
         allow(logger).to receive(:error)
       end
 

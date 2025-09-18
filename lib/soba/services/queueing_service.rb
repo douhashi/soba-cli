@@ -87,7 +87,7 @@ module Soba
 
         logger.debug("Issue ##{issue.number} のラベルを更新します: #{TODO_LABEL} -> #{QUEUED_LABEL}")
 
-        github_client.update_issue_labels(issue.number, from: TODO_LABEL, to: QUEUED_LABEL)
+        github_client.update_issue_labels(repository, issue.number, from: TODO_LABEL, to: QUEUED_LABEL)
 
         logger.info("Issue ##{issue.number} を soba:queued に遷移させました: #{issue.title}")
         true  # 成功を示すために true を返す

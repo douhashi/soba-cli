@@ -27,6 +27,9 @@ gem "dry-configurable", "~> 1.1"
 gem "activesupport", "~> 8.0", require: false
 
 group :development, :test do
+  # Build tools
+  gem "rake", "~> 13.0"
+
   # Testing
   gem "rspec", "~> 3.12"
   gem "webmock", "~> 3.19"

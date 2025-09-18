@@ -266,6 +266,13 @@ module Soba
         false
       end
 
+      def attach_to_session(session_name)
+        # Use system call to attach to tmux session
+        system("tmux", "attach-session", "-t", session_name)
+      rescue Errno::ENOENT
+        false
+      end
+
       private
 
       def execute_tmux_command(*args)

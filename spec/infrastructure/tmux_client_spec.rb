@@ -828,4 +828,33 @@ RSpec.describe Soba::Infrastructure::TmuxClient do
       expect(result).to be false
     end
   end
+
+  describe '#attach_to_session' do
+    let(:session_name) { 'soba-test-session' }
+
+    it 'attaches to the specified session' do
+      allow(client).to receive(:system).with('tmux', 'attach-session', '-t', session_name).and_return(true)
+
+      result = client.attach_to_session(session_name)
+
+      expect(result).to be true
+      expect(client).to have_received(:system).with('tmux', 'attach-session', '-t', session_name)
+    end
+
+    it 'returns false when session does not exist' do
+      allow(client).to receive(:system).with('tmux', 'attach-session', '-t', session_name).and_return(false)
+
+      result = client.attach_to_session(session_name)
+
+      expect(result).to be false
+    end
+
+    it 'returns false when tmux is not available' do
+      allow(client).to receive(:system).and_raise(Errno::ENOENT)
+
+      result = client.attach_to_session(session_name)
+
+      expect(result).to be false
+    end
+  end
 end

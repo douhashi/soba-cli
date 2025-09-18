@@ -197,6 +197,65 @@ RSpec.describe Soba::Services::TmuxSessionManager do
     end
   end
 
+  describe '#find_repository_session' do
+    before do
+      allow(Soba::Configuration).to receive(:config).and_return(
+        double(github: double(repository: 'owner/repo-name'))
+      )
+    end
+
+    it 'returns session name when repository session exists' do
+      session_name = 'soba-owner-repo-name'
+      allow(tmux_client).to receive(:session_exists?).with(session_name).and_return(true)
+
+      result = manager.find_repository_session
+
+      expect(result[:success]).to be true
+      expect(result[:session_name]).to eq(session_name)
+      expect(result[:exists]).to be true
+    end
+
+    it 'returns not exists when repository session does not exist' do
+      session_name = 'soba-owner-repo-name'
+      allow(tmux_client).to receive(:session_exists?).with(session_name).and_return(false)
+
+      result = manager.find_repository_session
+
+      expect(result[:success]).to be true
+      expect(result[:session_name]).to eq(session_name)
+      expect(result[:exists]).to be false
+    end
+
+    it 'handles repository names with special characters' do
+      allow(Soba::Configuration).to receive(:config).and_return(
+        double(github: double(repository: 'owner/repo.name-with_special'))
+      )
+      session_name = 'soba-owner-repo-name-with-special'
+      allow(tmux_client).to receive(:session_exists?).with(session_name).and_return(true)
+
+      result = manager.find_repository_session
+
+      expect(result[:success]).to be true
+      expect(result[:session_name]).to eq(session_name)
+      expect(result[:exists]).to be true
+    end
+
+    context 'when repository configuration is missing' do
+      before do
+        allow(Soba::Configuration).to receive(:config).and_return(
+          double(github: double(repository: nil))
+        )
+      end
+
+      it 'returns an error' do
+        result = manager.find_repository_session
+
+        expect(result[:success]).to be false
+        expect(result[:error]).to match(/Repository configuration not found/)
+      end
+    end
+  end
+
   describe '#create_phase_pane' do
     let(:session_name) { 'soba-owner-repo' }
     let(:window_name) { 'issue-42' }

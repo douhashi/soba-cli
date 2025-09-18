@@ -73,10 +73,12 @@ module Soba
           blocking_checker: blocking_checker
         )
         auto_merge_service = Soba::Services::AutoMergeService.new
+        cleanup_logger = Logger.new(STDOUT)
+        cleanup_logger.level = Logger::INFO
         cleaner_service = Soba::Services::ClosedIssueWindowCleaner.new(
           github_client: github_client,
           tmux_client: tmux_client,
-          logger: Logger.new(STDOUT)
+          logger: cleanup_logger
         )
 
         repository = Soba::Configuration.config.github.repository
@@ -149,10 +151,13 @@ module Soba
 
             # Cleanup closed issue windows (if enabled and interval has passed)
             if cleaner_service.should_clean?
+              timestamp = Time.now.strftime('%Y-%m-%d %H:%M:%S')
+              puts "[#{timestamp}] Running closed issue cleanup..."
               active_sessions = tmux_client.list_soba_sessions
               active_sessions.each do |session|
                 cleaner_service.clean(session)
               end
+              puts "[#{timestamp}] Closed issue cleanup completed for #{active_sessions.size} session(s)"
             end
 
             # Process the first issue if available

@@ -102,14 +102,6 @@ command :workflow do |c|
       end
     end
   end
-
-  c.desc "Auto-merge PRs with soba:lgtm label"
-  c.command :merge do |merge|
-    merge.action do |_global_options, _options, _args|
-      require_relative "../lib/soba/commands/workflow/merge"
-      Soba::Commands::Workflow::Merge.new.execute
-    end
-  end
 end
 
 pre do |global, _command, _options, _args|

@@ -34,6 +34,7 @@ RSpec.describe Soba::Commands::Workflow::Run do
       c.github.repository = 'owner/repo'
       c.workflow.interval = 10
       c.workflow.use_tmux = false # Disable tmux for tests
+      c.workflow.auto_merge_enabled = true # Enable auto-merge for tests
       c.git.setup_workspace = false # Disable workspace setup for tests
       c.phase.plan.command = 'echo'
       c.phase.plan.options = []
@@ -262,6 +263,34 @@ RSpec.describe Soba::Commands::Workflow::Run do
         end
 
         expect { command.execute({}, {}) }.to output(/Workflow skipped:/).to_stdout
+      end
+    end
+
+    context 'when auto-merge is disabled' do
+      before do
+        Soba::Configuration.configure do |c|
+          c.workflow.auto_merge_enabled = false
+        end
+      end
+
+      it 'does not execute auto-merge service' do
+        issues = [
+          Soba::Domain::Issue.new(
+            number: 15,
+            title: 'Issue 15',
+            labels: [{ name: 'other' }], # Not a soba:todo issue to avoid queueing
+            state: 'open',
+            created_at: Time.now.iso8601,
+            updated_at: Time.now.iso8601
+          ),
+        ]
+
+        allow(github_client).to receive(:issues).and_return(issues)
+
+        # auto-merge service should not be called when disabled
+        expect(auto_merge_service).not_to receive(:execute)
+
+        command.execute({}, {})
       end
     end
 

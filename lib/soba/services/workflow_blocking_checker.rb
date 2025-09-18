@@ -10,6 +10,12 @@ module Soba
         soba:planning
         soba:doing
         soba:reviewing
+        soba:revising
+      ).freeze
+
+      INTERMEDIATE_LABELS = %w(
+        soba:review-requested
+        soba:requires-changes
       ).freeze
 
       WAITING_LABELS = %w(
@@ -29,7 +35,7 @@ module Soba
       end
 
       def blocking_issues(repository, issues:, except_issue_number: nil)
-        # 引数で渡されたissuesからACTIVE_LABELSを持つものを検出
+        # 引数で渡されたissuesからACTIVE_LABELSまたはINTERMEDIATE_LABELSを持つものを検出
         # except_issue_numberが指定されている場合は、そのissueを除外
         blocking = issues.select do |issue|
           if except_issue_number && issue.number == except_issue_number
@@ -38,13 +44,14 @@ module Soba
 
           issue.labels.any? do |label|
             label_name = label.is_a?(Hash) ? label[:name] : label.name
-            ACTIVE_LABELS.include?(label_name)
+            ACTIVE_LABELS.include?(label_name) || INTERMEDIATE_LABELS.include?(label_name)
           end
         end
 
-        logger&.debug("Found #{blocking.size} blocking issues with ACTIVE_LABELS")
+        logger&.debug("Found #{blocking.size} blocking issues with ACTIVE_LABELS or INTERMEDIATE_LABELS")
         blocking.each do |issue|
-          labels = issue.labels.map { |l| l.is_a?(Hash) ? l[:name] : l.name }.select { |n| ACTIVE_LABELS.include?(n) }
+          labels = issue.labels.map { |l| l.is_a?(Hash) ? l[:name] : l.name }.
+            select { |n| ACTIVE_LABELS.include?(n) || INTERMEDIATE_LABELS.include?(n) }
           logger&.debug("Issue ##{issue.number}: #{labels.join(', ')}")
         end
 
@@ -58,7 +65,7 @@ module Soba
         issue = blocking.first
         label = issue.labels.find do |l|
           label_name = l.is_a?(Hash) ? l[:name] : l.name
-          ACTIVE_LABELS.include?(label_name)
+          ACTIVE_LABELS.include?(label_name) || INTERMEDIATE_LABELS.include?(label_name)
         end
         return nil unless label
 

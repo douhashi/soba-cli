@@ -32,7 +32,9 @@ module Soba
           return nil
         end
 
-        transition_to_queued(candidate)
+        result = transition_to_queued(candidate, repository)
+        return nil if result.nil? # 競合状態検出時
+
         candidate
       rescue => e
         logger.error("キューイング処理でエラーが発生しました: #{e.message} (repository: #{repository})")
@@ -62,12 +64,22 @@ module Soba
         todo_issues.min_by(&:number)
       end
 
-      def transition_to_queued(issue)
+      def transition_to_queued(issue, repository)
+        # ラベル更新直前に再度排他制御チェック（競合状態の検出）
+        current_issues = github_client.issues(repository, state: "open")
+        if blocking_checker.blocking?(repository, issues: current_issues)
+          reason = blocking_checker.blocking_reason(repository, issues: current_issues)
+          logger.warn("競合状態を検出しました: #{reason}")
+          logger.warn("Issue ##{issue.number} のキューイングをスキップします")
+          return nil
+        end
+
         logger.debug("Issue ##{issue.number} のラベルを更新します: #{TODO_LABEL} -> #{QUEUED_LABEL}")
 
         github_client.update_issue_labels(issue.number, from: TODO_LABEL, to: QUEUED_LABEL)
 
         logger.info("Issue ##{issue.number} を soba:queued に遷移させました: #{issue.title}")
+        true  # 成功を示すために true を返す
       rescue => e
         logger.error("Issue ##{issue.number} のラベル更新に失敗しました: #{e.message}")
         raise

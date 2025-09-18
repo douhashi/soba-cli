@@ -121,8 +121,28 @@ module Soba
               if processable_issues.any?
                 issue = processable_issues.first
 
-                # Skip blocking check for non-todo phases
-                # (Blocking is handled during queueing for todo issues)
+                # Additional safety check: ensure no duplicate active issues before processing
+                # This prevents race conditions when multiple workflow instances might be running
+                active_labels = %w(soba:queued soba:planning soba:doing soba:reviewing soba:revising)
+                intermediate_labels = %w(soba:review-requested soba:requires-changes)
+
+                active_issues = issues.select do |i|
+                  i_labels = i.labels.map { |l| l[:name] }
+                  (i_labels & (active_labels + intermediate_labels)).any?
+                end
+
+                if active_issues.size > 1
+                  puts "\n⚠️  Detected multiple active issues (#{active_issues.size}).\n" \
+                       "  Skipping processing to avoid conflicts."
+                  active_issues.each do |ai|
+                    ai_labels = ai.labels.map { |l| l[:name] }
+                    active_label = (ai_labels & (active_labels + intermediate_labels)).first
+                    puts "  - Issue ##{ai.number}: #{active_label}"
+                  end
+                  puts "  Please resolve this manually or wait for the next cycle."
+                  sleep(interval) if @running
+                  next
+                end
 
                 puts "\n🚀 Processing Issue ##{issue.number}: #{issue.title}"
 

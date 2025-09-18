@@ -22,7 +22,7 @@ module Soba
         elsif issue_number
           open_issue_session(issue_number)
         else
-          raise ArgumentError, 'Issue番号を指定するか、--listオプションを使用してください'
+          open_repository_session
         end
       end
 
@@ -31,6 +31,33 @@ module Soba
       def validate_tmux_installation!
         unless @tmux_client.tmux_installed?
           raise Infrastructure::TmuxNotInstalled, 'tmuxがインストールされていません。インストールしてから再度お試しください'
+        end
+      end
+
+      def open_repository_session
+        Configuration.load!
+
+        result = @tmux_session_manager.find_repository_session
+
+        unless result[:success]
+          raise ArgumentError, result[:error]
+        end
+
+        session_name = result[:session_name]
+
+        if result[:exists]
+          puts "リポジトリのセッション #{session_name} にアタッチします..."
+          @tmux_client.attach_to_session(session_name)
+        else
+          raise SessionNotFoundError, <<~MESSAGE
+            リポジトリのセッション #{session_name} が見つかりません。
+
+            Issue作業を開始すると自動的にセッションが作成されます:
+              soba start <issue-number>
+
+            またはアクティブなセッションを確認できます:
+              soba open --list
+          MESSAGE
         end
       end
 

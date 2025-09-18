@@ -9,8 +9,9 @@ module Soba
     class TmuxSessionManager
       SESSION_PREFIX = 'soba-claude'
 
-      def initialize(tmux_client:, lock_manager: nil)
-        @tmux_client = tmux_client
+      def initialize(config: nil, tmux_client: nil, lock_manager: nil)
+        @config = config
+        @tmux_client = tmux_client || Soba::Infrastructure::TmuxClient.new
         @lock_manager = lock_manager || Soba::Infrastructure::LockManager.new
       end
 
@@ -222,7 +223,54 @@ module Soba
         end
       end
 
+      def find_issue_window(repository_name, issue_number)
+        session_name = "soba-#{repository_name.gsub(/[\/._]/, '-')}"
+        window_name = "issue-#{issue_number}"
+
+        if @tmux_client.session_exists?(session_name) && @tmux_client.window_exists?(session_name, window_name)
+          "#{session_name}:#{window_name}"
+        else
+          nil
+        end
+      end
+
+      def list_issue_windows(repository_name)
+        session_name = "soba-#{repository_name.gsub(/[\/._]/, '-')}"
+
+        return [] unless @tmux_client.session_exists?(session_name)
+
+        windows = @tmux_client.list_windows(session_name)
+        issue_windows = windows.select { |window| window.start_with?('issue-') }
+
+        issue_windows.map do |window|
+          issue_number = begin
+                           window.match(/issue-(\d+)/)[1]
+                         rescue
+                           nil
+                         end
+          next unless issue_number
+
+          # Try to fetch issue title from GitHub
+          title = begin
+                    fetch_issue_title(repository_name, issue_number)
+                  rescue
+                    nil
+                  end
+
+          {
+            window: window,
+            title: title,
+          }
+        end.compact
+      end
+
       private
+
+      def fetch_issue_title(repository_name, issue_number)
+        # This is a placeholder - actual implementation would use GitHub API
+        # For now, return nil to let the command handle it
+        nil
+      end
 
       def generate_session_name(issue_number)
         timestamp = Time.now.to_i

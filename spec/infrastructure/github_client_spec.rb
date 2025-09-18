@@ -57,6 +57,77 @@ RSpec.describe Soba::Infrastructure::GitHubClient do
     end
   end
 
+  describe "#update_issue_labels_with_check" do
+    let(:issue_number) { 42 }
+    let(:from_label) { "soba:todo" }
+    let(:to_label) { "soba:queued" }
+
+    context "when expected label state matches" do
+      it "updates labels successfully" do
+        # First fetch current labels
+        stub_request(:get, /api\.github\.com\/repos\/owner\/repo\/issues\/42$/).
+          to_return(
+            status: 200,
+            body: {
+              number: 42,
+              labels: [{ name: "soba:todo", color: "green" }],
+            }.to_json,
+            headers: { 'Content-Type' => 'application/json' }
+          )
+
+        # Update labels
+        stub_request(:put, /api\.github\.com\/repos\/owner\/repo\/issues\/42\/labels/).
+          to_return(
+            status: 200,
+            body: [{ name: "soba:queued", color: "blue" }].to_json,
+            headers: { 'Content-Type' => 'application/json' }
+          )
+
+        result = github_client.update_issue_labels_with_check(repository, issue_number, from: from_label, to: to_label)
+
+        expect(result).to eq(true)
+      end
+    end
+
+    context "when expected label state does not match" do
+      it "returns false without updating" do
+        # Current labels don't have expected 'from' label
+        stub_request(:get, /api\.github\.com\/repos\/owner\/repo\/issues\/42$/).
+          to_return(
+            status: 200,
+            body: {
+              number: 42,
+              labels: [{ name: "soba:planning", color: "yellow" }],
+            }.to_json,
+            headers: { 'Content-Type' => 'application/json' }
+          )
+
+        result = github_client.update_issue_labels_with_check(repository, issue_number, from: from_label, to: to_label)
+
+        expect(result).to eq(false)
+      end
+    end
+
+    context "when to label already exists" do
+      it "returns false to prevent duplicate transition" do
+        # Issue already has the 'to' label
+        stub_request(:get, /api\.github\.com\/repos\/owner\/repo\/issues\/42$/).
+          to_return(
+            status: 200,
+            body: {
+              number: 42,
+              labels: [{ name: "soba:queued", color: "blue" }],
+            }.to_json,
+            headers: { 'Content-Type' => 'application/json' }
+          )
+
+        result = github_client.update_issue_labels_with_check(repository, issue_number, from: from_label, to: to_label)
+
+        expect(result).to eq(false)
+      end
+    end
+  end
+
   describe "#create_label" do
     let(:label_name) { "soba:planning" }
     let(:color) { "1e90ff" }

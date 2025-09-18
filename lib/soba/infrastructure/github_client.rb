@@ -104,6 +104,58 @@ module Soba
         raise
       end
 
+      def update_issue_labels_with_check(repository, issue_number, from:, to:)
+        logger.info "Atomic label update with check",
+                    repository: repository,
+                    issue: issue_number,
+                    from: from,
+                    to: to
+
+        with_error_handling do
+          with_rate_limit_check do
+            # Get current labels to check state
+            issue = @octokit.issue(repository, issue_number)
+            current_labels = issue.labels.map(&:name)
+
+            # Check if the issue has the expected 'from' label
+            unless current_labels.include?(from)
+              logger.warn "Label state mismatch: expected '#{from}' not found",
+                          repository: repository,
+                          issue: issue_number,
+                          current_labels: current_labels
+              return false
+            end
+
+            # Check if the issue already has the 'to' label (duplicate transition)
+            if current_labels.include?(to)
+              logger.warn "Duplicate transition detected: '#{to}' already exists",
+                          repository: repository,
+                          issue: issue_number,
+                          current_labels: current_labels
+              return false
+            end
+
+            # Perform the label update atomically
+            new_labels = current_labels - [from]
+            new_labels << to
+
+            @octokit.replace_all_labels(repository, issue_number, new_labels)
+
+            logger.info "Labels updated atomically",
+                        repository: repository,
+                        issue: issue_number,
+                        updated_labels: new_labels
+            true
+          end
+        end
+      rescue => e
+        logger.error "Failed to update labels atomically",
+                     error: e.message,
+                     repository: repository,
+                     issue: issue_number
+        raise
+      end
+
       def wait_for_rate_limit
         limit_info = @octokit.rate_limit
 

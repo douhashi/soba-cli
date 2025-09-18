@@ -154,9 +154,41 @@ RSpec.describe Soba::Services::WorkflowBlockingChecker do
       end
       let(:issues) { [review_issue] }
 
-      it "returns false" do
+      it "returns true (intermediate state blocks new issues)" do
         result = checker.blocking?(repository, issues: issues)
-        expect(result).to be false
+        expect(result).to be true
+      end
+    end
+
+    context "when soba:requires-changes issue exists" do
+      let(:requires_changes_issue) do
+        double(
+          number: 7,
+          title: "Requires Changes Issue",
+          labels: [{ name: "soba:requires-changes" }]
+        )
+      end
+      let(:issues) { [requires_changes_issue] }
+
+      it "returns true (intermediate state blocks new issues)" do
+        result = checker.blocking?(repository, issues: issues)
+        expect(result).to be true
+      end
+    end
+
+    context "when soba:revising issue exists" do
+      let(:revising_issue) do
+        double(
+          number: 8,
+          title: "Revising Issue",
+          labels: [{ name: "soba:revising" }]
+        )
+      end
+      let(:issues) { [revising_issue] }
+
+      it "returns true (active state blocks new issues)" do
+        result = checker.blocking?(repository, issues: issues)
+        expect(result).to be true
       end
     end
 
@@ -242,9 +274,9 @@ RSpec.describe Soba::Services::WorkflowBlockingChecker do
       end
       let(:issues) { [ready_issue, review_requested_issue] }
 
-      it "returns false when only WAITING_LABELS are present" do
+      it "returns true when review-requested is present (intermediate state)" do
         result = checker.blocking?(repository, issues: issues)
-        expect(result).to be false
+        expect(result).to be true
       end
     end
 

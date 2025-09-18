@@ -10,6 +10,7 @@ require_relative '../../services/tmux_session_manager'
 require_relative '../../services/workflow_blocking_checker'
 require_relative '../../services/queueing_service'
 require_relative '../../services/auto_merge_service'
+require_relative '../../services/closed_issue_window_cleaner'
 require_relative '../../domain/phase_strategy'
 
 module Soba
@@ -49,6 +50,11 @@ module Soba
             blocking_checker: blocking_checker
           )
           auto_merge_service = Soba::Services::AutoMergeService.new
+          cleaner_service = Soba::Services::ClosedIssueWindowCleaner.new(
+            github_client: github_client,
+            tmux_client: tmux_client,
+            logger: Logger.new(STDOUT)
+          )
 
           repository = Soba::Configuration.config.github.repository
           interval = Soba::Configuration.config.workflow.interval || 10
@@ -62,6 +68,7 @@ module Soba
           puts "Starting workflow monitor for #{repository}"
           puts "Polling interval: #{interval} seconds"
           puts "Auto-merge enabled: #{Soba::Configuration.config.workflow.auto_merge_enabled}"
+          puts "Closed issue cleanup enabled: #{Soba::Configuration.config.workflow.closed_issue_cleanup_enabled}"
           puts "Press Ctrl+C to stop"
 
           @running = true
@@ -114,6 +121,14 @@ module Soba
                   merge_result[:details][:failed].each do |pr|
                     puts "  ❌ PR ##{pr[:number]}: #{pr[:reason]}"
                   end
+                end
+              end
+
+              # Cleanup closed issue windows (if enabled and interval has passed)
+              if cleaner_service.should_clean?
+                active_sessions = tmux_client.list_soba_sessions
+                active_sessions.each do |session|
+                  cleaner_service.clean(session)
                 end
               end
 

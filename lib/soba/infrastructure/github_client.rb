@@ -324,6 +324,21 @@ module Soba
         raise
       end
 
+      def fetch_closed_issues(repository)
+        logger.info "Fetching closed issues", repository: repository
+
+        response = with_error_handling do
+          with_rate_limit_check do
+            @octokit.issues(repository, state: "closed")
+          end
+        end
+
+        map_issues_to_domain(response)
+      rescue => e
+        logger.error "Failed to fetch closed issues", error: e.message, repository: repository
+        raise
+      end
+
       private
 
       def build_middleware_stack

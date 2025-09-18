@@ -197,12 +197,19 @@ module Soba
       def split_window(session_name:, window_name:, vertical: true)
         flag = vertical ? '-v' : '-h'
         target = "#{session_name}:#{window_name}"
-        stdout, _stderr, status = execute_tmux_command(
-          'split-window', '-t', target, flag, '-P', '-F', '#{pane_id}'
-        )
-        return nil unless status.exitstatus == 0
+        command_args = ['split-window', '-t', target, flag, '-P', '-F', '#{pane_id}']
+        stdout, stderr, status = execute_tmux_command(*command_args)
 
-        stdout.strip
+        if status.exitstatus == 0
+          stdout.strip
+        else
+          error_details = {
+            stderr: stderr,
+            command: ['tmux'] + command_args,
+            exit_status: status.exitstatus,
+          }
+          [nil, error_details]
+        end
       rescue Errno::ENOENT
         nil
       end

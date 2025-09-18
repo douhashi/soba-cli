@@ -3,10 +3,12 @@
 require 'spec_helper'
 require 'soba/services/tmux_session_manager'
 require 'soba/infrastructure/tmux_client'
+require 'soba/infrastructure/lock_manager'
 
 RSpec.describe Soba::Services::TmuxSessionManager do
   let(:tmux_client) { instance_double(Soba::Infrastructure::TmuxClient) }
-  let(:manager) { described_class.new(tmux_client: tmux_client) }
+  let(:lock_manager) { instance_double(Soba::Infrastructure::LockManager) }
+  let(:manager) { described_class.new(tmux_client: tmux_client, lock_manager: lock_manager) }
 
   describe '#start_claude_session' do
     let(:issue_number) { 19 }
@@ -353,9 +355,13 @@ RSpec.describe Soba::Services::TmuxSessionManager do
     let(:session_name) { 'soba-owner-repo' }
     let(:issue_number) { 42 }
 
+    before do
+      allow(lock_manager).to receive(:with_lock).and_yield
+    end
+
     it 'creates a new window for the issue' do
       window_name = 'issue-42'
-      allow(tmux_client).to receive(:window_exists?).with(session_name, window_name).and_return(false)
+      allow(tmux_client).to receive(:window_exists?).with(session_name, window_name).and_return(false, true)
       allow(tmux_client).to receive(:create_window).with(session_name, window_name).and_return(true)
 
       result = manager.create_issue_window(session_name: session_name, issue_number: issue_number)
@@ -379,6 +385,41 @@ RSpec.describe Soba::Services::TmuxSessionManager do
       expect(tmux_client).not_to have_received(:create_window)
     end
 
+    context 'when multiple calls for the same issue' do
+      it 'always returns the same window' do
+        window_name = 'issue-42'
+        # First call creates the window
+        allow(tmux_client).to receive(:window_exists?).with(session_name, window_name).and_return(false, true)
+        allow(tmux_client).to receive(:create_window).with(session_name, window_name).and_return(true)
+
+        result1 = manager.create_issue_window(session_name: session_name, issue_number: issue_number)
+        result2 = manager.create_issue_window(session_name: session_name, issue_number: issue_number)
+
+        expect(result1[:success]).to be true
+        expect(result1[:created]).to be true
+        expect(result2[:success]).to be true
+        expect(result2[:created]).to be false
+        expect(result1[:window_name]).to eq(result2[:window_name])
+        expect(tmux_client).to have_received(:create_window).once
+      end
+    end
+
+    context 'when duplicate windows exist' do
+      it 'detects and uses existing window instead of creating another' do
+        window_name = 'issue-58'
+        # Simulating the duplicate window case from the issue
+        allow(tmux_client).to receive(:window_exists?).with(session_name, window_name).and_return(true)
+        allow(tmux_client).to receive(:create_window)
+
+        result = manager.create_issue_window(session_name: session_name, issue_number: 58)
+
+        expect(result[:success]).to be true
+        expect(result[:window_name]).to eq(window_name)
+        expect(result[:created]).to be false
+        expect(tmux_client).not_to have_received(:create_window)
+      end
+    end
+
     context 'when window creation fails' do
       it 'returns an error' do
         window_name = 'issue-42'
@@ -389,6 +430,47 @@ RSpec.describe Soba::Services::TmuxSessionManager do
 
         expect(result[:success]).to be false
         expect(result[:error]).to match(/Failed to create window/)
+      end
+    end
+
+    context 'when lock acquisition fails' do
+      it 'returns an error with lock failure message' do
+        allow(lock_manager).to receive(:with_lock).and_raise(
+          Soba::Infrastructure::LockTimeoutError, 'Failed to acquire lock'
+        )
+
+        result = manager.create_issue_window(session_name: session_name, issue_number: issue_number)
+
+        expect(result[:success]).to be false
+        expect(result[:error]).to match(/Lock acquisition failed/)
+      end
+    end
+
+    context 'with concurrent window creation attempts' do
+      it 'ensures only one window is created' do
+        window_name = 'issue-42'
+        creation_count = 0
+
+        allow(lock_manager).to receive(:with_lock) do |&block|
+          block.call
+        end
+
+        # Simulate concurrent attempts
+        allow(tmux_client).to receive(:window_exists?).with(session_name, window_name) do
+          !(creation_count == 0)
+        end
+
+        allow(tmux_client).to receive(:create_window).with(session_name, window_name) do
+          creation_count += 1
+          true
+        end
+
+        result1 = manager.create_issue_window(session_name: session_name, issue_number: issue_number)
+        result2 = manager.create_issue_window(session_name: session_name, issue_number: issue_number)
+
+        expect(creation_count).to eq(1)
+        expect(result1[:created]).to be true
+        expect(result2[:created]).to be false
       end
     end
   end

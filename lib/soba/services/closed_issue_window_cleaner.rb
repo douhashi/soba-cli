@@ -14,16 +14,16 @@ module Soba
       end
 
       def clean(session_name)
-        logger.info('Cleaning up windows for closed issues...')
+        logger.debug("Cleaning up windows for closed issues in session: #{session_name}")
 
         begin
           closed_issues = fetch_closed_issues
           if closed_issues.empty?
-            logger.info('No closed issues found')
+            logger.debug('No closed issues found')
             return
           end
 
-          logger.info("Found #{closed_issues.size} closed issues")
+          logger.debug("Found #{closed_issues.size} closed issues")
 
           windows = list_tmux_windows(session_name)
           return if windows.nil?
@@ -38,7 +38,7 @@ module Soba
             end
           end
 
-          logger.info("Cleanup completed: removed #{removed_count} windows")
+          logger.debug("Cleanup completed for #{session_name}: removed #{removed_count} windows")
         rescue StandardError => e
           logger.error("Unexpected error during cleanup: #{e.message}")
         end

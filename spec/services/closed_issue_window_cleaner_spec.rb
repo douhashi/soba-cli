@@ -10,7 +10,7 @@ RSpec.describe Soba::Services::ClosedIssueWindowCleaner do
   let(:cleaner) { described_class.new(github_client: github_client, tmux_client: tmux_client, logger: logger) }
 
   describe '#clean' do
-    let(:session_name) { 'soba-workflow' }
+    let(:session_name) { 'soba-123' }
 
     before do
       # Mock the configuration for all tests
@@ -53,11 +53,11 @@ RSpec.describe Soba::Services::ClosedIssueWindowCleaner do
       it 'logs the cleanup actions' do
         cleaner.clean(session_name)
 
-        expect(logger).to have_received(:info).with('Cleaning up windows for closed issues...')
-        expect(logger).to have_received(:info).with('Found 3 closed issues')
+        expect(logger).to have_received(:debug).with('Cleaning up windows for closed issues in session: soba-123')
+        expect(logger).to have_received(:debug).with('Found 3 closed issues')
         expect(logger).to have_received(:info).with('Removed window: issue-42 (Issue #42: Fix bug)')
         expect(logger).to have_received(:info).with('Removed window: issue-43 (Issue #43: Add feature)')
-        expect(logger).to have_received(:info).with('Cleanup completed: removed 2 windows')
+        expect(logger).to have_received(:debug).with('Cleanup completed for soba-123: removed 2 windows')
       end
     end
 
@@ -77,8 +77,8 @@ RSpec.describe Soba::Services::ClosedIssueWindowCleaner do
       it 'logs that no cleanup is needed' do
         cleaner.clean(session_name)
 
-        expect(logger).to have_received(:info).with('Cleaning up windows for closed issues...')
-        expect(logger).to have_received(:info).with('No closed issues found')
+        expect(logger).to have_received(:debug).with('Cleaning up windows for closed issues in session: soba-123')
+        expect(logger).to have_received(:debug).with('No closed issues found')
       end
     end
 
@@ -102,9 +102,9 @@ RSpec.describe Soba::Services::ClosedIssueWindowCleaner do
       it 'logs that no windows need cleanup' do
         cleaner.clean(session_name)
 
-        expect(logger).to have_received(:info).with('Cleaning up windows for closed issues...')
-        expect(logger).to have_received(:info).with('Found 1 closed issues')
-        expect(logger).to have_received(:info).with('Cleanup completed: removed 0 windows')
+        expect(logger).to have_received(:debug).with('Cleaning up windows for closed issues in session: soba-123')
+        expect(logger).to have_received(:debug).with('Found 1 closed issues')
+        expect(logger).to have_received(:debug).with('Cleanup completed for soba-123: removed 0 windows')
       end
     end
 
@@ -123,7 +123,7 @@ RSpec.describe Soba::Services::ClosedIssueWindowCleaner do
         cleaner.clean(session_name)
 
         expect(logger).to have_received(:warn).with('Failed to remove window: issue-42')
-        expect(logger).to have_received(:info).with('Cleanup completed: removed 0 windows')
+        expect(logger).to have_received(:debug).with('Cleanup completed for soba-123: removed 0 windows')
       end
     end
 

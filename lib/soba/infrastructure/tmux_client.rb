@@ -207,6 +207,36 @@ module Soba
         nil
       end
 
+      def list_panes(session_name, window_name)
+        target = "#{session_name}:#{window_name}"
+        stdout, _stderr, status = execute_tmux_command(
+          'list-panes', '-t', target, '-F', '#{pane_id}:#{pane_start_time}'
+        )
+        return [] unless status.exitstatus == 0
+
+        stdout.lines.map do |line|
+          parts = line.strip.split(':')
+          { id: parts[0], start_time: parts[1].to_i }
+        end
+      rescue Errno::ENOENT
+        []
+      end
+
+      def kill_pane(pane_id)
+        _stdout, _stderr, status = execute_tmux_command('kill-pane', '-t', pane_id)
+        status.exitstatus == 0
+      rescue Errno::ENOENT
+        false
+      end
+
+      def select_layout(session_name, window_name, layout)
+        target = "#{session_name}:#{window_name}"
+        _stdout, _stderr, status = execute_tmux_command('select-layout', '-t', target, layout)
+        status.exitstatus == 0
+      rescue Errno::ENOENT
+        false
+      end
+
       private
 
       def execute_tmux_command(*args)

@@ -60,6 +60,23 @@ soba-claude-{issue_number}-{timestamp}
 - `split_pane`: ペインの分割（水平/垂直）
 - `resize_pane`: ペインサイズ調整
 - `select_pane`: アクティブペインの切り替え
+- `list_panes`: ペイン一覧と作成時刻の取得
+- `kill_pane`: 指定ペインの削除
+- `select_layout`: レイアウトの自動調整
+
+### ペイン管理の自動化
+
+#### ペイン数制限機能
+フェーズ実行時に自動的にペイン数を管理：
+- **最大ペイン数**: デフォルトで3つに制限
+- **自動削除**: 4つ目のペイン作成時に最古のペインを自動削除
+- **作成時刻追跡**: `#{pane_start_time}`フォーマットを使用
+
+#### レイアウト自動調整
+ペイン作成・削除後に自動的にレイアウトを調整：
+- **水平分割**: フェーズ実行時のデフォルト（`vertical: false`）
+- **自動調整**: `even-horizontal`レイアウトを適用
+- **均等配置**: すべてのペインが同じ幅になるよう調整
 
 ### 自動クリーンアップ
 
@@ -118,6 +135,33 @@ end
 sessions.each do |session|
   status = manager.get_session_status(session)
   puts "#{session}: #{status[:status]}"
+end
+```
+
+### フェーズごとのペイン管理
+
+```ruby
+# リポジトリセッションとIssueウィンドウの作成
+session_result = manager.find_or_create_repository_session
+window_result = manager.create_issue_window(
+  session_name: session_result[:session_name],
+  issue_number: 42
+)
+
+# フェーズごとにペインを作成（水平分割、最大3ペイン）
+phases = ['planning', 'implementation', 'review', 'testing']
+phases.each do |phase|
+  pane_result = manager.create_phase_pane(
+    session_name: session_result[:session_name],
+    window_name: window_result[:window_name],
+    phase: phase,
+    vertical: false,  # 水平分割
+    max_panes: 3     # 最大3ペイン（4つ目から古いペインを削除）
+  )
+
+  if pane_result[:success]
+    puts "Phase #{phase} started in pane #{pane_result[:pane_id]}"
+  end
 end
 ```
 

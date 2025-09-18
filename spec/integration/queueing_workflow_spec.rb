@@ -369,5 +369,87 @@ RSpec.describe 'Queueing Workflow Integration' do
 
       command.execute({}, {}, [])
     end
+
+    context 'when active soba label and todo issue exist simultaneously (Issue #99)' do
+      it 'does not queue todo issues when intermediate labels exist' do
+        review_requested_issue = Soba::Domain::Issue.new(
+          number: 101,
+          title: 'Review Requested Issue',
+          labels: [{ name: 'soba:review-requested' }],
+          state: 'open',
+          created_at: Time.now.iso8601,
+          updated_at: Time.now.iso8601
+        )
+
+        todo_issue = Soba::Domain::Issue.new(
+          number: 102,
+          title: 'Todo Issue',
+          labels: [{ name: 'soba:todo' }],
+          state: 'open',
+          created_at: Time.now.iso8601,
+          updated_at: Time.now.iso8601
+        )
+
+        allow(github_client).to receive(:issues).and_return([review_requested_issue, todo_issue])
+
+        # Should not queue todo issue because review-requested issue exists
+        expect(github_client).not_to receive(:update_issue_labels).with(
+          102, from: 'soba:todo', to: 'soba:queued'
+        )
+
+        command.execute({}, {}, [])
+      end
+
+      it 'does not queue todo issues when multiple active labels exist' do
+        doing_issue = Soba::Domain::Issue.new(
+          number: 103,
+          title: 'Doing Issue',
+          labels: [{ name: 'soba:doing' }],
+          state: 'open',
+          created_at: Time.now.iso8601,
+          updated_at: Time.now.iso8601
+        )
+
+        reviewing_issue = Soba::Domain::Issue.new(
+          number: 104,
+          title: 'Reviewing Issue',
+          labels: [{ name: 'soba:reviewing' }],
+          state: 'open',
+          created_at: Time.now.iso8601,
+          updated_at: Time.now.iso8601
+        )
+
+        todo_issue = Soba::Domain::Issue.new(
+          number: 105,
+          title: 'Todo Issue',
+          labels: [{ name: 'soba:todo' }],
+          state: 'open',
+          created_at: Time.now.iso8601,
+          updated_at: Time.now.iso8601
+        )
+
+        allow(github_client).to receive(:issues).and_return([doing_issue, reviewing_issue, todo_issue])
+
+        # Should not queue todo issue because active issues exist
+        expect(github_client).not_to receive(:update_issue_labels).with(
+          105, from: 'soba:todo', to: 'soba:queued'
+        )
+
+        # Process existing active issues
+        allow(github_client).to receive(:update_issue_labels).with(
+          103, from: 'soba:doing', to: 'soba:reviewing'
+        )
+
+        allow(Open3).to receive(:popen3) do |&block|
+          stdin = double('stdin', close: nil)
+          stdout = double('stdout', read: '')
+          stderr = double('stderr', read: '')
+          thread = double('thread', value: double(exitstatus: 0))
+          block.call(stdin, stdout, stderr, thread) if block
+        end
+
+        command.execute({}, {}, [])
+      end
+    end
   end
 end

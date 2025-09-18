@@ -323,6 +323,78 @@ RSpec.describe Soba::Services::QueueingService do
         expect(result).to eq(todo_issue)
       end
     end
+
+    context "when todo issues and active soba label issues exist" do
+      let(:todo_issue) do
+        instance_double(
+          Soba::Domain::Issue,
+          number: 1,
+          title: "Todo Issue",
+          labels: [{ name: "soba:todo" }]
+        )
+      end
+
+      let(:planning_issue) do
+        instance_double(
+          Soba::Domain::Issue,
+          number: 2,
+          title: "Planning Issue",
+          labels: [{ name: "soba:planning" }]
+        )
+      end
+
+      let(:doing_issue) do
+        instance_double(
+          Soba::Domain::Issue,
+          number: 3,
+          title: "Doing Issue",
+          labels: [{ name: "soba:doing" }]
+        )
+      end
+
+      let(:issues) { [todo_issue, planning_issue, doing_issue] }
+
+      it "returns nil when active soba labels exist" do
+        result = service.send(:find_next_candidate, issues)
+        expect(result).to be_nil
+      end
+    end
+
+    context "when todo issues and intermediate soba label issues exist" do
+      let(:todo_issue) do
+        instance_double(
+          Soba::Domain::Issue,
+          number: 1,
+          title: "Todo Issue",
+          labels: [{ name: "soba:todo" }]
+        )
+      end
+
+      let(:review_requested_issue) do
+        instance_double(
+          Soba::Domain::Issue,
+          number: 2,
+          title: "Review Requested Issue",
+          labels: [{ name: "soba:review-requested" }]
+        )
+      end
+
+      let(:requires_changes_issue) do
+        instance_double(
+          Soba::Domain::Issue,
+          number: 3,
+          title: "Requires Changes Issue",
+          labels: [{ name: "soba:requires-changes" }]
+        )
+      end
+
+      let(:issues) { [todo_issue, review_requested_issue, requires_changes_issue] }
+
+      it "returns nil when intermediate soba labels exist" do
+        result = service.send(:find_next_candidate, issues)
+        expect(result).to be_nil
+      end
+    end
   end
 
   describe "#transition_to_queued" do

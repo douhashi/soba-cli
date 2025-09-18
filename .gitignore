@@ -84,6 +84,3 @@ Thumbs.db
 
 # soba config directory
 .soba/
-
-# Tebako build output
-/dist/

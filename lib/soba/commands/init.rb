@@ -18,6 +18,8 @@ module Soba
         'workflow' => {
           'interval' => 20,
           'auto_merge_enabled' => true,
+          'closed_issue_cleanup_enabled' => true,
+          'closed_issue_cleanup_interval' => 300,
           'phase_labels' => {
             'planning' => 'soba:planning',
             'ready' => 'soba:ready',
@@ -327,6 +329,8 @@ module Soba
           'workflow' => {
             'interval' => interval,
             'auto_merge_enabled' => auto_merge_enabled,
+            'closed_issue_cleanup_enabled' => true,
+            'closed_issue_cleanup_interval' => 300,
             'phase_labels' => {
               'planning' => planning_label,
               'ready' => ready_label,
@@ -403,6 +407,12 @@ module Soba
 
             # Enable automatic merging of PRs with soba:lgtm label
             auto_merge_enabled: #{config['workflow']['auto_merge_enabled']}
+
+            # Enable automatic cleanup of tmux windows for closed issues
+            closed_issue_cleanup_enabled: #{config['workflow']['closed_issue_cleanup_enabled']}
+
+            # Cleanup check interval in seconds
+            closed_issue_cleanup_interval: #{config['workflow']['closed_issue_cleanup_interval']}
 
             # Phase labels for tracking issue progress
             phase_labels:

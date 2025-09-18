@@ -9,6 +9,7 @@ require 'soba/services/workflow_executor'
 require 'soba/services/workflow_blocking_checker'
 require 'soba/services/queueing_service'
 require 'soba/services/auto_merge_service'
+require 'soba/services/closed_issue_window_cleaner'
 require 'soba/domain/phase_strategy'
 require 'soba/domain/issue'
 require 'soba/configuration'
@@ -16,17 +17,26 @@ require 'soba/configuration'
 RSpec.describe Soba::Commands::Workflow::Run do
   let(:command) { described_class.new }
   let(:github_client) { double('GitHubClient') }
+  let(:tmux_client) { instance_double(Soba::Infrastructure::TmuxClient) }
   let(:auto_merge_service) { instance_double(Soba::Services::AutoMergeService) }
+  let(:cleaner_service) { instance_double(Soba::Services::ClosedIssueWindowCleaner) }
 
   before do
     allow(Soba::Infrastructure::GitHubClient).to receive(:new).and_return(github_client)
+    allow(Soba::Infrastructure::TmuxClient).to receive(:new).and_return(tmux_client)
     allow(Soba::Services::AutoMergeService).to receive(:new).and_return(auto_merge_service)
+    allow(Soba::Services::ClosedIssueWindowCleaner).to receive(:new).and_return(cleaner_service)
+    # Mock tmux client
+    allow(tmux_client).to receive(:list_soba_sessions).and_return([])
     # Mock auto-merge service to return no PRs by default
     allow(auto_merge_service).to receive(:execute).and_return(
       merged_count: 0,
       failed_count: 0,
       details: { merged: [], failed: [] }
     )
+    # Mock cleaner service to do nothing by default
+    allow(cleaner_service).to receive(:should_clean?).and_return(false)
+    allow(cleaner_service).to receive(:clean)
 
     Soba::Configuration.reset_config
     Soba::Configuration.configure do |c|
@@ -35,6 +45,8 @@ RSpec.describe Soba::Commands::Workflow::Run do
       c.workflow.interval = 10
       c.workflow.use_tmux = false # Disable tmux for tests
       c.workflow.auto_merge_enabled = true # Enable auto-merge for tests
+      c.workflow.closed_issue_cleanup_enabled = true # Enable cleanup for tests
+      c.workflow.closed_issue_cleanup_interval = 300 # 5 minutes
       c.git.setup_workspace = false # Disable workspace setup for tests
       c.phase.plan.command = 'echo'
       c.phase.plan.options = []

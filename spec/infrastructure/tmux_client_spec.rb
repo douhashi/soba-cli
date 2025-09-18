@@ -782,4 +782,50 @@ RSpec.describe Soba::Infrastructure::TmuxClient do
       expect(result).to be false
     end
   end
+
+  describe '#kill_window' do
+    let(:session_name) { 'soba-test-session' }
+    let(:window_name) { 'test-window' }
+
+    it 'kills the specified window' do
+      allow(Open3).to receive(:capture3).with(
+        'tmux', 'kill-window', '-t', "#{session_name}:#{window_name}"
+      ).and_return(['', '', double(exitstatus: 0)])
+
+      result = client.kill_window(session_name, window_name)
+
+      expect(result).to be true
+      expect(Open3).to have_received(:capture3).with(
+        'tmux', 'kill-window', '-t', "#{session_name}:#{window_name}"
+      )
+    end
+
+    it 'returns false when window does not exist' do
+      allow(Open3).to receive(:capture3).with(
+        'tmux', 'kill-window', '-t', "#{session_name}:#{window_name}"
+      ).and_return(['', "can't find window", double(exitstatus: 1)])
+
+      result = client.kill_window(session_name, window_name)
+
+      expect(result).to be false
+    end
+
+    it 'returns false when session does not exist' do
+      allow(Open3).to receive(:capture3).with(
+        'tmux', 'kill-window', '-t', "#{session_name}:#{window_name}"
+      ).and_return(['', "can't find session", double(exitstatus: 1)])
+
+      result = client.kill_window(session_name, window_name)
+
+      expect(result).to be false
+    end
+
+    it 'returns false when tmux is not available' do
+      allow(Open3).to receive(:capture3).and_raise(Errno::ENOENT)
+
+      result = client.kill_window(session_name, window_name)
+
+      expect(result).to be false
+    end
+  end
 end

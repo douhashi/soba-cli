@@ -151,12 +151,12 @@ RSpec.describe 'Queueing Workflow Integration' do
 
         # Queue the todo issue
         expect(github_client).to receive(:update_issue_labels).with(
-          10, from: 'soba:todo', to: 'soba:queued'
+          'owner/repo', 10, from: 'soba:todo', to: 'soba:queued'
         )
 
         # Process the queued issue
         expect(github_client).to receive(:update_issue_labels).with(
-          10, from: 'soba:queued', to: 'soba:planning'
+          'owner/repo', 10, from: 'soba:queued', to: 'soba:planning'
         )
 
         allow(Open3).to receive(:popen3).with('echo', 'Plan 10') do |&block|
@@ -208,12 +208,12 @@ RSpec.describe 'Queueing Workflow Integration' do
 
         # No queueing should happen
         expect(github_client).not_to receive(:update_issue_labels).with(
-          15, from: 'soba:todo', to: 'soba:queued'
+          'owner/repo', 15, from: 'soba:todo', to: 'soba:queued'
         )
 
         # Active issue continues to be processed
         allow(github_client).to receive(:update_issue_labels).with(
-          5, from: 'soba:planning', to: 'soba:ready'
+          'owner/repo', 5, from: 'soba:planning', to: 'soba:ready'
         )
 
         allow(Open3).to receive(:popen3) do |&block|
@@ -244,7 +244,7 @@ RSpec.describe 'Queueing Workflow Integration' do
 
         # Transition from queued to planning
         expect(github_client).to receive(:update_issue_labels).with(
-          50, from: 'soba:queued', to: 'soba:planning'
+          'owner/repo', 50, from: 'soba:queued', to: 'soba:planning'
         )
 
         allow(Open3).to receive(:popen3).with('echo', 'Plan 50') do |&block|
@@ -281,7 +281,7 @@ RSpec.describe 'Queueing Workflow Integration' do
 
         # Should process issue 10 first (lowest number)
         expect(github_client).to receive(:update_issue_labels).with(
-          10, from: 'soba:todo', to: 'soba:queued'
+          'owner/repo', 10, from: 'soba:todo', to: 'soba:queued'
         )
 
         queued_issue = Soba::Domain::Issue.new(
@@ -302,7 +302,7 @@ RSpec.describe 'Queueing Workflow Integration' do
         )
 
         allow(github_client).to receive(:update_issue_labels).with(
-          10, from: 'soba:queued', to: 'soba:planning'
+          'owner/repo', 10, from: 'soba:queued', to: 'soba:planning'
         )
 
         allow(Open3).to receive(:popen3) do |&block|
@@ -351,12 +351,12 @@ RSpec.describe 'Queueing Workflow Integration' do
 
       # Should not queue because of active issue
       expect(github_client).not_to receive(:update_issue_labels).with(
-        200, from: 'soba:todo', to: 'soba:queued'
+        'owner/repo', 200, from: 'soba:todo', to: 'soba:queued'
       )
 
       # Continue processing the planning issue
       allow(github_client).to receive(:update_issue_labels).with(
-        100, from: 'soba:planning', to: 'soba:ready'
+        'owner/repo', 100, from: 'soba:planning', to: 'soba:ready'
       )
 
       allow(Open3).to receive(:popen3) do |&block|
@@ -394,7 +394,7 @@ RSpec.describe 'Queueing Workflow Integration' do
 
         # Should not queue todo issue because review-requested issue exists
         expect(github_client).not_to receive(:update_issue_labels).with(
-          102, from: 'soba:todo', to: 'soba:queued'
+          'owner/repo', 102, from: 'soba:todo', to: 'soba:queued'
         )
 
         command.execute({}, {}, [])
@@ -432,12 +432,12 @@ RSpec.describe 'Queueing Workflow Integration' do
 
         # Should not queue todo issue because active issues exist
         expect(github_client).not_to receive(:update_issue_labels).with(
-          105, from: 'soba:todo', to: 'soba:queued'
+          'owner/repo', 105, from: 'soba:todo', to: 'soba:queued'
         )
 
         # Process existing active issues
         allow(github_client).to receive(:update_issue_labels).with(
-          103, from: 'soba:doing', to: 'soba:reviewing'
+          'owner/repo', 103, from: 'soba:doing', to: 'soba:reviewing'
         )
 
         allow(Open3).to receive(:popen3) do |&block|

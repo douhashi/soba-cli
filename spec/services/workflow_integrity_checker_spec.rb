@@ -88,6 +88,7 @@ RSpec.describe Soba::Services::WorkflowIntegrityChecker do
         )
 
         expect(github_client).to have_received(:update_issue_labels).with(
+          "owner/repo",
           1,
           from: "soba:planning",
           to: "soba:todo"
@@ -130,6 +131,7 @@ RSpec.describe Soba::Services::WorkflowIntegrityChecker do
 
         # Should revert the older issue (issue1)
         expect(github_client).to have_received(:update_issue_labels).with(
+          "owner/repo",
           3,
           from: "soba:queued",
           to: "soba:todo"
@@ -172,6 +174,7 @@ RSpec.describe Soba::Services::WorkflowIntegrityChecker do
 
         # Should revert the older active issue since intermediate is newer
         expect(github_client).to have_received(:update_issue_labels).with(
+          "owner/repo",
           10,
           from: "soba:doing",
           to: "soba:todo"

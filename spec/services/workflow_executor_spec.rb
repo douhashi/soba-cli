@@ -20,8 +20,9 @@ RSpec.describe Soba::Services::WorkflowExecutor do
     end
 
     context 'with git workspace setup' do
-      it 'sets up workspace before executing command' do
-        expect(git_workspace_manager).to receive(:setup_workspace).with(123)
+      it 'updates main branch and sets up workspace before executing command' do
+        expect(git_workspace_manager).to receive(:update_main_branch).ordered
+        expect(git_workspace_manager).to receive(:setup_workspace).with(123).ordered
         expect(git_workspace_manager).to receive(:get_worktree_path).with(123).and_return(nil)
         expect(Open3).to receive(:popen3).with('echo', '--test', 'Issue 123') do |&block|
           stdin = double('stdin', close: nil)
@@ -36,7 +37,26 @@ RSpec.describe Soba::Services::WorkflowExecutor do
         expect(result).to include(success: true)
       end
 
+      it 'continues execution even if main branch update fails' do
+        expect(git_workspace_manager).to receive(:update_main_branch).
+          and_raise(Soba::Services::GitWorkspaceManager::GitOperationError.new('Git error'))
+        expect(git_workspace_manager).to receive(:setup_workspace).with(456)
+        expect(git_workspace_manager).to receive(:get_worktree_path).with(456).and_return(nil)
+        expect(Open3).to receive(:popen3).with('echo', '--test', 'Issue 456') do |&block|
+          stdin = double('stdin', close: nil)
+          stdout = double('stdout', read: 'Command output')
+          stderr = double('stderr', read: '')
+          thread = double('thread', value: double(exitstatus: 0))
+          block.call(stdin, stdout, stderr, thread)
+        end
+
+        result = executor.execute(phase: phase_config, issue_number: 456, use_tmux: false, setup_workspace: true)
+
+        expect(result).to include(success: true)
+      end
+
       it 'continues execution even if workspace setup fails' do
+        expect(git_workspace_manager).to receive(:update_main_branch)
         expect(git_workspace_manager).to receive(:setup_workspace).with(456).
           and_raise(Soba::Services::GitWorkspaceManager::GitOperationError.new('Git error'))
         expect(git_workspace_manager).to receive(:get_worktree_path).with(456).and_return(nil)
@@ -53,7 +73,8 @@ RSpec.describe Soba::Services::WorkflowExecutor do
         expect(result).to include(success: true)
       end
 
-      it 'skips workspace setup when setup_workspace is false' do
+      it 'skips main branch update and workspace setup when setup_workspace is false' do
+        expect(git_workspace_manager).not_to receive(:update_main_branch)
         expect(git_workspace_manager).not_to receive(:setup_workspace)
         expect(git_workspace_manager).to receive(:get_worktree_path).with(789).and_return(nil)
         expect(Open3).to receive(:popen3).with('echo', '--test', 'Issue 789') do |&block|
@@ -88,6 +109,7 @@ RSpec.describe Soba::Services::WorkflowExecutor do
           session_name: 'soba-repo',
           created: false,
         })
+        allow(git_workspace_manager).to receive(:update_main_branch)
         allow(git_workspace_manager).to receive(:setup_workspace)
         allow(git_workspace_manager).to receive(:get_worktree_path).and_return(nil)
       end
@@ -190,6 +212,7 @@ RSpec.describe Soba::Services::WorkflowExecutor do
 
     context 'when use_tmux is false' do
       before do
+        allow(git_workspace_manager).to receive(:update_main_branch)
         allow(git_workspace_manager).to receive(:setup_workspace)
         allow(git_workspace_manager).to receive(:get_worktree_path).and_return(nil)
       end
@@ -217,6 +240,7 @@ RSpec.describe Soba::Services::WorkflowExecutor do
 
     context 'when executing commands directly (legacy behavior)' do
       before do
+        allow(git_workspace_manager).to receive(:update_main_branch)
         allow(git_workspace_manager).to receive(:setup_workspace)
         allow(git_workspace_manager).to receive(:get_worktree_path).and_return(nil)
       end
@@ -283,6 +307,7 @@ RSpec.describe Soba::Services::WorkflowExecutor do
       let(:phase_config) { double(command: nil, options: nil, parameter: nil) }
 
       before do
+        allow(git_workspace_manager).to receive(:update_main_branch)
         allow(git_workspace_manager).to receive(:setup_workspace)
         allow(git_workspace_manager).to receive(:get_worktree_path).and_return(nil)
       end
@@ -304,6 +329,7 @@ RSpec.describe Soba::Services::WorkflowExecutor do
       end
 
       before do
+        allow(git_workspace_manager).to receive(:update_main_branch)
         allow(git_workspace_manager).to receive(:setup_workspace)
         allow(git_workspace_manager).to receive(:get_worktree_path).and_return(nil)
       end
@@ -409,6 +435,7 @@ RSpec.describe Soba::Services::WorkflowExecutor do
 
     context 'when executing in worktree' do
       it 'changes directory to worktree before executing' do
+        allow(git_workspace_manager).to receive(:update_main_branch)
         allow(git_workspace_manager).to receive(:setup_workspace)
         allow(git_workspace_manager).to receive(:get_worktree_path).with(123).and_return('/tmp/worktrees/issue-123')
 
@@ -427,6 +454,7 @@ RSpec.describe Soba::Services::WorkflowExecutor do
       end
 
       it 'executes in current directory when worktree is not available' do
+        allow(git_workspace_manager).to receive(:update_main_branch)
         allow(git_workspace_manager).to receive(:setup_workspace)
         allow(git_workspace_manager).to receive(:get_worktree_path).with(123).and_return(nil)
 
@@ -550,6 +578,7 @@ RSpec.describe Soba::Services::WorkflowExecutor do
       let(:phase_config) { double(command: nil, options: nil, parameter: nil) }
 
       before do
+        allow(git_workspace_manager).to receive(:update_main_branch)
         allow(git_workspace_manager).to receive(:setup_workspace)
         allow(git_workspace_manager).to receive(:get_worktree_path).and_return(nil)
       end

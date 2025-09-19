@@ -17,6 +17,7 @@ RSpec.describe 'Workflow Tmux Integration' do
     allow(Soba::Configuration).to receive(:config).and_return(
       double(github: double(repository: 'owner/repo-name'))
     )
+    allow(git_workspace_manager).to receive(:update_main_branch)
     allow(git_workspace_manager).to receive(:setup_workspace)
     allow(git_workspace_manager).to receive(:get_worktree_path).and_return(nil)
     allow(lock_manager).to receive(:with_lock).and_yield

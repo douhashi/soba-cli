@@ -53,7 +53,7 @@ module Soba
           logger.info("Dry run mode - no fixes applied")
         else
           violations.each do |violation|
-            if fix_violation(violation)
+            if fix_violation(repository, violation)
               fixed_count += 1
             else
               failed_fixes += 1
@@ -107,13 +107,12 @@ module Soba
         violations
       end
 
-      def fix_violation(violation)
+      def fix_violation(repository, violation)
         logger.info("Fixing violation: Issue ##{violation[:issue_number]} - removing #{violation[:label]}")
 
         # Determine the target label based on what's being removed
         target_label = determine_target_label(violation[:label])
 
-        repository = Configuration.config.github.repository if defined?(Configuration)
         github_client.update_issue_labels(
           repository,
           violation[:issue_number],

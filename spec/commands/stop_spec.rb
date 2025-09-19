@@ -13,10 +13,11 @@ RSpec.describe Soba::Commands::Stop do
   let(:stop_command) { described_class.new }
 
   before do
-    allow(File).to receive(:expand_path).with('~/.soba/soba.pid').and_return(pid_file)
+    ENV['SOBA_TEST_PID_FILE'] = pid_file
   end
 
   after do
+    ENV.delete('SOBA_TEST_PID_FILE')
     FileUtils.rm_rf(temp_dir)
   end
 
@@ -39,6 +40,7 @@ RSpec.describe Soba::Commands::Stop do
         File.write(pid_file, test_pid.to_s)
         allow(Process).to receive(:kill).with(0, test_pid).and_return(1)
         allow(Process).to receive(:kill).with('KILL', test_pid).and_return(1)
+        allow(stop_command).to receive(:cleanup_tmux_sessions) # Prevent actual tmux operations
       end
 
       it 'immediately sends SIGKILL without waiting' do
@@ -70,6 +72,7 @@ RSpec.describe Soba::Commands::Stop do
         allow(Process).to receive(:kill).with(0, test_pid).and_return(1)
         allow(Process).to receive(:kill).with('TERM', test_pid).and_return(1)
         allow(Process).to receive(:kill).with('KILL', test_pid).and_return(1)
+        allow(stop_command).to receive(:cleanup_tmux_sessions) # Prevent actual tmux operations
       end
 
       it 'uses custom timeout value' do
@@ -85,6 +88,7 @@ RSpec.describe Soba::Commands::Stop do
         # Create PID file with current process
         File.write(pid_file, test_pid.to_s)
         # Mock Process.kill to prevent actually killing the test process
+        allow(stop_command).to receive(:cleanup_tmux_sessions) # Prevent actual tmux operations
         # First check if running (kill 0), then send TERM
         call_count = 0
         allow(Process).to receive(:kill) do |signal, pid|
@@ -159,6 +163,7 @@ RSpec.describe Soba::Commands::Stop do
         allow(Process).to receive(:kill).with('TERM', test_pid).and_return(1)
         allow(Process).to receive(:kill).with('KILL', test_pid).and_return(1)
         allow(Process).to receive(:kill).with(0, test_pid).and_return(1)
+        allow(stop_command).to receive(:cleanup_tmux_sessions) # Prevent actual tmux operations
       end
 
       it 'forcefully kills the process after timeout' do
@@ -181,6 +186,7 @@ RSpec.describe Soba::Commands::Stop do
         File.write(pid_file, test_pid.to_s)
         allow(Process).to receive(:kill).with(0, test_pid).and_return(1)
         allow(Process).to receive(:kill).with('TERM', test_pid).and_raise(Errno::EPERM)
+        allow(stop_command).to receive(:cleanup_tmux_sessions) # Prevent actual tmux operations
       end
 
       it 'displays permission error' do
@@ -258,6 +264,7 @@ RSpec.describe Soba::Commands::Stop do
       allow(Process).to receive(:kill).with(0, test_pid).and_return(1)
       allow(Process).to receive(:kill).with('TERM', test_pid).and_return(1)
       allow(stop_command).to receive(:wait_for_termination).and_return(true)
+      allow(stop_command).to receive(:cleanup_tmux_sessions) # Mock cleanup to prevent actual tmux operations
       allow(Soba::Infrastructure::TmuxClient).to receive(:new).and_return(tmux_client)
     end
 
@@ -265,6 +272,7 @@ RSpec.describe Soba::Commands::Stop do
       before do
         allow(tmux_client).to receive(:list_soba_sessions).and_return(['soba-issue-123', 'soba-issue-456'])
         allow(tmux_client).to receive(:kill_session).and_return(true)
+        allow(stop_command).to receive(:cleanup_tmux_sessions).and_call_original
       end
 
       it 'kills all soba tmux sessions' do
@@ -281,6 +289,7 @@ RSpec.describe Soba::Commands::Stop do
     context 'when no tmux sessions exist' do
       before do
         allow(tmux_client).to receive(:list_soba_sessions).and_return([])
+        allow(stop_command).to receive(:cleanup_tmux_sessions).and_call_original
       end
 
       it 'does not attempt to kill any sessions' do
@@ -293,6 +302,7 @@ RSpec.describe Soba::Commands::Stop do
       before do
         allow(tmux_client).to receive(:list_soba_sessions).and_return(['soba-issue-123'])
         allow(tmux_client).to receive(:kill_session).and_return(false)
+        allow(stop_command).to receive(:cleanup_tmux_sessions).and_call_original
       end
 
       it 'continues with daemon stop even if tmux cleanup fails' do

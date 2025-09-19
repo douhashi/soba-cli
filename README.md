@@ -58,11 +58,14 @@ bundle exec bundler-audit
 # ヘルプ表示
 bin/soba --help
 
-# Issue一覧取得
-bin/soba issue list owner/repo
+# ワークフロー開始
+bin/soba start
 
-# Issue監視
-bin/soba issue watch owner/repo --interval 60
+# ステータス確認
+bin/soba status
+
+# ワークフロー停止
+bin/soba stop
 
 # 設定確認
 bin/soba config

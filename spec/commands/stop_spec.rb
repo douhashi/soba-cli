@@ -269,6 +269,32 @@ RSpec.describe Soba::Commands::Stop do
       allow(Soba::Infrastructure::TmuxClient).to receive(:new).and_return(tmux_client)
     end
 
+    context 'when in test mode' do
+      before do
+        ENV['SOBA_TEST_MODE'] = 'true'
+        allow(Soba::Configuration).to receive(:config).and_return(
+          double(github: double(repository: nil))
+        )
+        # In test mode, list_soba_sessions should only return test sessions
+        allow(tmux_client).to receive(:list_soba_sessions).and_return(
+          ['soba-test-repo-12345', 'soba-test-repo-67890']
+        )
+        allow(tmux_client).to receive(:kill_session).and_return(true)
+        allow(stop_command).to receive(:cleanup_tmux_sessions).and_call_original
+      end
+
+      after do
+        ENV.delete('SOBA_TEST_MODE')
+      end
+
+      it 'only kills test sessions with current PID' do
+        expect(tmux_client).to receive(:kill_session).with('soba-test-repo-12345')
+        expect(tmux_client).not_to receive(:kill_session).with('soba-test-repo-67890')
+        # soba-repo-12345 should not be in the list when in test mode
+        stop_command.execute
+      end
+    end
+
     context 'when repository is configured' do
       before do
         allow(Soba::Configuration).to receive(:config).and_return(

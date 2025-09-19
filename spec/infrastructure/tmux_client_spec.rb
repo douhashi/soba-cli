@@ -526,6 +526,72 @@ RSpec.describe Soba::Infrastructure::TmuxClient do
 
       expect(result).to eq([])
     end
+
+    context 'in test mode' do
+      before do
+        ENV['SOBA_TEST_MODE'] = 'true'
+      end
+
+      after do
+        ENV.delete('SOBA_TEST_MODE')
+      end
+
+      it 'returns only test sessions when in test mode' do
+        session_list = "soba-test-21: 1 windows\nsoba-test-22: 2 windows\nsoba-21: 1 windows\nother-session: 1 windows"
+        allow(Open3).to receive(:capture3).with('tmux', 'list-sessions').
+          and_return([session_list, '', double(exitstatus: 0)])
+
+        result = client.list_soba_sessions
+
+        expect(result).to eq(['soba-test-21', 'soba-test-22'])
+      end
+
+      it 'does not include regular soba sessions when in test mode' do
+        session_list = "soba-21: 1 windows\nsoba-22: 2 windows\nsoba-test-21: 1 windows"
+        allow(Open3).to receive(:capture3).with('tmux', 'list-sessions').
+          and_return([session_list, '', double(exitstatus: 0)])
+
+        result = client.list_soba_sessions
+
+        expect(result).to eq(['soba-test-21'])
+      end
+
+      it 'returns empty array when no test sessions exist' do
+        session_list = "soba-21: 1 windows\nother-session: 2 windows"
+        allow(Open3).to receive(:capture3).with('tmux', 'list-sessions').
+          and_return([session_list, '', double(exitstatus: 0)])
+
+        result = client.list_soba_sessions
+
+        expect(result).to eq([])
+      end
+    end
+
+    context 'not in test mode' do
+      before do
+        ENV.delete('SOBA_TEST_MODE')
+      end
+
+      it 'excludes test sessions when not in test mode' do
+        session_list = "soba-test-21: 1 windows\nsoba-test-22: 2 windows\nsoba-21: 1 windows\nsoba-22: 1 windows"
+        allow(Open3).to receive(:capture3).with('tmux', 'list-sessions').
+          and_return([session_list, '', double(exitstatus: 0)])
+
+        result = client.list_soba_sessions
+
+        expect(result).to eq(['soba-21', 'soba-22'])
+      end
+
+      it 'returns only non-test soba sessions' do
+        session_list = "soba-21: 1 windows\nsoba-production-1: 2 windows\nsoba-test-99: 1 windows"
+        allow(Open3).to receive(:capture3).with('tmux', 'list-sessions').
+          and_return([session_list, '', double(exitstatus: 0)])
+
+        result = client.list_soba_sessions
+
+        expect(result).to eq(['soba-21', 'soba-production-1'])
+      end
+    end
   end
 
   describe '#window_exists?' do

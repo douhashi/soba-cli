@@ -35,10 +35,17 @@ RSpec.describe Soba::Commands::Init do
         expect(config['github']['token']).to eq('${GITHUB_TOKEN}')
         expect(config['workflow']['interval']).to eq(20)
         expect(config['workflow']['auto_merge_enabled']).to eq(true)
+        expect(config['workflow']['phase_labels']['todo']).to eq('soba:todo')
+        expect(config['workflow']['phase_labels']['queued']).to eq('soba:queued')
         expect(config['workflow']['phase_labels']['planning']).to eq('soba:planning')
         expect(config['workflow']['phase_labels']['ready']).to eq('soba:ready')
         expect(config['workflow']['phase_labels']['doing']).to eq('soba:doing')
         expect(config['workflow']['phase_labels']['review_requested']).to eq('soba:review-requested')
+        expect(config['workflow']['phase_labels']['reviewing']).to eq('soba:reviewing')
+        expect(config['workflow']['phase_labels']['done']).to eq('soba:done')
+        expect(config['workflow']['phase_labels']['requires_changes']).to eq('soba:requires-changes')
+        expect(config['workflow']['phase_labels']['revising']).to eq('soba:revising')
+        expect(config['workflow']['phase_labels']['merged']).to eq('soba:merged')
         expect(config['workflow']['closed_issue_cleanup_enabled']).to eq(true)
         expect(config['workflow']['closed_issue_cleanup_interval']).to eq(300)
         expect(config['phase']).to be_nil
@@ -66,10 +73,17 @@ RSpec.describe Soba::Commands::Init do
         expect { command.execute }.to output(/Configuration created successfully/).to_stdout
 
         config = YAML.safe_load_file(config_path)
+        expect(config['workflow']['phase_labels']['todo']).to eq('soba:todo')
+        expect(config['workflow']['phase_labels']['queued']).to eq('soba:queued')
         expect(config['workflow']['phase_labels']['planning']).to eq('planning')
         expect(config['workflow']['phase_labels']['ready']).to eq('ready')
         expect(config['workflow']['phase_labels']['doing']).to eq('doing')
         expect(config['workflow']['phase_labels']['review_requested']).to eq('review')
+        expect(config['workflow']['phase_labels']['reviewing']).to eq('soba:reviewing')
+        expect(config['workflow']['phase_labels']['done']).to eq('soba:done')
+        expect(config['workflow']['phase_labels']['requires_changes']).to eq('soba:requires-changes')
+        expect(config['workflow']['phase_labels']['revising']).to eq('soba:revising')
+        expect(config['workflow']['phase_labels']['merged']).to eq('soba:merged')
         expect(config['workflow']['auto_merge_enabled']).to eq(true)
         expect(config['workflow']['closed_issue_cleanup_enabled']).to eq(true)
         expect(config['workflow']['closed_issue_cleanup_interval']).to eq(300)
@@ -187,6 +201,12 @@ RSpec.describe Soba::Commands::Init do
           # Expect label creation calls
           expect(github_client).to receive(:list_labels).with(repository).and_return([])
           expect(github_client).to receive(:create_label).
+            with(repository, "soba:todo", "808080", "To-do task waiting to be queued").
+            and_return({ name: "soba:todo", color: "808080" })
+          expect(github_client).to receive(:create_label).
+            with(repository, "soba:queued", "9370db", "Queued for processing").
+            and_return({ name: "soba:queued", color: "9370db" })
+          expect(github_client).to receive(:create_label).
             with(repository, "soba:planning", "1e90ff", "Planning phase").
             and_return({ name: "soba:planning", color: "1e90ff" })
           expect(github_client).to receive(:create_label).
@@ -199,9 +219,6 @@ RSpec.describe Soba::Commands::Init do
             with(repository, "soba:review-requested", "ff8c00", "Review requested").
             and_return({ name: "soba:review-requested", color: "ff8c00" })
           expect(github_client).to receive(:create_label).
-            with(repository, "soba:queue", "9370db", "Queued for processing").
-            and_return({ name: "soba:queue", color: "9370db" })
-          expect(github_client).to receive(:create_label).
             with(repository, "soba:reviewing", "ff6347", "Under review").
             and_return({ name: "soba:reviewing", color: "ff6347" })
           expect(github_client).to receive(:create_label).
@@ -213,6 +230,9 @@ RSpec.describe Soba::Commands::Init do
           expect(github_client).to receive(:create_label).
             with(repository, "soba:revising", "ff1493", "Revising based on review feedback").
             and_return({ name: "soba:revising", color: "ff1493" })
+          expect(github_client).to receive(:create_label).
+            with(repository, "soba:merged", "6b8e23", "PR merged and issue closed").
+            and_return({ name: "soba:merged", color: "6b8e23" })
           expect(github_client).to receive(:create_label).
             with(repository, "soba:lgtm", "00ff00", "PR approved for auto-merge").
             and_return({ name: "soba:lgtm", color: "00ff00" })
@@ -247,6 +267,12 @@ RSpec.describe Soba::Commands::Init do
           expect(github_client).to receive(:list_labels).with(repository).and_return(existing_labels)
 
           # Only create missing labels
+          expect(github_client).to receive(:create_label).
+            with(repository, "soba:todo", "808080", "To-do task waiting to be queued").
+            and_return({ name: "soba:todo", color: "808080" })
+          expect(github_client).to receive(:create_label).
+            with(repository, "soba:queued", "9370db", "Queued for processing").
+            and_return({ name: "soba:queued", color: "9370db" })
           expect(github_client).not_to receive(:create_label).
             with(repository, "soba:planning", anything, anything)
           expect(github_client).to receive(:create_label).
@@ -258,9 +284,6 @@ RSpec.describe Soba::Commands::Init do
             with(repository, "soba:review-requested", "ff8c00", "Review requested").
             and_return({ name: "soba:review-requested", color: "ff8c00" })
           expect(github_client).to receive(:create_label).
-            with(repository, "soba:queue", "9370db", "Queued for processing").
-            and_return({ name: "soba:queue", color: "9370db" })
-          expect(github_client).to receive(:create_label).
             with(repository, "soba:reviewing", "ff6347", "Under review").
             and_return({ name: "soba:reviewing", color: "ff6347" })
           expect(github_client).to receive(:create_label).
@@ -269,6 +292,15 @@ RSpec.describe Soba::Commands::Init do
           expect(github_client).to receive(:create_label).
             with(repository, "soba:requires-changes", "dc143c", "Changes requested").
             and_return({ name: "soba:requires-changes", color: "dc143c" })
+          expect(github_client).to receive(:create_label).
+            with(repository, "soba:revising", "ff1493", "Revising based on review feedback").
+            and_return({ name: "soba:revising", color: "ff1493" })
+          expect(github_client).to receive(:create_label).
+            with(repository, "soba:merged", "6b8e23", "PR merged and issue closed").
+            and_return({ name: "soba:merged", color: "6b8e23" })
+          expect(github_client).to receive(:create_label).
+            with(repository, "soba:lgtm", "00ff00", "PR approved for auto-merge").
+            and_return({ name: "soba:lgtm", color: "00ff00" })
 
           expect { command.execute }.to output(/soba:planning.*already exists.*soba:ready.*created/m).to_stdout
         end
@@ -280,7 +312,7 @@ RSpec.describe Soba::Commands::Init do
 
           expect(github_client).to receive(:list_labels).with(repository).and_return([])
           expect(github_client).to receive(:create_label).
-            with(repository, "soba:planning", "1e90ff", "Planning phase").
+            with(repository, "soba:todo", "808080", "To-do task waiting to be queued").
             and_raise(Soba::Infrastructure::GitHubClientError, "Insufficient permissions")
 
           expect { command.execute }.to output(/Failed to create label.*Insufficient permissions/m).to_stdout
@@ -344,10 +376,17 @@ RSpec.describe Soba::Commands::Init do
         expect(config['github']['token']).to eq('${GITHUB_TOKEN}')
         expect(config['workflow']['interval']).to eq(20)
         expect(config['workflow']['auto_merge_enabled']).to eq(true)
+        expect(config['workflow']['phase_labels']['todo']).to eq('soba:todo')
+        expect(config['workflow']['phase_labels']['queued']).to eq('soba:queued')
         expect(config['workflow']['phase_labels']['planning']).to eq('soba:planning')
         expect(config['workflow']['phase_labels']['ready']).to eq('soba:ready')
         expect(config['workflow']['phase_labels']['doing']).to eq('soba:doing')
         expect(config['workflow']['phase_labels']['review_requested']).to eq('soba:review-requested')
+        expect(config['workflow']['phase_labels']['reviewing']).to eq('soba:reviewing')
+        expect(config['workflow']['phase_labels']['done']).to eq('soba:done')
+        expect(config['workflow']['phase_labels']['requires_changes']).to eq('soba:requires-changes')
+        expect(config['workflow']['phase_labels']['revising']).to eq('soba:revising')
+        expect(config['workflow']['phase_labels']['merged']).to eq('soba:merged')
       end
 
       context "with git repository detection" do
@@ -507,10 +546,17 @@ RSpec.describe Soba::Commands::Init do
         expect(config['github']['token']).to eq('${GITHUB_TOKEN}')
         expect(config['workflow']['interval']).to eq(20)
         expect(config['workflow']['auto_merge_enabled']).to eq(true)
+        expect(config['workflow']['phase_labels']['todo']).to eq('soba:todo')
+        expect(config['workflow']['phase_labels']['queued']).to eq('soba:queued')
         expect(config['workflow']['phase_labels']['planning']).to eq('soba:planning')
         expect(config['workflow']['phase_labels']['ready']).to eq('soba:ready')
         expect(config['workflow']['phase_labels']['doing']).to eq('soba:doing')
         expect(config['workflow']['phase_labels']['review_requested']).to eq('soba:review-requested')
+        expect(config['workflow']['phase_labels']['reviewing']).to eq('soba:reviewing')
+        expect(config['workflow']['phase_labels']['done']).to eq('soba:done')
+        expect(config['workflow']['phase_labels']['requires_changes']).to eq('soba:requires-changes')
+        expect(config['workflow']['phase_labels']['revising']).to eq('soba:revising')
+        expect(config['workflow']['phase_labels']['merged']).to eq('soba:merged')
         expect(config['workflow']['closed_issue_cleanup_enabled']).to eq(true)
         expect(config['workflow']['closed_issue_cleanup_interval']).to eq(300)
 

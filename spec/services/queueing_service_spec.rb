@@ -192,15 +192,18 @@ RSpec.describe Soba::Services::QueueingService do
 
       before do
         allow(github_client).to receive(:issues).with(repository, state: "open").and_return(issues)
-        allow(blocking_checker).to receive(:blocking?).with(repository, issues: issues).and_return(false)
-        allow(github_client).to receive(:update_issue_labels).with("owner/repo", 2, from: "soba:todo", to: "soba:queued")
+        # soba:ready がアクティブ状態なのでblocking?はtrueを返す
+        allow(blocking_checker).to receive(:blocking?).with(repository, issues: issues).and_return(true)
+        allow(blocking_checker).to receive(:blocking_reason).with(repository, issues: issues).
+          and_return("Issue #1 が soba:ready のため、新しいワークフローの開始をスキップしました")
+        allow(github_client).to receive(:update_issue_labels).with(any_args)
       end
 
-      it "queues only the todo issue" do
+      it "skips queueing when soba:ready issue exists" do
         result = service.queue_next_issue(repository)
 
-        expect(result).to eq(todo_issue)
-        expect(github_client).to have_received(:update_issue_labels).with("owner/repo", 2, from: "soba:todo", to: "soba:queued")
+        expect(result).to be_nil
+        expect(github_client).not_to have_received(:update_issue_labels)
       end
     end
   end
@@ -297,7 +300,7 @@ RSpec.describe Soba::Services::QueueingService do
       end
     end
 
-    context "when mixed issues exist" do
+    context "when mixed issues exist with soba:ready" do
       let(:todo_issue) do
         instance_double(
           Soba::Domain::Issue,
@@ -318,9 +321,9 @@ RSpec.describe Soba::Services::QueueingService do
 
       let(:issues) { [ready_issue, todo_issue] }
 
-      it "returns only the todo issue" do
+      it "returns nil when soba:ready issue exists (active state)" do
         result = service.send(:find_next_candidate, issues)
-        expect(result).to eq(todo_issue)
+        expect(result).to be_nil
       end
     end
 

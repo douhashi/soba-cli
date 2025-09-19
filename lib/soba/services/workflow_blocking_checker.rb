@@ -8,6 +8,7 @@ module Soba
       ACTIVE_LABELS = %w(
         soba:queued
         soba:planning
+        soba:ready
         soba:doing
         soba:reviewing
         soba:revising
@@ -16,11 +17,6 @@ module Soba
       INTERMEDIATE_LABELS = %w(
         soba:review-requested
         soba:requires-changes
-      ).freeze
-
-      WAITING_LABELS = %w(
-        soba:ready
-        soba:review-requested
       ).freeze
 
       attr_reader :github_client, :logger

@@ -3,14 +3,17 @@
 require 'active_support/core_ext/object/blank'
 require_relative '../configuration'
 require_relative '../infrastructure/lock_manager'
+require_relative '../infrastructure/tmux_client'
+require_relative 'test_process_manager'
 
 module Soba
   module Services
     class TmuxSessionManager
-      def initialize(config: nil, tmux_client: nil, lock_manager: nil)
+      def initialize(config: nil, tmux_client: nil, lock_manager: nil, test_process_manager: nil)
         @config = config
         @tmux_client = tmux_client || Soba::Infrastructure::TmuxClient.new
         @lock_manager = lock_manager || Soba::Infrastructure::LockManager.new
+        @test_process_manager = test_process_manager || TestProcessManager.new
       end
 
       def find_or_create_repository_session
@@ -200,7 +203,11 @@ module Soba
 
       # Generate session name with PID for process isolation
       def generate_session_name(repository)
-        "soba-#{repository.gsub(/[\/._]/, '-')}-#{Process.pid}"
+        if @test_process_manager.test_mode?
+          @test_process_manager.generate_test_session_name(repository)
+        else
+          "soba-#{repository.gsub(/[\/._]/, '-')}-#{Process.pid}"
+        end
       end
 
       def fetch_issue_title(repository_name, issue_number)

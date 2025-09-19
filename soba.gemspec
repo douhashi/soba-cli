@@ -6,7 +6,7 @@ Gem::Specification.new do |spec|
   spec.name = "soba"
   spec.version = Soba::VERSION
   spec.authors = ["douhashi"]
-  spec.email = ["douhashi@example.com"]
+  spec.email = ["soba@douhashi.dev"]
 
   spec.summary = "GitHub to Claude Code workflow automation CLI"
   spec.description = "Soba is a CLI tool that automates the workflow between GitHub Issues and Claude Code, " \
@@ -16,6 +16,7 @@ Gem::Specification.new do |spec|
   spec.required_ruby_version = ">= 3.0.0"
 
   spec.metadata["allowed_push_host"] = "https://rubygems.org"
+  spec.metadata["homepage_uri"] = spec.homepage
   spec.metadata["source_code_uri"] = spec.homepage
   spec.metadata["changelog_uri"] = "#{spec.homepage}/blob/main/CHANGELOG.md"
 
@@ -43,5 +44,15 @@ Gem::Specification.new do |spec|
   spec.add_runtime_dependency "dry-configurable", "~> 1.1"
   spec.add_runtime_dependency "activesupport", "~> 8.0"
 
-  # Development dependencies are managed in Gemfile
+  # Development dependencies
+  spec.add_development_dependency "rake", "~> 13.0"
+  spec.add_development_dependency "rspec", "~> 3.12"
+  spec.add_development_dependency "webmock", "~> 3.19"
+  spec.add_development_dependency "vcr", "~> 6.2"
+  spec.add_development_dependency "factory_bot", "~> 6.4"
+  spec.add_development_dependency "rubocop-airbnb", "~> 6.0"
+  spec.add_development_dependency "simplecov", "~> 0.22"
+  spec.add_development_dependency "bundler-audit", "~> 0.9"
+  spec.add_development_dependency "pry", "~> 0.14"
+  spec.add_development_dependency "pry-byebug", "~> 3.10"
 end

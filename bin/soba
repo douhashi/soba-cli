@@ -7,7 +7,7 @@ require_relative "../lib/soba"
 
 include GLI::App
 
-program_desc "GitHub Issue to Claude Code workflow automation"
+program_desc "GitHub to Claude Code workflow automation"
 version Soba::VERSION
 
 desc "Configuration file path"
@@ -15,49 +15,6 @@ flag [:c, :config]
 
 desc "Verbose output"
 switch [:v, :verbose]
-
-desc "Manage GitHub issues"
-command :issue do |c|
-  c.desc "List issues from repository"
-  c.arg_name "repository"
-  c.command :list do |list|
-    list.desc "Filter by state"
-    list.default_value "open"
-    list.flag [:s, :state], must_match: ["open", "closed", "all"]
-
-    list.action do |global_options, options, args|
-      if args.empty? || args[0].nil? || args[0].empty?
-        raise GLI::BadCommandLine, "repository is required"
-      end
-
-      require_relative "../lib/soba/commands/issue/list"
-      Soba::Commands::Issue::List.new.execute(
-        repository: args[0],
-        state: options[:state],
-        config: global_options[:config],
-      )
-    end
-  end
-
-  c.desc "Watch repository for issue changes"
-  c.arg_name "[repository]"
-  c.command :watch do |watch|
-    watch.desc "Polling interval in seconds"
-    watch.default_value nil
-    watch.flag [:i, :interval], type: Integer
-
-    watch.action do |global_options, options, args|
-      repository = args[0] unless args.empty?
-
-      require_relative "../lib/soba/commands/issue/watch"
-      Soba::Commands::Issue::Watch.new.execute(
-        repository: repository,
-        interval: options[:interval],
-        config: global_options[:config],
-      )
-    end
-  end
-end
 
 desc "Initialize soba configuration"
 command :init do |c|
@@ -128,12 +85,12 @@ command :stop do |c|
   end
 end
 
-desc "Open tmux session for an issue"
+desc "Open tmux session for a task"
 command :open do |c|
-  c.desc "Issue number to open"
-  c.arg_name "[issue_number]"
+  c.desc "Task number to open"
+  c.arg_name "[task_number]"
 
-  c.desc "List active issue sessions"
+  c.desc "List active task sessions"
   c.switch [:l, :list]
 
   c.action do |global_options, options, args|

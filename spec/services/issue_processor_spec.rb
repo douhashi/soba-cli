@@ -24,6 +24,7 @@ RSpec.describe Soba::Services::IssueProcessor do
   before do
     Soba::Configuration.reset_config
     Soba::Configuration.configure do |c|
+      c.github.repository = 'owner/repo'
       c.phase.plan.command = 'echo'
       c.phase.plan.options = ['--test']
       c.phase.plan.parameter = 'Plan {{issue-number}}'
@@ -99,6 +100,7 @@ RSpec.describe Soba::Services::IssueProcessor do
       context 'when workflow execution fails' do
         it 'returns failure result' do
           expect(github_client).to receive(:update_issue_labels).with(
+            'owner/repo',
             issue[:number],
             from: 'soba:todo',
             to: 'soba:planning'
@@ -147,6 +149,7 @@ RSpec.describe Soba::Services::IssueProcessor do
 
       it 'updates label to soba:doing and executes workflow in tmux' do
         expect(github_client).to receive(:update_issue_labels).with(
+          'owner/repo',
           issue[:number],
           from: 'soba:ready',
           to: 'soba:doing'

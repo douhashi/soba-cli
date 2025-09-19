@@ -14,6 +14,8 @@ require_relative '../services/closed_issue_window_cleaner'
 require_relative '../domain/phase_strategy'
 require_relative '../services/pid_manager'
 require_relative '../services/daemon_service'
+require_relative '../services/status_manager'
+require_relative '../services/process_info'
 
 module Soba
   module Commands
@@ -53,8 +55,9 @@ module Soba
       def execute_workflow(global_options, options)
         # Daemon mode setup
         unless options[:foreground]
-          pid_file = File.expand_path('~/.soba/soba.pid')
-          log_file = File.expand_path('~/.soba/logs/daemon.log')
+          # Allow test environment to override PID file path
+          pid_file = ENV['SOBA_TEST_PID_FILE'] || File.expand_path('~/.soba/soba.pid')
+          log_file = ENV['SOBA_TEST_LOG_FILE'] || File.expand_path('~/.soba/logs/daemon.log')
 
           pid_manager = Soba::Services::PidManager.new(pid_file)
           daemon_service = Soba::Services::DaemonService.new(
@@ -86,6 +89,11 @@ module Soba
         Soba::Configuration.load!
 
         config = Soba::Configuration.config
+
+        # Initialize status manager (allow test environment to override path)
+        status_file = ENV['SOBA_TEST_STATUS_FILE'] || File.expand_path('~/.soba/status.json')
+        status_manager = Soba::Services::StatusManager.new(status_file)
+
         unless config&.github&.repository
           message = "Error: GitHub repository is not configured\n" \
                     "Please run 'soba init' or set repository in .soba/config.yml"
@@ -190,6 +198,13 @@ module Soba
             # Sort by issue number (youngest first)
             processable_issues.sort_by!(&:number)
 
+            # Update memory usage periodically
+            if Process.pid
+              process_info = Soba::Services::ProcessInfo.new(Process.pid)
+              memory_mb = process_info.memory_usage_mb
+              status_manager.update_memory(memory_mb) if memory_mb
+            end
+
             # Check for approved PRs that need auto-merge (if enabled)
             if Soba::Configuration.config.workflow.auto_merge_enabled
               merge_result = auto_merge_service.execute
@@ -247,6 +262,11 @@ module Soba
 
               puts "\n🚀 Processing Issue ##{issue.number}: #{issue.title}"
 
+              # Update status with current issue
+              labels = issue.labels.map { |l| l[:name] }
+              phase_label = labels.find { |l| l.start_with?('soba:') }
+              status_manager.update_current_issue(issue.number, phase_label) if phase_label
+
               # Convert Domain::Issue to Hash for issue_processor
               # Extract label names for issue_processor
               issue_hash = {
@@ -256,6 +276,11 @@ module Soba
               }
 
               result = issue_processor.process(issue_hash)
+
+              # Mark as last processed when done
+              if result && result[:success]
+                status_manager.update_last_processed
+              end
 
               if result[:success]
                 if result[:skipped]

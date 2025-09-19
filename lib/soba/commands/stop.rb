@@ -6,7 +6,8 @@ module Soba
   module Commands
     class Stop
       def execute(_global_options = {}, _options = {}, _args = [])
-        pid_file = File.expand_path('~/.soba/soba.pid')
+        # Allow test environment to override PID file path
+        pid_file = ENV['SOBA_TEST_PID_FILE'] || File.expand_path('~/.soba/soba.pid')
         pid_manager = Soba::Services::PidManager.new(pid_file)
 
         pid = pid_manager.read

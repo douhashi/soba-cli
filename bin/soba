@@ -102,6 +102,9 @@ end
 
 desc "Show daemon status"
 command :status do |c|
+  c.flag [:l, :log], desc: "Number of log lines to display", type: Integer, default_value: 10
+  c.switch [:j, :json], desc: "Output in JSON format", negatable: false
+
   c.action do |global_options, options, args|
     require_relative "../lib/soba/commands/status"
     result = Soba::Commands::Status.new.execute(global_options, options, args)

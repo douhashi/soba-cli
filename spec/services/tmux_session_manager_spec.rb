@@ -562,4 +562,75 @@ RSpec.describe Soba::Services::TmuxSessionManager do
       end
     end
   end
+
+  describe '#session_exists?' do
+    it 'returns true when session exists' do
+      session_name = 'soba-test-12345'
+      allow(tmux_client).to receive(:session_exists?).with(session_name).and_return(true)
+
+      expect(manager.session_exists?(session_name)).to be true
+    end
+
+    it 'returns false when session does not exist' do
+      session_name = 'soba-test-12345'
+      allow(tmux_client).to receive(:session_exists?).with(session_name).and_return(false)
+
+      expect(manager.session_exists?(session_name)).to be false
+    end
+  end
+
+  describe '#find_repository_session_by_pid' do
+    let(:repository) { 'owner/repo' }
+    let(:pid_manager) { instance_double(Soba::Services::PidManager) }
+
+    before do
+      allow(Soba::Services::PidManager).to receive(:new).and_return(pid_manager)
+    end
+
+    context 'when PID file exists and session exists' do
+      it 'returns the session name' do
+        pid = 12345
+        session_name = 'soba-owner-repo-12345'
+
+        allow(pid_manager).to receive(:read).and_return(pid)
+        allow(tmux_client).to receive(:session_exists?).with(session_name).and_return(true)
+
+        result = manager.find_repository_session_by_pid(repository)
+
+        expect(result[:success]).to be true
+        expect(result[:session_name]).to eq(session_name)
+        expect(result[:exists]).to be true
+      end
+    end
+
+    context 'when PID file exists but session does not exist' do
+      it 'returns exists: false and cleans up PID file' do
+        pid = 12345
+        session_name = 'soba-owner-repo-12345'
+
+        allow(pid_manager).to receive(:read).and_return(pid)
+        allow(pid_manager).to receive(:delete).and_return(true)
+        allow(tmux_client).to receive(:session_exists?).with(session_name).and_return(false)
+
+        result = manager.find_repository_session_by_pid(repository)
+
+        expect(result[:success]).to be true
+        expect(result[:session_name]).to be_nil
+        expect(result[:exists]).to be false
+        expect(pid_manager).to have_received(:delete)
+      end
+    end
+
+    context 'when PID file does not exist' do
+      it 'returns exists: false' do
+        allow(pid_manager).to receive(:read).and_return(nil)
+
+        result = manager.find_repository_session_by_pid(repository)
+
+        expect(result[:success]).to be true
+        expect(result[:session_name]).to be_nil
+        expect(result[:exists]).to be false
+      end
+    end
+  end
 end

@@ -92,10 +92,17 @@ RSpec.describe 'Test Process Isolation' do
     end
 
     after do
-      # Clean up any sessions created during the test
+      # Clean up only specific test sessions created during this test
       tmux_client.list_sessions.each do |session|
-        if session.start_with?('soba-')
-          tmux_client.kill_session(session)
+        # Only clean up the specific sessions we created for testing
+        if session == 'soba-test-repo-12345-abcd' ||
+           session == 'soba-regular-12345' ||
+           session == 'soba-production-67890'
+          begin
+            tmux_client.kill_session(session)
+          rescue
+            nil
+          end
         end
       end
     end
@@ -139,10 +146,14 @@ RSpec.describe 'Test Process Isolation' do
     end
 
     after do
-      # Clean up any sessions created during the test
+      # Clean up only test sessions created during the test
       tmux_client.list_sessions.each do |session|
-        if session.start_with?('soba-')
-          tmux_client.kill_session(session)
+        if session.start_with?('soba-test-')
+          begin
+            tmux_client.kill_session(session)
+          rescue
+            nil
+          end
         end
       end
     end

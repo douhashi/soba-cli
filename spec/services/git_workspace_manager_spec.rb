@@ -15,10 +15,7 @@ RSpec.describe Soba::Services::GitWorkspaceManager do
 
   describe '#setup_workspace' do
     context '正常系' do
-      it 'mainブランチを最新化してworktreeを作成する' do
-        expect(Open3).to receive(:capture3).with('git fetch origin').and_return(['', '', double(success?: true)])
-        expect(Open3).to receive(:capture3).with('git checkout main').and_return(['', '', double(success?: true)])
-        expect(Open3).to receive(:capture3).with('git pull origin main').and_return(['', '', double(success?: true)])
+      it 'worktreeを作成する（mainブランチ更新は行わない）' do
         expect(FileUtils).to receive(:mkdir_p).with('.git/soba/worktrees')
         expect(Open3).to receive(:capture3).
           with("git worktree add -b #{branch_name} #{worktree_path} origin/main").
@@ -38,40 +35,7 @@ RSpec.describe Soba::Services::GitWorkspaceManager do
     end
 
     context 'エラー系' do
-      it 'git fetchが失敗した場合は例外を発生させる' do
-        expect(Open3).to receive(:capture3).with('git fetch origin').
-          and_return(['', 'error: failed to fetch', double(success?: false)])
-
-        expect do
-          manager.setup_workspace(issue_number)
-        end.to raise_error(Soba::Services::GitWorkspaceManager::GitOperationError, /Failed to fetch/)
-      end
-
-      it 'git checkoutが失敗した場合は例外を発生させる' do
-        expect(Open3).to receive(:capture3).with('git fetch origin').and_return(['', '', double(success?: true)])
-        expect(Open3).to receive(:capture3).with('git checkout main').
-          and_return(['', 'error: failed to checkout', double(success?: false)])
-
-        expect do
-          manager.setup_workspace(issue_number)
-        end.to raise_error(Soba::Services::GitWorkspaceManager::GitOperationError, /Failed to checkout/)
-      end
-
-      it 'git pullが失敗した場合は例外を発生させる' do
-        expect(Open3).to receive(:capture3).with('git fetch origin').and_return(['', '', double(success?: true)])
-        expect(Open3).to receive(:capture3).with('git checkout main').and_return(['', '', double(success?: true)])
-        expect(Open3).to receive(:capture3).with('git pull origin main').
-          and_return(['', 'error: failed to pull', double(success?: false)])
-
-        expect do
-          manager.setup_workspace(issue_number)
-        end.to raise_error(Soba::Services::GitWorkspaceManager::GitOperationError, /Failed to pull/)
-      end
-
       it 'worktree追加が失敗した場合は例外を発生させる' do
-        expect(Open3).to receive(:capture3).with('git fetch origin').and_return(['', '', double(success?: true)])
-        expect(Open3).to receive(:capture3).with('git checkout main').and_return(['', '', double(success?: true)])
-        expect(Open3).to receive(:capture3).with('git pull origin main').and_return(['', '', double(success?: true)])
         expect(FileUtils).to receive(:mkdir_p).with('.git/soba/worktrees')
         expect(Open3).to receive(:capture3).
           with("git worktree add -b #{branch_name} #{worktree_path} origin/main").
@@ -147,6 +111,48 @@ RSpec.describe Soba::Services::GitWorkspaceManager do
 
         path = manager.get_worktree_path(issue_number)
         expect(path).to be_nil
+      end
+    end
+  end
+
+  describe '#update_main_branch' do
+    context 'when called as public method' do
+      it 'updates the main branch successfully' do
+        expect(Open3).to receive(:capture3).with('git fetch origin').and_return(['', '', double(success?: true)])
+        expect(Open3).to receive(:capture3).with('git checkout main').and_return(['', '', double(success?: true)])
+        expect(Open3).to receive(:capture3).with('git pull origin main').and_return(['', '', double(success?: true)])
+
+        expect { manager.update_main_branch }.not_to raise_error
+      end
+
+      it 'raises error when fetch fails' do
+        expect(Open3).to receive(:capture3).with('git fetch origin').
+          and_return(['', 'error: failed to fetch', double(success?: false)])
+
+        expect do
+          manager.update_main_branch
+        end.to raise_error(Soba::Services::GitWorkspaceManager::GitOperationError, /Failed to fetch/)
+      end
+
+      it 'raises error when checkout fails' do
+        expect(Open3).to receive(:capture3).with('git fetch origin').and_return(['', '', double(success?: true)])
+        expect(Open3).to receive(:capture3).with('git checkout main').
+          and_return(['', 'error: failed to checkout', double(success?: false)])
+
+        expect do
+          manager.update_main_branch
+        end.to raise_error(Soba::Services::GitWorkspaceManager::GitOperationError, /Failed to checkout/)
+      end
+
+      it 'raises error when pull fails' do
+        expect(Open3).to receive(:capture3).with('git fetch origin').and_return(['', '', double(success?: true)])
+        expect(Open3).to receive(:capture3).with('git checkout main').and_return(['', '', double(success?: true)])
+        expect(Open3).to receive(:capture3).with('git pull origin main').
+          and_return(['', 'error: failed to pull', double(success?: false)])
+
+        expect do
+          manager.update_main_branch
+        end.to raise_error(Soba::Services::GitWorkspaceManager::GitOperationError, /Failed to pull/)
       end
     end
   end

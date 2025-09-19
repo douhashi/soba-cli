@@ -187,7 +187,7 @@ RSpec.describe 'Queueing Workflow Integration' do
           instance.instance_variable_set(:@running, false) if @execution_count >= 2
         end
 
-        expect { command.execute({}, {}, []) }.to output(
+        expect { command.execute({}, { foreground: true }, []) }.to output(
           /✅ Queued Issue #10 for processing.*🚀 Processing Issue #10/m
         ).to_stdout
       end
@@ -240,7 +240,7 @@ RSpec.describe 'Queueing Workflow Integration' do
         # Ensure the test completes quickly
         command.instance_variable_set(:@running, false)
 
-        expect { command.execute({}, {}, []) }.not_to output(/Queued Issue/).to_stdout
+        expect { command.execute({}, { foreground: true }, []) }.not_to output(/Queued Issue/).to_stdout
       end
     end
 
@@ -274,7 +274,7 @@ RSpec.describe 'Queueing Workflow Integration' do
         # Ensure the test completes quickly
         command.instance_variable_set(:@running, false)
 
-        expect { command.execute({}, {}, []) }.to output(
+        expect { command.execute({}, { foreground: true }, []) }.to output(
           /🚀 Processing Issue #50.*Phase: queued_to_planning/m
         ).to_stdout
       end
@@ -339,7 +339,7 @@ RSpec.describe 'Queueing Workflow Integration' do
           instance.instance_variable_set(:@running, false) if @execution_count >= 2
         end
 
-        expect { command.execute({}, {}, []) }.to output(
+        expect { command.execute({}, { foreground: true }, []) }.to output(
           /✅ Queued Issue #10 for processing/
         ).to_stdout
       end
@@ -386,7 +386,7 @@ RSpec.describe 'Queueing Workflow Integration' do
         block.call(stdin, stdout, stderr, thread) if block
       end
 
-      command.execute({}, {}, [])
+      command.execute({}, { foreground: true }, [])
     end
 
     context 'when active soba label and todo issue exist simultaneously (Issue #99)' do
@@ -416,7 +416,7 @@ RSpec.describe 'Queueing Workflow Integration' do
           'owner/repo', 102, from: 'soba:todo', to: 'soba:queued'
         )
 
-        command.execute({}, {}, [])
+        command.execute({}, { foreground: true }, [])
       end
 
       it 'does not queue todo issues when multiple active labels exist' do
@@ -467,7 +467,7 @@ RSpec.describe 'Queueing Workflow Integration' do
           block.call(stdin, stdout, stderr, thread) if block
         end
 
-        command.execute({}, {}, [])
+        command.execute({}, { foreground: true }, [])
       end
     end
   end

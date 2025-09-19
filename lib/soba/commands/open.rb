@@ -37,27 +37,43 @@ module Soba
       def open_repository_session
         Configuration.load!
 
-        result = @tmux_session_manager.find_repository_session
+        repository = Configuration.config.github.repository
 
-        unless result[:success]
-          raise ArgumentError, result[:error]
+        unless repository
+          raise ArgumentError, 'GitHub repository is not configured. Please run "soba init" first.'
         end
 
-        session_name = result[:session_name]
+        # Try to find repository session by PID
+        pid_result = @tmux_session_manager.find_repository_session_by_pid(repository)
 
-        if result[:exists]
+        if pid_result[:exists]
+          session_name = pid_result[:session_name]
           puts "リポジトリのセッション #{session_name} にアタッチします..."
           @tmux_client.attach_to_session(session_name)
         else
-          raise SessionNotFoundError, <<~MESSAGE
-            リポジトリのセッション #{session_name} が見つかりません。
+          # Fallback to standard session search (for backward compatibility)
+          result = @tmux_session_manager.find_repository_session
 
-            Issue作業を開始すると自動的にセッションが作成されます:
-              soba start <issue-number>
+          unless result[:success]
+            raise ArgumentError, result[:error]
+          end
 
-            またはアクティブなセッションを確認できます:
-              soba open --list
-          MESSAGE
+          session_name = result[:session_name]
+
+          if result[:exists]
+            puts "リポジトリのセッション #{session_name} にアタッチします..."
+            @tmux_client.attach_to_session(session_name)
+          else
+            raise SessionNotFoundError, <<~MESSAGE
+              リポジトリのセッションが見つかりません。
+
+              Issue作業を開始すると自動的にセッションが作成されます:
+                soba start <issue-number>
+
+              またはアクティブなセッションを確認できます:
+                soba open --list
+            MESSAGE
+          end
         end
       end
 

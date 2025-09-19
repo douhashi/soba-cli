@@ -199,6 +199,37 @@ module Soba
         end.compact
       end
 
+      # Check if a session exists
+      def session_exists?(session_name)
+        @tmux_client.session_exists?(session_name)
+      end
+
+      # Find repository session by PID
+      def find_repository_session_by_pid(repository)
+        require_relative 'pid_manager'
+
+        # Get PID file path for this repository
+        pid_file = File.join(Dir.home, '.soba', 'pids', "#{repository.gsub('/', '-')}.pid")
+        pid_manager = PidManager.new(pid_file)
+
+        pid = pid_manager.read
+
+        unless pid
+          return { success: true, session_name: nil, exists: false }
+        end
+
+        # Generate session name with PID
+        session_name = "soba-#{repository.gsub(/[\/._]/, '-')}-#{pid}"
+
+        if @tmux_client.session_exists?(session_name)
+          { success: true, session_name: session_name, exists: true }
+        else
+          # Clean up stale PID file
+          pid_manager.delete
+          { success: true, session_name: nil, exists: false }
+        end
+      end
+
       private
 
       # Generate session name with PID for process isolation

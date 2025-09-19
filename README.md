@@ -1,11 +1,18 @@
-# soba
+# soba-cli
 
 GitHub IssueとClaude Codeを連携させる自律的ワークフロー実行CLIツール
+
+## インストール
+
+```bash
+# gemとしてインストール
+gem install soba-cli
+```
 
 ## セットアップ
 
 ```bash
-# 依存関係のインストール
+# 開発用：依存関係のインストール
 bundle install
 
 # Git hooksの設定（Rubocop自動チェック）

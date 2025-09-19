@@ -3,12 +3,12 @@
 require 'English'
 require 'spec_helper'
 
-RSpec.describe 'soba.gemspec' do
-  let(:gemspec_path) { File.expand_path('../soba.gemspec', __dir__) }
+RSpec.describe 'soba-cli.gemspec' do
+  let(:gemspec_path) { File.expand_path('../soba-cli.gemspec', __dir__) }
   let(:gemspec) { Gem::Specification.load(gemspec_path) }
 
   describe 'gemspecファイルの存在' do
-    it 'soba.gemspecファイルが存在すること' do
+    it 'soba-cli.gemspecファイルが存在すること' do
       expect(File.exist?(gemspec_path)).to be true
     end
 
@@ -19,7 +19,7 @@ RSpec.describe 'soba.gemspec' do
 
   describe 'メタデータ' do
     it '必須のメタデータが定義されていること' do
-      expect(gemspec.name).to eq('soba')
+      expect(gemspec.name).to eq('soba-cli')
       expect(gemspec.version).not_to be_nil
       expect(gemspec.summary).not_to be_empty
       expect(gemspec.description).not_to be_empty
@@ -108,12 +108,12 @@ RSpec.describe 'soba.gemspec' do
   describe 'gemビルド' do
     it 'gem buildコマンドが成功すること' do
       Dir.chdir(File.dirname(gemspec_path)) do
-        output = `gem build soba.gemspec 2>&1`
+        output = `gem build soba-cli.gemspec 2>&1`
         expect($CHILD_STATUS).to be_success, "gem build failed: #{output}"
         expect(output).to include('Successfully built')
 
         # クリーンアップ
-        gem_file = Dir.glob('soba-*.gem').first
+        gem_file = Dir.glob('soba-cli-*.gem').first
         if gem_file && File.exist?(gem_file)
           File.delete(gem_file)
         end

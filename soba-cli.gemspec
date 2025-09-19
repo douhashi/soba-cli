@@ -3,7 +3,7 @@
 require_relative "lib/soba/version"
 
 Gem::Specification.new do |spec|
-  spec.name = "soba"
+  spec.name = "soba-cli"
   spec.version = Soba::VERSION
   spec.authors = ["douhashi"]
   spec.email = ["soba@douhashi.dev"]

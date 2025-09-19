@@ -2,7 +2,7 @@
 
 source "https://rubygems.org"
 
-# Specify your gem's dependencies in soba.gemspec
+# Specify your gem's dependencies in soba-cli.gemspec
 gemspec
 
 # Additional development dependencies that might be needed for specific CI/local dev environments

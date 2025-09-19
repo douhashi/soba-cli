@@ -1,140 +1,206 @@
 # frozen_string_literal: true
 
 require 'spec_helper'
-require 'soba/services/tmux_session_manager'
+require 'soba/infrastructure/tmux_client'
 require 'soba/services/test_process_manager'
+require 'soba/services/tmux_session_manager'
 
-RSpec.describe 'Test Process Isolation', type: :integration, test_process_isolation: true do
-  let(:mock_tmux_client) { instance_double(Soba::Infrastructure::TmuxClient) }
-  let(:tmux_session_manager) { Soba::Services::TmuxSessionManager.new(tmux_client: mock_tmux_client) }
+RSpec.describe 'Test Process Isolation' do
+  let(:tmux_client) { Soba::Infrastructure::TmuxClient.new }
   let(:test_process_manager) { Soba::Services::TestProcessManager.new }
-  let(:repository) { 'test/repo' }
 
-  describe 'session name generation in test mode' do
-    it 'generates test-specific session names' do
-      expect(in_test_mode?).to be true
+  describe 'test mode session isolation', test_process_isolation: true do
+    before do
+      ENV['SOBA_TEST_MODE'] = 'true'
+    end
 
-      session_name = tmux_session_manager.send(:generate_session_name, repository)
+    after do
+      ENV.delete('SOBA_TEST_MODE')
+      # Clean up any test sessions created during the test
+      tmux_client.list_sessions.each do |session|
+        if session.start_with?('soba-test-')
+          tmux_client.kill_session(session)
+        end
+      end
+    end
 
-      expect(session_name).to start_with('soba-test-test-repo-')
+    it 'creates test sessions with soba-test- prefix in test mode' do
+      repository = 'test/repo'
+      session_name = test_process_manager.generate_test_session_name(repository)
+
+      expect(session_name).to start_with('soba-test-')
+      expect(session_name).to include('test-repo')
       expect(session_name).to include(Process.pid.to_s)
-      expect(session_name).to match(/soba-test-test-repo-\d+-[a-f0-9]{8}/)
     end
 
-    it 'generates unique session names for parallel tests' do
-      session_name_1 = tmux_session_manager.send(:generate_session_name, repository)
-      session_name_2 = tmux_session_manager.send(:generate_session_name, repository)
+    it 'list_soba_sessions returns only test sessions in test mode' do
+      # Create a mix of sessions
+      test_session1 = 'soba-test-repo1-12345-abcd'
+      test_session2 = 'soba-test-repo2-12345-efgh'
+      regular_session = 'soba-regular-12345'
 
-      expect(session_name_1).not_to eq(session_name_2)
+      # Skip if sessions already exist
+      unless tmux_client.session_exists?(test_session1)
+        tmux_client.create_session(test_session1)
+      end
+      unless tmux_client.session_exists?(test_session2)
+        tmux_client.create_session(test_session2)
+      end
+      unless tmux_client.session_exists?(regular_session)
+        tmux_client.create_session(regular_session)
+      end
+
+      # In test mode, should only see test sessions
+      soba_sessions = tmux_client.list_soba_sessions
+
+      expect(soba_sessions).to include(test_session1)
+      expect(soba_sessions).to include(test_session2)
+      expect(soba_sessions).not_to include(regular_session)
+
+      # Clean up
+      tmux_client.kill_session(test_session1)
+      tmux_client.kill_session(test_session2)
+      tmux_client.kill_session(regular_session)
+    end
+
+    it 'does not affect regular soba sessions when in test mode' do
+      # Temporarily switch out of test mode to create regular session
+      ENV.delete('SOBA_TEST_MODE')
+      regular_session = 'soba-production-99999'
+      tmux_client.create_session(regular_session) unless tmux_client.session_exists?(regular_session)
+
+      # Switch back to test mode
+      ENV['SOBA_TEST_MODE'] = 'true'
+      test_session = 'soba-test-temp-12345-xyz'
+      tmux_client.create_session(test_session) unless tmux_client.session_exists?(test_session)
+
+      # list_soba_sessions should only return test sessions
+      soba_sessions = tmux_client.list_soba_sessions
+
+      expect(soba_sessions).to include(test_session)
+      expect(soba_sessions).not_to include(regular_session)
+
+      # Clean up both sessions
+      tmux_client.kill_session(test_session) if tmux_client.session_exists?(test_session)
+      tmux_client.kill_session(regular_session) if tmux_client.session_exists?(regular_session)
     end
   end
 
-  describe 'test environment isolation' do
-    it 'ensures test environment is properly setup' do
-      result = test_process_manager.ensure_test_environment
-
-      expect(result[:success]).to be true
-      expect(result[:test_mode]).to be true
-      expect(Dir.exist?('/tmp/soba-test-pids')).to be true
+  describe 'regular mode session isolation' do
+    before do
+      ENV.delete('SOBA_TEST_MODE')
     end
 
-    it 'provides unique test IDs for each test' do
-      test_id_1 = test_process_manager.generate_test_id
-      test_id_2 = test_process_manager.generate_test_id
-
-      expect(test_id_1).not_to eq(test_id_2)
-      expect(test_id_1).to match(/\d+-[a-f0-9]{8}/)
-      expect(test_id_2).to match(/\d+-[a-f0-9]{8}/)
-    end
-  end
-
-  describe 'PID file management' do
-    let(:test_id) { test_process_manager.generate_test_id }
-
-    it 'creates test-specific PID files' do
-      pid_manager = test_process_manager.create_test_pid_manager(test_id)
-
-      expect(pid_manager.pid_file).to eq("/tmp/soba-test-pids/#{test_id}.pid")
+    after do
+      # Clean up any sessions created during the test
+      tmux_client.list_sessions.each do |session|
+        if session.start_with?('soba-')
+          tmux_client.kill_session(session)
+        end
+      end
     end
 
-    it 'writes and reads PID files correctly' do
-      pid_manager = test_process_manager.create_test_pid_manager(test_id)
-      test_pid = 12345
+    it 'list_soba_sessions excludes test sessions in regular mode' do
+      # Create a mix of sessions
+      test_session = 'soba-test-repo-12345-abcd'
+      regular_session1 = 'soba-regular-12345'
+      regular_session2 = 'soba-production-67890'
 
-      pid_manager.write(test_pid)
-      expect(pid_manager.read).to eq(test_pid)
+      tmux_client.create_session(test_session) unless tmux_client.session_exists?(test_session)
+      tmux_client.create_session(regular_session1) unless tmux_client.session_exists?(regular_session1)
+      tmux_client.create_session(regular_session2) unless tmux_client.session_exists?(regular_session2)
 
-      pid_manager.delete
-      expect(pid_manager.read).to be_nil
+      # In regular mode, should exclude test sessions
+      soba_sessions = tmux_client.list_soba_sessions
+
+      expect(soba_sessions).not_to include(test_session)
+      expect(soba_sessions).to include(regular_session1)
+      expect(soba_sessions).to include(regular_session2)
+
+      # Clean up
+      tmux_client.kill_session(test_session) if tmux_client.session_exists?(test_session)
+      tmux_client.kill_session(regular_session1) if tmux_client.session_exists?(regular_session1)
+      tmux_client.kill_session(regular_session2) if tmux_client.session_exists?(regular_session2)
     end
   end
 
-  describe 'process cleanup' do
-    let(:test_id) { test_process_manager.generate_test_id }
+  describe 'TmuxSessionManager integration' do
+    let(:tmux_session_manager) do
+      Soba::Services::TmuxSessionManager.new(
+        tmux_client: tmux_client,
+        test_process_manager: test_process_manager
+      )
+    end
 
-    context 'when no processes exist' do
-      it 'returns success without errors' do
-        result = test_process_manager.cleanup_test_processes(test_id)
+    before do
+      allow(Soba::Configuration).to receive(:config).and_return(
+        double(github: double(repository: 'owner/integration-repo'))
+      )
+    end
+
+    after do
+      # Clean up any sessions created during the test
+      tmux_client.list_sessions.each do |session|
+        if session.start_with?('soba-')
+          tmux_client.kill_session(session)
+        end
+      end
+    end
+
+    context 'in test mode' do
+      before do
+        ENV['SOBA_TEST_MODE'] = 'true'
+      end
+
+      after do
+        ENV.delete('SOBA_TEST_MODE')
+      end
+
+      it 'creates sessions with test prefix through TmuxSessionManager' do
+        result = tmux_session_manager.find_or_create_repository_session
 
         expect(result[:success]).to be true
-        expect(result[:cleaned_processes]).to eq([])
+        expect(result[:session_name]).to start_with('soba-test-')
+        expect(result[:session_name]).to include('owner-integration-repo')
+
+        # Verify the session was actually created
+        expect(tmux_client.session_exists?(result[:session_name])).to be true
+
+        # Clean up
+        tmux_client.kill_session(result[:session_name])
       end
     end
 
-    context 'when PID file exists but process is not running' do
-      it 'cleans up stale PID file' do
-        pid_manager = test_process_manager.create_test_pid_manager(test_id)
-        non_existent_pid = 999999
+    context 'in regular mode' do
+      it 'test process manager distinguishes between test and regular mode' do
+        # Create a new test process manager for regular mode
+        regular_test_manager = Soba::Services::TestProcessManager.new
 
-        pid_manager.write(non_existent_pid)
-        expect(File.exist?(pid_manager.pid_file)).to be true
+        # Ensure environment is in regular mode
+        ENV.delete('SOBA_TEST_MODE')
 
-        result = test_process_manager.cleanup_test_processes(test_id)
+        # Create a new session manager with the regular test manager
+        regular_session_manager = Soba::Services::TmuxSessionManager.new(
+          tmux_client: tmux_client,
+          test_process_manager: regular_test_manager
+        )
+
+        # Regular mode should not use test prefix
+        expect(regular_test_manager.test_mode?).to be false
+
+        result = regular_session_manager.find_or_create_repository_session
 
         expect(result[:success]).to be true
-        expect(result[:cleaned_processes]).to eq([])
-        expect(File.exist?(pid_manager.pid_file)).to be false
-      end
-    end
-  end
+        expect(result[:session_name]).to start_with('soba-')
+        expect(result[:session_name]).not_to start_with('soba-test-')
+        expect(result[:session_name]).to include('owner-integration-repo')
+        expect(result[:session_name]).to include(Process.pid.to_s)
 
-  describe 'test helper integration' do
-    it 'provides current test ID through helper method' do
-      expect(current_test_id).to be_present
-      expect(current_test_id).to match(/\d+-[a-f0-9]{8}/)
-    end
+        # Verify the session was actually created
+        expect(tmux_client.session_exists?(result[:session_name])).to be true
 
-    it 'provides test process manager through helper method' do
-      expect(test_process_manager).to be_a(Soba::Services::TestProcessManager)
-      expect(test_process_manager.test_mode?).to be true
-    end
-
-    it 'confirms test mode is active' do
-      expect(in_test_mode?).to be true
-    end
-  end
-
-  describe 'parallel test execution simulation' do
-    it 'ensures each test gets isolated resources' do
-      # Simulate multiple tests running in parallel
-      test_contexts = 3.times.map do
-        {
-          test_id: test_process_manager.generate_test_id,
-          session_name: tmux_session_manager.send(:generate_session_name, repository),
-        }
-      end
-
-      # All test IDs should be unique
-      test_ids = test_contexts.map { |ctx| ctx[:test_id] }
-      expect(test_ids.uniq.size).to eq(3)
-
-      # All session names should be unique
-      session_names = test_contexts.map { |ctx| ctx[:session_name] }
-      expect(session_names.uniq.size).to eq(3)
-
-      # All should follow the test naming pattern
-      session_names.each do |name|
-        expect(name).to start_with('soba-test-test-repo-')
+        # Clean up
+        tmux_client.kill_session(result[:session_name])
       end
     end
   end

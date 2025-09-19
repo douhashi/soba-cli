@@ -184,7 +184,14 @@ module Soba
 
       def list_soba_sessions
         sessions = list_sessions
-        sessions.select { |s| s.start_with?('soba-') }
+
+        if ENV['SOBA_TEST_MODE'] == 'true'
+          # テストモードの場合は、soba-test-で始まるセッションのみを返す
+          sessions.select { |s| s.start_with?('soba-test-') }
+        else
+          # 通常モードの場合は、soba-で始まるがsoba-test-で始まらないセッションを返す
+          sessions.select { |s| s.start_with?('soba-') && !s.start_with?('soba-test-') }
+        end
       end
 
       def window_exists?(session_name, window_name)

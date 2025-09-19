@@ -35,11 +35,13 @@ module Soba
           @pid_manager.delete
         end
 
-        [{
-          name: session_name,
-          pid: pid,
-          active: active
-        }]
+        [
+          {
+            name: session_name,
+            pid: pid,
+            active: active,
+          },
+        ]
       end
 
       def generate_session_name(repository, pid)
@@ -54,11 +56,11 @@ module Soba
         return [] unless pid
 
         session_name = generate_session_name(repository, pid)
-        unless @tmux_manager.session_exists?(session_name)
+        if @tmux_manager.session_exists?(session_name)
+          []
+        else
           @pid_manager.delete
           [pid]
-        else
-          []
         end
       end
 

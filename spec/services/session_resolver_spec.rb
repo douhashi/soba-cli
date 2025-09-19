@@ -81,7 +81,7 @@ RSpec.describe Soba::Services::SessionResolver do
       it "returns session with active status" do
         result = resolver.find_all_repository_sessions(repository)
         expect(result).to eq([
-          { name: "soba-test-repo-12345", pid: 12345, active: true }
+          { name: "soba-test-repo-12345", pid: 12345, active: true },
         ])
       end
     end
@@ -98,7 +98,7 @@ RSpec.describe Soba::Services::SessionResolver do
       it "returns session with inactive status" do
         result = resolver.find_all_repository_sessions(repository)
         expect(result).to eq([
-          { name: "soba-test-repo-12345", pid: 12345, active: false }
+          { name: "soba-test-repo-12345", pid: 12345, active: false },
         ])
       end
 

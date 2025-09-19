@@ -21,37 +21,48 @@ module Soba
           'closed_issue_cleanup_enabled' => true,
           'closed_issue_cleanup_interval' => 300,
           'phase_labels' => {
+            'todo' => 'soba:todo',
+            'queued' => 'soba:queued',
             'planning' => 'soba:planning',
             'ready' => 'soba:ready',
             'doing' => 'soba:doing',
             'review_requested' => 'soba:review-requested',
+            'reviewing' => 'soba:reviewing',
+            'done' => 'soba:done',
+            'requires_changes' => 'soba:requires-changes',
+            'revising' => 'soba:revising',
+            'merged' => 'soba:merged',
           },
         },
       }.freeze
 
       LABEL_COLORS = {
+        'todo' => '808080',            # Gray
+        'queued' => '9370db',          # Medium Purple
         'planning' => '1e90ff',        # Blue
         'ready' => '228b22',           # Green
         'doing' => 'ffd700',           # Yellow
         'review_requested' => 'ff8c00', # Orange
-        'queue' => '9370db',           # Medium Purple
         'reviewing' => 'ff6347',       # Tomato
         'done' => '32cd32',            # Lime Green
         'requires_changes' => 'dc143c', # Crimson
         'revising' => 'ff1493',        # Deep Pink
+        'merged' => '6b8e23',          # Olive Drab
         'lgtm' => '00ff00',            # Pure Green
       }.freeze
 
       LABEL_DESCRIPTIONS = {
+        'todo' => 'To-do task waiting to be queued',
+        'queued' => 'Queued for processing',
         'planning' => 'Planning phase',
         'ready' => 'Ready for implementation',
         'doing' => 'In progress',
         'review_requested' => 'Review requested',
-        'queue' => 'Queued for processing',
         'reviewing' => 'Under review',
         'done' => 'Review completed',
         'requires_changes' => 'Changes requested',
         'revising' => 'Revising based on review feedback',
+        'merged' => 'PR merged and issue closed',
         'lgtm' => 'PR approved for auto-merge',
       }.freeze
 
@@ -332,10 +343,17 @@ module Soba
             'closed_issue_cleanup_enabled' => true,
             'closed_issue_cleanup_interval' => 300,
             'phase_labels' => {
+              'todo' => 'soba:todo',
+              'queued' => 'soba:queued',
               'planning' => planning_label,
               'ready' => ready_label,
               'doing' => doing_label,
               'review_requested' => review_label,
+              'reviewing' => 'soba:reviewing',
+              'done' => 'soba:done',
+              'requires_changes' => 'soba:requires-changes',
+              'revising' => 'soba:revising',
+              'merged' => 'soba:merged',
             },
           },
         }
@@ -416,10 +434,17 @@ module Soba
 
             # Phase labels for tracking issue progress
             phase_labels:
+              todo: #{config['workflow']['phase_labels']['todo']}
+              queued: #{config['workflow']['phase_labels']['queued']}
               planning: #{config['workflow']['phase_labels']['planning']}
               ready: #{config['workflow']['phase_labels']['ready']}
               doing: #{config['workflow']['phase_labels']['doing']}
               review_requested: #{config['workflow']['phase_labels']['review_requested']}
+              reviewing: #{config['workflow']['phase_labels']['reviewing']}
+              done: #{config['workflow']['phase_labels']['done']}
+              requires_changes: #{config['workflow']['phase_labels']['requires_changes']}
+              revising: #{config['workflow']['phase_labels']['revising']}
+              merged: #{config['workflow']['phase_labels']['merged']}
         YAML
 
         # Add phase configuration if present
@@ -600,13 +625,8 @@ module Soba
             end
           end
 
-          # Create additional review-related labels
+          # Create additional PR label
           additional_labels = [
-            { name: 'soba:queue', phase: 'queue' },
-            { name: 'soba:reviewing', phase: 'reviewing' },
-            { name: 'soba:done', phase: 'done' },
-            { name: 'soba:requires-changes', phase: 'requires_changes' },
-            { name: 'soba:revising', phase: 'revising' },
             { name: 'soba:lgtm', phase: 'lgtm' },
           ]
 

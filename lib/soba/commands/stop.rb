@@ -29,6 +29,7 @@ module Soba
 
         # Create stopping file for graceful shutdown
         stopping_file = File.expand_path('~/.soba/stopping')
+        FileUtils.mkdir_p(File.dirname(stopping_file))
         FileUtils.touch(stopping_file)
 
         begin

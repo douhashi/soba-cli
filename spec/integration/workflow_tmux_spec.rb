@@ -24,6 +24,7 @@ RSpec.describe 'Workflow Tmux Integration' do
 
   describe 'executing workflow in new tmux structure' do
     let(:issue_number) { 42 }
+    let(:session_name_with_pid) { "soba-owner-repo-name-#{Process.pid}" }
     let(:phase) do
       double(
         name: 'planning',
@@ -35,16 +36,16 @@ RSpec.describe 'Workflow Tmux Integration' do
 
     context 'when executing in a new repository session' do
       before do
-        # Repository session doesn't exist
-        allow(tmux_client).to receive(:session_exists?).with('soba-owner-repo-name').and_return(false)
-        allow(tmux_client).to receive(:create_session).with('soba-owner-repo-name').and_return(true)
+        # Repository session doesn't exist with PID
+        allow(tmux_client).to receive(:session_exists?).with(session_name_with_pid).and_return(false)
+        allow(tmux_client).to receive(:create_session).with(session_name_with_pid).and_return(true)
 
         # Window doesn't exist (new issue) - called twice: before and after creation for verification
-        allow(tmux_client).to receive(:window_exists?).with('soba-owner-repo-name', 'issue-42').and_return(false, true)
-        allow(tmux_client).to receive(:create_window).with('soba-owner-repo-name', 'issue-42').and_return(true)
+        allow(tmux_client).to receive(:window_exists?).with(session_name_with_pid, 'issue-42').and_return(false, true)
+        allow(tmux_client).to receive(:create_window).with(session_name_with_pid, 'issue-42').and_return(true)
 
         # Send command to the first pane
-        allow(tmux_client).to receive(:send_keys).with('soba-owner-repo-name:issue-42', 'soba:plan 42').and_return(true)
+        allow(tmux_client).to receive(:send_keys).with("#{session_name_with_pid}:issue-42", 'soba:plan 42').and_return(true)
       end
 
       it 'creates repository session, issue window, and executes command' do
@@ -54,36 +55,36 @@ RSpec.describe 'Workflow Tmux Integration' do
         result = workflow_executor.execute(phase: phase, issue_number: issue_number, use_tmux: true)
 
         expect(result[:success]).to be true
-        expect(result[:session_name]).to eq('soba-owner-repo-name')
+        expect(result[:session_name]).to eq(session_name_with_pid)
         expect(result[:window_name]).to eq('issue-42')
         expect(result[:pane_id]).to be_nil # First pane, no split
         expect(result[:mode]).to eq('tmux')
 
-        expect(tmux_client).to have_received(:create_session).with('soba-owner-repo-name')
-        expect(tmux_client).to have_received(:create_window).with('soba-owner-repo-name', 'issue-42')
-        expect(tmux_client).to have_received(:send_keys).with('soba-owner-repo-name:issue-42', 'soba:plan 42')
+        expect(tmux_client).to have_received(:create_session).with(session_name_with_pid)
+        expect(tmux_client).to have_received(:create_window).with(session_name_with_pid, 'issue-42')
+        expect(tmux_client).to have_received(:send_keys).with("#{session_name_with_pid}:issue-42", 'soba:plan 42')
       end
     end
 
     context 'when executing in an existing session with existing window' do
       before do
-        # Repository session exists
-        allow(tmux_client).to receive(:session_exists?).with('soba-owner-repo-name').and_return(true)
+        # Repository session exists with PID
+        allow(tmux_client).to receive(:session_exists?).with(session_name_with_pid).and_return(true)
         allow(tmux_client).to receive(:create_session) # Allow but don't expect
 
         # Window exists (continuing work on same issue)
-        allow(tmux_client).to receive(:window_exists?).with('soba-owner-repo-name', 'issue-42').and_return(true)
+        allow(tmux_client).to receive(:window_exists?).with(session_name_with_pid, 'issue-42').and_return(true)
         allow(tmux_client).to receive(:create_window) # Allow but don't expect
 
         # Create new pane for the phase
-        allow(tmux_client).to receive(:list_sessions).and_return(['soba-owner-repo-name'])
-        allow(tmux_client).to receive(:list_panes).with('soba-owner-repo-name', 'issue-42').and_return([])
+        allow(tmux_client).to receive(:list_sessions).and_return([session_name_with_pid])
+        allow(tmux_client).to receive(:list_panes).with(session_name_with_pid, 'issue-42').and_return([])
         allow(tmux_client).to receive(:split_window).with(
-          session_name: 'soba-owner-repo-name',
+          session_name: session_name_with_pid,
           window_name: 'issue-42',
           vertical: false
         ).and_return('%15')
-        allow(tmux_client).to receive(:select_layout).with('soba-owner-repo-name', 'issue-42', 'even-horizontal').and_return(true)
+        allow(tmux_client).to receive(:select_layout).with(session_name_with_pid, 'issue-42', 'even-horizontal').and_return(true)
 
         # Send command to the new pane
         allow(tmux_client).to receive(:send_keys).with('%15', 'soba:plan 42').and_return(true)
@@ -96,7 +97,7 @@ RSpec.describe 'Workflow Tmux Integration' do
         result = workflow_executor.execute(phase: phase, issue_number: issue_number, use_tmux: true)
 
         expect(result[:success]).to be true
-        expect(result[:session_name]).to eq('soba-owner-repo-name')
+        expect(result[:session_name]).to eq(session_name_with_pid)
         expect(result[:window_name]).to eq('issue-42')
         expect(result[:pane_id]).to eq('%15')
         expect(result[:mode]).to eq('tmux')
@@ -126,6 +127,7 @@ RSpec.describe 'Workflow Tmux Integration' do
 
   describe 'multiple phases execution' do
     let(:issue_number) { 31 }
+    let(:session_name_with_pid) { "soba-owner-repo-name-#{Process.pid}" }
     let(:planning_phase) do
       double(
         name: 'planning',
@@ -145,25 +147,25 @@ RSpec.describe 'Workflow Tmux Integration' do
 
     context 'when executing multiple phases for the same issue' do
       before do
-        # Repository session exists
-        allow(tmux_client).to receive(:session_exists?).with('soba-owner-repo-name').and_return(true)
+        # Repository session exists with PID
+        allow(tmux_client).to receive(:session_exists?).with(session_name_with_pid).and_return(true)
 
         # First phase: window doesn't exist
         allow(tmux_client).to receive(:window_exists?).
-          with('soba-owner-repo-name', 'issue-31').
+          with(session_name_with_pid, 'issue-31').
           and_return(false, true) # Returns false first time, true second time
-        allow(tmux_client).to receive(:create_window).with('soba-owner-repo-name', 'issue-31').and_return(true)
-        allow(tmux_client).to receive(:send_keys).with('soba-owner-repo-name:issue-31', 'soba:plan 31').and_return(true)
+        allow(tmux_client).to receive(:create_window).with(session_name_with_pid, 'issue-31').and_return(true)
+        allow(tmux_client).to receive(:send_keys).with("#{session_name_with_pid}:issue-31", 'soba:plan 31').and_return(true)
 
         # Second phase: window exists, create new pane
-        allow(tmux_client).to receive(:list_sessions).and_return(['soba-owner-repo-name'])
-        allow(tmux_client).to receive(:list_panes).with('soba-owner-repo-name', 'issue-31').and_return([])
+        allow(tmux_client).to receive(:list_sessions).and_return([session_name_with_pid])
+        allow(tmux_client).to receive(:list_panes).with(session_name_with_pid, 'issue-31').and_return([])
         allow(tmux_client).to receive(:split_window).with(
-          session_name: 'soba-owner-repo-name',
+          session_name: session_name_with_pid,
           window_name: 'issue-31',
           vertical: false
         ).and_return('%20')
-        allow(tmux_client).to receive(:select_layout).with('soba-owner-repo-name', 'issue-31', 'even-horizontal').and_return(true)
+        allow(tmux_client).to receive(:select_layout).with(session_name_with_pid, 'issue-31', 'even-horizontal').and_return(true)
         allow(tmux_client).to receive(:send_keys).with('%20', 'soba:implement 31').and_return(true)
       end
 

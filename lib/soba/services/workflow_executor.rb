@@ -17,8 +17,17 @@ module Soba
       def execute(phase:, issue_number:, use_tmux: true, setup_workspace: true)
         return nil unless phase.command
 
-        # フェーズ開始時にワークスペースをセットアップ
+        # フェーズ開始時にmainブランチを更新し、ワークスペースをセットアップ
         if setup_workspace
+          # mainブランチを最新化
+          begin
+            @git_workspace_manager.update_main_branch
+          rescue GitWorkspaceManager::GitOperationError => e
+            puts "Warning: Failed to update main branch: #{e.message}"
+            # mainブランチの更新に失敗しても続行（エラーハンドリング）
+          end
+
+          # ワークスペースをセットアップ
           begin
             @git_workspace_manager.setup_workspace(issue_number)
           rescue GitWorkspaceManager::GitOperationError => e

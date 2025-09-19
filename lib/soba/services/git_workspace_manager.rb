@@ -23,9 +23,6 @@ module Soba
           return true
         end
 
-        # mainブランチを最新化
-        update_main_branch
-
         # worktreeディレクトリを作成
         FileUtils.mkdir_p(@configuration.config.git.worktree_base_path)
 
@@ -55,16 +52,6 @@ module Soba
         Dir.exist?(path) ? path : nil
       end
 
-      private
-
-      def worktree_path(issue_number)
-        "#{@configuration.config.git.worktree_base_path}/issue-#{issue_number}"
-      end
-
-      def branch_name(issue_number)
-        "soba/#{issue_number}"
-      end
-
       def update_main_branch
         # git fetch origin
         _, stderr, status = Open3.capture3('git fetch origin')
@@ -83,6 +70,16 @@ module Soba
         unless status.success?
           raise GitOperationError, "Failed to pull latest changes from main: #{stderr}"
         end
+      end
+
+      private
+
+      def worktree_path(issue_number)
+        "#{@configuration.config.git.worktree_base_path}/issue-#{issue_number}"
+      end
+
+      def branch_name(issue_number)
+        "soba/#{issue_number}"
       end
 
       def create_worktree(worktree_path, branch_name)

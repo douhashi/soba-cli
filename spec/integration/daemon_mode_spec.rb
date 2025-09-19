@@ -10,8 +10,10 @@ RSpec.describe 'Daemon mode integration' do
   let(:log_file) { File.join(temp_dir, 'daemon.log') }
 
   before do
+    allow(File).to receive(:expand_path).and_call_original
     allow(File).to receive(:expand_path).with('~/.soba/soba.pid').and_return(pid_file)
     allow(File).to receive(:expand_path).with('~/.soba/logs/daemon.log').and_return(log_file)
+    allow(File).to receive(:expand_path).with('~/.soba/status.json').and_return(File.join(temp_dir, 'status.json'))
   end
 
   after do

@@ -20,6 +20,7 @@ module Soba
       setting :auto_merge_enabled, default: true
       setting :closed_issue_cleanup_enabled, default: true
       setting :closed_issue_cleanup_interval, default: 300 # 5 minutes in seconds
+      setting :tmux_command_delay, default: 3 # delay in seconds before sending commands to tmux
     end
 
     setting :git do
@@ -61,6 +62,7 @@ module Soba
           c.workflow.auto_merge_enabled = true
           c.workflow.closed_issue_cleanup_enabled = true
           c.workflow.closed_issue_cleanup_interval = 300
+          c.workflow.tmux_command_delay = 3
           c.git.worktree_base_path = '.git/soba/worktrees'
           c.git.setup_workspace = true
           c.phase.plan.command = nil
@@ -141,6 +143,7 @@ module Soba
             cleanup_enabled = data.dig('workflow', 'closed_issue_cleanup_enabled')
             c.workflow.closed_issue_cleanup_enabled = cleanup_enabled != false # default true
             c.workflow.closed_issue_cleanup_interval = data.dig('workflow', 'closed_issue_cleanup_interval') || 300
+            c.workflow.tmux_command_delay = data.dig('workflow', 'tmux_command_delay') || 3
           end
 
           if data['git']
@@ -197,6 +200,8 @@ module Soba
             closed_issue_cleanup_enabled: true
             # Cleanup interval in seconds (default: 300 = 5 minutes)
             closed_issue_cleanup_interval: 300
+            # Delay in seconds before sending commands to new tmux panes/windows (default: 3)
+            tmux_command_delay: 3
 
           git:
             # Base path for git worktrees

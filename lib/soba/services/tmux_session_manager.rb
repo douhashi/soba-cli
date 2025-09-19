@@ -18,8 +18,8 @@ module Soba
 
         return { success: false, error: 'Repository configuration not found' } if repository.blank?
 
-        # Convert repository name to session-safe format
-        session_name = "soba-#{repository.gsub(/[\/._]/, '-')}"
+        # Convert repository name to session-safe format with PID
+        session_name = generate_session_name(repository)
 
         if @tmux_client.session_exists?(session_name)
           { success: true, session_name: session_name, created: false }
@@ -37,8 +37,8 @@ module Soba
 
         return { success: false, error: 'Repository configuration not found' } if repository.blank?
 
-        # Convert repository name to session-safe format
-        session_name = "soba-#{repository.gsub(/[\/._]/, '-')}"
+        # Convert repository name to session-safe format with PID
+        session_name = generate_session_name(repository)
 
         if @tmux_client.session_exists?(session_name)
           { success: true, session_name: session_name, exists: true }
@@ -156,7 +156,7 @@ module Soba
       end
 
       def find_issue_window(repository_name, issue_number)
-        session_name = "soba-#{repository_name.gsub(/[\/._]/, '-')}"
+        session_name = generate_session_name(repository_name)
         window_name = "issue-#{issue_number}"
 
         if @tmux_client.session_exists?(session_name) && @tmux_client.window_exists?(session_name, window_name)
@@ -167,7 +167,7 @@ module Soba
       end
 
       def list_issue_windows(repository_name)
-        session_name = "soba-#{repository_name.gsub(/[\/._]/, '-')}"
+        session_name = generate_session_name(repository_name)
 
         return [] unless @tmux_client.session_exists?(session_name)
 
@@ -197,6 +197,11 @@ module Soba
       end
 
       private
+
+      # Generate session name with PID for process isolation
+      def generate_session_name(repository)
+        "soba-#{repository.gsub(/[\/._]/, '-')}-#{Process.pid}"
+      end
 
       def fetch_issue_title(repository_name, issue_number)
         # This is a placeholder - actual implementation would use GitHub API

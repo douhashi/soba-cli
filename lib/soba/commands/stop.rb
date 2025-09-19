@@ -1,11 +1,13 @@
 # frozen_string_literal: true
 
+require 'fileutils'
 require_relative '../services/pid_manager'
+require_relative '../infrastructure/tmux_client'
 
 module Soba
   module Commands
     class Stop
-      def execute(_global_options = {}, _options = {}, _args = [])
+      def execute(_global_options = {}, options = {}, _args = [])
         # Allow test environment to override PID file path
         pid_file = ENV['SOBA_TEST_PID_FILE'] || File.expand_path('~/.soba/soba.pid')
         pid_manager = Soba::Services::PidManager.new(pid_file)
@@ -25,22 +27,46 @@ module Soba
 
         puts "Stopping daemon (PID: #{pid})..."
 
+        # Create stopping file for graceful shutdown
+        stopping_file = File.expand_path('~/.soba/stopping')
+        FileUtils.touch(stopping_file)
+
         begin
+          # Check if force option is specified
+          if options[:force]
+            # Force kill immediately
+            puts "Forcefully terminating daemon (PID: #{pid})..."
+            Process.kill('KILL', pid)
+            sleep 1
+            cleanup_tmux_sessions
+            pid_manager.delete
+            FileUtils.rm_f(stopping_file)
+            puts "Daemon forcefully terminated"
+            return 0
+          end
+
           # Send SIGTERM for graceful shutdown
           Process.kill('TERM', pid)
           puts "Sent SIGTERM signal, waiting for daemon to terminate..."
 
+          # Use custom timeout if specified
+          timeout_value = options[:timeout] || 30
+
           # Wait for process to terminate gracefully
-          if wait_for_termination(pid, timeout: 30)
+          if wait_for_termination(pid, timeout: timeout_value)
             puts "Daemon stopped successfully"
+            cleanup_tmux_sessions
             pid_manager.delete
+            FileUtils.rm_f(stopping_file)
             0
           else
             # Force kill if not terminated
             puts "Daemon did not stop gracefully, forcefully terminating..."
             Process.kill('KILL', pid)
             sleep 1
+            cleanup_tmux_sessions
             pid_manager.delete
+            FileUtils.rm_f(stopping_file)
             puts "Daemon forcefully terminated"
             0
           end
@@ -48,14 +74,17 @@ module Soba
           # Process doesn't exist
           puts "Process not found (already terminated)"
           pid_manager.delete
+          FileUtils.rm_f(stopping_file)
           0
         rescue Errno::EPERM
           # Permission denied
           puts "Permission denied: unable to stop daemon (PID: #{pid})"
           puts "You may need to run this command with appropriate permissions"
+          FileUtils.rm_f(stopping_file)
           1
         rescue StandardError => e
           puts "Error stopping daemon: #{e.message}"
+          FileUtils.rm_f(stopping_file)
           1
         end
       end
@@ -77,6 +106,24 @@ module Soba
         end
 
         false
+      end
+
+      def cleanup_tmux_sessions
+        tmux_client = Soba::Infrastructure::TmuxClient.new
+        sessions = tmux_client.list_soba_sessions
+
+        return if sessions.empty?
+
+        puts "Cleaning up tmux sessions..."
+        sessions.each do |session|
+          if tmux_client.kill_session(session)
+            puts "  Killed tmux session: #{session}"
+          else
+            puts "  Warning: Failed to kill tmux session: #{session}"
+          end
+        end
+      rescue StandardError => e
+        puts "  Warning: Failed to cleanup tmux sessions: #{e.message}"
       end
     end
   end

@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require 'fileutils'
 require_relative '../configuration'
 require_relative '../infrastructure/github_client'
 require_relative '../infrastructure/tmux_client'
@@ -167,6 +168,16 @@ module Soba
         end
 
         while @running
+          # Check for graceful shutdown request
+          stopping_file = File.expand_path('~/.soba/stopping')
+          if File.exist?(stopping_file)
+            message = "Graceful shutdown requested, completing current workflow..."
+            log_output(message, options, daemon_service)
+            @running = false
+            FileUtils.rm_f(stopping_file)
+            next
+          end
+
           begin
             issues = issue_watcher.fetch_issues
 

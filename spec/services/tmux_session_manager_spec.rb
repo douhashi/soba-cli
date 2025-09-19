@@ -8,7 +8,8 @@ require 'soba/infrastructure/lock_manager'
 RSpec.describe Soba::Services::TmuxSessionManager do
   let(:tmux_client) { instance_double(Soba::Infrastructure::TmuxClient) }
   let(:lock_manager) { instance_double(Soba::Infrastructure::LockManager) }
-  let(:manager) { described_class.new(tmux_client: tmux_client, lock_manager: lock_manager) }
+  let(:test_process_manager) { instance_double(Soba::Services::TestProcessManager) }
+  let(:manager) { described_class.new(tmux_client: tmux_client, lock_manager: lock_manager, test_process_manager: test_process_manager) }
 
   describe '#find_or_create_repository_session' do
     before do
@@ -16,6 +17,7 @@ RSpec.describe Soba::Services::TmuxSessionManager do
         double(github: double(repository: 'owner/repo-name'))
       )
       allow(Process).to receive(:pid).and_return(12345)
+      allow(test_process_manager).to receive(:test_mode?).and_return(false)
     end
 
     it 'creates a new repository session with PID if not exists' do
@@ -70,6 +72,39 @@ RSpec.describe Soba::Services::TmuxSessionManager do
 
         expect(result[:success]).to be false
         expect(result[:error]).to match(/Repository configuration not found/)
+      end
+    end
+
+    context 'when in test mode' do
+      before do
+        allow(test_process_manager).to receive(:test_mode?).and_return(true)
+        allow(test_process_manager).to receive(:generate_test_session_name).
+          with('owner/repo-name').
+          and_return('soba-test-owner-repo-name-12345-abcd1234')
+      end
+
+      it 'creates test session with test prefix' do
+        session_name = 'soba-test-owner-repo-name-12345-abcd1234'
+        allow(tmux_client).to receive(:session_exists?).with(session_name).and_return(false)
+        allow(tmux_client).to receive(:create_session).with(session_name).and_return(true)
+
+        result = manager.find_or_create_repository_session
+
+        expect(result[:success]).to be true
+        expect(result[:session_name]).to eq(session_name)
+        expect(result[:created]).to be true
+        expect(tmux_client).to have_received(:create_session).with(session_name)
+      end
+
+      it 'returns existing test session if exists' do
+        session_name = 'soba-test-owner-repo-name-12345-abcd1234'
+        allow(tmux_client).to receive(:session_exists?).with(session_name).and_return(true)
+
+        result = manager.find_or_create_repository_session
+
+        expect(result[:success]).to be true
+        expect(result[:session_name]).to eq(session_name)
+        expect(result[:created]).to be false
       end
     end
   end
@@ -204,6 +239,7 @@ RSpec.describe Soba::Services::TmuxSessionManager do
         double(github: double(repository: 'owner/repo-name'))
       )
       allow(Process).to receive(:pid).and_return(12345)
+      allow(test_process_manager).to receive(:test_mode?).and_return(false)
     end
 
     it 'returns session name when repository session exists' do

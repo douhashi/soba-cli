@@ -78,9 +78,9 @@ RSpec.describe Soba::Services::TmuxSessionManager do
     context 'when in test mode' do
       before do
         allow(test_process_manager).to receive(:test_mode?).and_return(true)
-        allow(test_process_manager).to receive(:generate_test_session_name)
-          .with('owner/repo-name')
-          .and_return('soba-test-owner-repo-name-12345-abcd1234')
+        allow(test_process_manager).to receive(:generate_test_session_name).
+          with('owner/repo-name').
+          and_return('soba-test-owner-repo-name-12345-abcd1234')
       end
 
       it 'creates test session with test prefix' do

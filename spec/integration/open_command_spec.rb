@@ -7,17 +7,17 @@ require 'soba/infrastructure/tmux_client'
 RSpec.describe 'Open command integration', type: :integration do
   let(:tmux_client) { Soba::Infrastructure::TmuxClient.new }
   let(:repository_name) { 'test-repo' }
-  let(:session_name) { "soba-#{repository_name}" }
+  let(:session_name) { "soba-#{repository_name}-#{Process.pid}" }
   let(:issue_number) { '74' }
   let(:window_name) { "issue-#{issue_number}" }
 
   before do
-    # Clean up any existing sessions
+    # Clean up any existing sessions with current PID
     tmux_client.kill_session(session_name) if tmux_client.session_exists?(session_name)
   end
 
   after do
-    # Clean up test sessions
+    # Clean up test sessions with current PID
     tmux_client.kill_session(session_name) if tmux_client.session_exists?(session_name)
   end
 

@@ -127,27 +127,63 @@ RSpec.describe Soba::Commands::Open do
 
       context 'when repository session exists' do
         before do
+          allow(tmux_session_manager).to receive(:find_repository_session_by_pid).and_return({
+            success: true,
+            session_name: 'soba-test-repo-12345',
+            exists: true,
+          })
           allow(tmux_session_manager).to receive(:find_repository_session).and_return({
             success: true,
-            session_name: 'soba-test-repo',
+            session_name: 'soba-test-repo-12345',
             exists: true,
           })
         end
 
         it 'attaches to the repository session' do
-          expect(tmux_client).to receive(:attach_to_session).with('soba-test-repo')
+          expect(tmux_client).to receive(:attach_to_session).with('soba-test-repo-12345')
           command.execute(nil)
         end
 
         it 'outputs success message' do
           allow(tmux_client).to receive(:attach_to_session)
           expect { command.execute(nil) }.
-            to output(/リポジトリのセッション soba-test-repo にアタッチします/).to_stdout
+            to output(/リポジトリのセッション soba-test-repo-12345 にアタッチします/).to_stdout
+        end
+      end
+
+      context 'when repository session is resolved by PID' do
+        before do
+          allow(tmux_session_manager).to receive(:find_repository_session).and_return({
+            success: true,
+            session_name: 'soba-test-repo-12345',
+            exists: false,
+          })
+          allow(tmux_session_manager).to receive(:find_repository_session_by_pid).and_return({
+            success: true,
+            session_name: 'soba-test-repo-12345',
+            exists: true,
+          })
+        end
+
+        it 'attaches to the session resolved by PID' do
+          expect(tmux_client).to receive(:attach_to_session).with('soba-test-repo-12345')
+          command.execute(nil)
+        end
+
+        it 'outputs success message' do
+          allow(tmux_client).to receive(:attach_to_session)
+          expect { command.execute(nil) }.
+            to output(/リポジトリのセッション soba-test-repo-12345 にアタッチします/).to_stdout
         end
       end
 
       context 'when repository session does not exist' do
         before do
+          allow(tmux_session_manager).to receive(:find_repository_session_by_pid).and_return({
+            success: true,
+            session_name: nil,
+            exists: false,
+          })
           allow(tmux_session_manager).to receive(:find_repository_session).and_return({
             success: true,
             session_name: 'soba-test-repo',
@@ -158,23 +194,24 @@ RSpec.describe Soba::Commands::Open do
         it 'raises an error with helpful message' do
           expect { command.execute(nil) }.to raise_error(
             Soba::Commands::Open::SessionNotFoundError,
-            /リポジトリのセッション soba-test-repo が見つかりません/
+            /リポジトリのセッションが見つかりません/
           )
         end
       end
 
       context 'when repository configuration is missing' do
         before do
-          allow(tmux_session_manager).to receive(:find_repository_session).and_return({
-            success: false,
-            error: 'Repository configuration not found',
-          })
+          config = instance_double('Config')
+          github_config = instance_double('GithubConfig')
+          allow(github_config).to receive(:repository).and_return(nil)
+          allow(config).to receive(:github).and_return(github_config)
+          allow(Soba::Configuration).to receive(:config).and_return(config)
         end
 
         it 'raises an error with configuration message' do
           expect { command.execute(nil) }.to raise_error(
             ArgumentError,
-            /Repository configuration not found/
+            /GitHub repository is not configured/
           )
         end
       end

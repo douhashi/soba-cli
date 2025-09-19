@@ -106,9 +106,9 @@ RSpec.describe Soba::Services::WorkflowBlockingChecker do
       end
       let(:issues) { [ready_issue] }
 
-      it "returns false" do
+      it "returns true (active state blocks new issues)" do
         result = checker.blocking?(repository, issues: issues)
-        expect(result).to be false
+        expect(result).to be true
       end
     end
 

@@ -110,16 +110,31 @@ module Soba
 
       def cleanup_tmux_sessions
         tmux_client = Soba::Infrastructure::TmuxClient.new
-        sessions = tmux_client.list_soba_sessions
+        repository = Soba::Configuration.config.github&.repository
 
-        return if sessions.empty?
-
-        puts "Cleaning up tmux sessions..."
-        sessions.each do |session|
-          if tmux_client.kill_session(session)
-            puts "  Killed tmux session: #{session}"
-          else
-            puts "  Warning: Failed to kill tmux session: #{session}"
+        if repository
+          # Kill only the current process's session
+          session_name = "soba-#{repository.gsub(/[\/._]/, '-')}-#{Process.pid}"
+          if tmux_client.session_exists?(session_name)
+            puts "Cleaning up tmux session..."
+            if tmux_client.kill_session(session_name)
+              puts "  Killed tmux session: #{session_name}"
+            else
+              puts "  Warning: Failed to kill tmux session: #{session_name}"
+            end
+          end
+        else
+          # If no repository configured, try to clean up sessions with current PID
+          sessions = tmux_client.list_soba_sessions.select { |s| s.end_with?("-#{Process.pid}") }
+          unless sessions.empty?
+            puts "Cleaning up tmux sessions..."
+            sessions.each do |session|
+              if tmux_client.kill_session(session)
+                puts "  Killed tmux session: #{session}"
+              else
+                puts "  Warning: Failed to kill tmux session: #{session}"
+              end
+            end
           end
         end
       rescue StandardError => e

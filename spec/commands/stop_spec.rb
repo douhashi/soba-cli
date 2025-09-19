@@ -256,11 +256,12 @@ RSpec.describe Soba::Commands::Stop do
   end
 
   describe 'tmux session cleanup' do
-    let(:test_pid) { Process.pid }
+    let(:test_pid) { 12345 }
     let(:tmux_client) { instance_double(Soba::Infrastructure::TmuxClient) }
 
     before do
       File.write(pid_file, test_pid.to_s)
+      allow(Process).to receive(:pid).and_return(test_pid)
       allow(Process).to receive(:kill).with(0, test_pid).and_return(1)
       allow(Process).to receive(:kill).with('TERM', test_pid).and_return(1)
       allow(stop_command).to receive(:wait_for_termination).and_return(true)
@@ -268,27 +269,33 @@ RSpec.describe Soba::Commands::Stop do
       allow(Soba::Infrastructure::TmuxClient).to receive(:new).and_return(tmux_client)
     end
 
-    context 'when tmux sessions exist' do
+    context 'when repository is configured' do
       before do
-        allow(tmux_client).to receive(:list_soba_sessions).and_return(['soba-issue-123', 'soba-issue-456'])
+        allow(Soba::Configuration).to receive(:config).and_return(
+          double(github: double(repository: 'owner/repo'))
+        )
+        allow(tmux_client).to receive(:session_exists?).with('soba-owner-repo-12345').and_return(true)
         allow(tmux_client).to receive(:kill_session).and_return(true)
         allow(stop_command).to receive(:cleanup_tmux_sessions).and_call_original
       end
 
-      it 'kills all soba tmux sessions' do
-        expect(tmux_client).to receive(:kill_session).with('soba-issue-123')
-        expect(tmux_client).to receive(:kill_session).with('soba-issue-456')
+      it 'kills only the current process tmux session' do
+        expect(tmux_client).to receive(:kill_session).with('soba-owner-repo-12345')
+        expect(tmux_client).not_to receive(:kill_session).with('soba-owner-repo-67890')
         stop_command.execute
       end
 
       it 'displays cleanup message' do
-        expect { stop_command.execute }.to output(/Cleaning up tmux sessions/).to_stdout
+        expect { stop_command.execute }.to output(/Cleaning up tmux session/).to_stdout
       end
     end
 
     context 'when no tmux sessions exist' do
       before do
-        allow(tmux_client).to receive(:list_soba_sessions).and_return([])
+        allow(Soba::Configuration).to receive(:config).and_return(
+          double(github: double(repository: 'owner/repo'))
+        )
+        allow(tmux_client).to receive(:session_exists?).with('soba-owner-repo-12345').and_return(false)
         allow(stop_command).to receive(:cleanup_tmux_sessions).and_call_original
       end
 
@@ -300,7 +307,10 @@ RSpec.describe Soba::Commands::Stop do
 
     context 'when tmux session cleanup fails' do
       before do
-        allow(tmux_client).to receive(:list_soba_sessions).and_return(['soba-issue-123'])
+        allow(Soba::Configuration).to receive(:config).and_return(
+          double(github: double(repository: 'owner/repo'))
+        )
+        allow(tmux_client).to receive(:session_exists?).with('soba-owner-repo-12345').and_return(true)
         allow(tmux_client).to receive(:kill_session).and_return(false)
         allow(stop_command).to receive(:cleanup_tmux_sessions).and_call_original
       end
@@ -309,6 +319,25 @@ RSpec.describe Soba::Commands::Stop do
         result = nil
         expect { result = stop_command.execute }.to output(/Warning: Failed to kill tmux session/).to_stdout
         expect(result).to eq(0)
+      end
+    end
+
+    context 'when repository is not configured' do
+      before do
+        allow(Soba::Configuration).to receive(:config).and_return(
+          double(github: double(repository: nil))
+        )
+        allow(tmux_client).to receive(:list_soba_sessions).and_return(
+          ['soba-repo-12345', 'soba-repo-67890']
+        )
+        allow(tmux_client).to receive(:kill_session).and_return(true)
+        allow(stop_command).to receive(:cleanup_tmux_sessions).and_call_original
+      end
+
+      it 'kills only sessions with current PID' do
+        expect(tmux_client).to receive(:kill_session).with('soba-repo-12345')
+        expect(tmux_client).not_to receive(:kill_session).with('soba-repo-67890')
+        stop_command.execute
       end
     end
   end

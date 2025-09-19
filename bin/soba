@@ -116,6 +116,9 @@ end
 
 desc "Stop daemon"
 command :stop do |c|
+  c.switch [:f, :force], desc: "Force kill immediately without waiting", negatable: false
+  c.flag [:t, :timeout], desc: "Timeout in seconds", type: Integer, default_value: 30
+
   c.action do |global_options, options, args|
     require_relative "../lib/soba/commands/stop"
     result = Soba::Commands::Stop.new.execute(global_options, options, args)

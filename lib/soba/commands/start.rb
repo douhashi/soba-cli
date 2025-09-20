@@ -189,9 +189,12 @@ module Soba
           Signal.trap('TERM') { @running = false }
         end
 
+        # Clean up old stopping files on startup (from crashed processes)
+        cleanup_old_stopping_files
+
         while @running
-          # Check for graceful shutdown request
-          stopping_file = File.expand_path('~/.soba/stopping')
+          # Check for graceful shutdown request using PID-based stopping file
+          stopping_file = File.expand_path("~/.soba/stopping.#{Process.pid}")
           if File.exist?(stopping_file)
             message = "Graceful shutdown requested, completing current workflow..."
             log_output(message, options, daemon_service)
@@ -412,6 +415,29 @@ module Soba
         # 3. Config file (lowest priority)
         config = @configuration.respond_to?(:config) ? @configuration.config : @configuration
         config.workflow.use_tmux
+      end
+
+      def cleanup_old_stopping_files
+        # Clean up stopping files from processes that no longer exist
+        stopping_dir = File.expand_path('~/.soba')
+        return unless File.directory?(stopping_dir)
+
+        Dir.glob(File.join(stopping_dir, 'stopping.*')).each do |file|
+          # Extract PID from filename
+          if file =~ /stopping\.(\d+)$/
+            pid = Regexp.last_match(1).to_i
+            begin
+              # Check if process exists
+              Process.kill(0, pid)
+            rescue Errno::ESRCH
+              # Process doesn't exist, remove the file
+              FileUtils.rm_f(file)
+              puts "Cleaned up stale stopping file: #{File.basename(file)}"
+            rescue Errno::EPERM
+              # We don't have permission to check this process, keep the file
+            end
+          end
+        end
       end
     end
   end

@@ -206,6 +206,82 @@ RSpec.describe Soba::Services::QueueingService do
         expect(github_client).not_to have_received(:update_issue_labels)
       end
     end
+
+    context "when soba:done issue exists" do
+      let(:todo_issue) do
+        instance_double(
+          Soba::Domain::Issue,
+          number: 2,
+          title: "Todo Issue",
+          labels: [{ name: "soba:todo" }]
+        )
+      end
+
+      let(:done_issue) do
+        instance_double(
+          Soba::Domain::Issue,
+          number: 1,
+          title: "Done Issue",
+          labels: [{ name: "soba:done" }]
+        )
+      end
+
+      let(:issues) { [done_issue, todo_issue] }
+
+      before do
+        allow(github_client).to receive(:issues).with(repository, state: "open").and_return(issues)
+        allow(blocking_checker).to receive(:blocking?).with(repository, issues: issues).and_return(true)
+        allow(blocking_checker).to receive(:blocking_reason).with(repository, issues: issues).
+          and_return("Issue #1 が soba:done のため、新しいワークフローの開始をスキップしました")
+        allow(github_client).to receive(:update_issue_labels).with(any_args)
+      end
+
+      it "skips queueing when soba:done issue exists" do
+        result = service.queue_next_issue(repository)
+
+        expect(result).to be_nil
+        expect(github_client).not_to have_received(:update_issue_labels)
+        expect(logger).to have_received(:info).with("キューイング処理をスキップします: Issue #1 が soba:done のため、新しいワークフローの開始をスキップしました")
+      end
+    end
+
+    context "when soba:merged issue exists" do
+      let(:todo_issue) do
+        instance_double(
+          Soba::Domain::Issue,
+          number: 2,
+          title: "Todo Issue",
+          labels: [{ name: "soba:todo" }]
+        )
+      end
+
+      let(:merged_issue) do
+        instance_double(
+          Soba::Domain::Issue,
+          number: 1,
+          title: "Merged Issue",
+          labels: [{ name: "soba:merged" }]
+        )
+      end
+
+      let(:issues) { [merged_issue, todo_issue] }
+
+      before do
+        allow(github_client).to receive(:issues).with(repository, state: "open").and_return(issues)
+        allow(blocking_checker).to receive(:blocking?).with(repository, issues: issues).and_return(true)
+        allow(blocking_checker).to receive(:blocking_reason).with(repository, issues: issues).
+          and_return("Issue #1 が soba:merged のため、新しいワークフローの開始をスキップしました")
+        allow(github_client).to receive(:update_issue_labels).with(any_args)
+      end
+
+      it "skips queueing when soba:merged issue exists" do
+        result = service.queue_next_issue(repository)
+
+        expect(result).to be_nil
+        expect(github_client).not_to have_received(:update_issue_labels)
+        expect(logger).to have_received(:info).with("キューイング処理をスキップします: Issue #1 が soba:merged のため、新しいワークフローの開始をスキップしました")
+      end
+    end
   end
 
   describe "#has_active_issue?" do
@@ -394,6 +470,60 @@ RSpec.describe Soba::Services::QueueingService do
       let(:issues) { [todo_issue, review_requested_issue, requires_changes_issue] }
 
       it "returns nil when intermediate soba labels exist" do
+        result = service.send(:find_next_candidate, issues)
+        expect(result).to be_nil
+      end
+    end
+
+    context "when todo issues and soba:done issue exist" do
+      let(:todo_issue) do
+        instance_double(
+          Soba::Domain::Issue,
+          number: 1,
+          title: "Todo Issue",
+          labels: [{ name: "soba:todo" }]
+        )
+      end
+
+      let(:done_issue) do
+        instance_double(
+          Soba::Domain::Issue,
+          number: 2,
+          title: "Done Issue",
+          labels: [{ name: "soba:done" }]
+        )
+      end
+
+      let(:issues) { [todo_issue, done_issue] }
+
+      it "returns nil when soba:done issue exists" do
+        result = service.send(:find_next_candidate, issues)
+        expect(result).to be_nil
+      end
+    end
+
+    context "when todo issues and soba:merged issue exist" do
+      let(:todo_issue) do
+        instance_double(
+          Soba::Domain::Issue,
+          number: 1,
+          title: "Todo Issue",
+          labels: [{ name: "soba:todo" }]
+        )
+      end
+
+      let(:merged_issue) do
+        instance_double(
+          Soba::Domain::Issue,
+          number: 2,
+          title: "Merged Issue",
+          labels: [{ name: "soba:merged" }]
+        )
+      end
+
+      let(:issues) { [todo_issue, merged_issue] }
+
+      it "returns nil when soba:merged issue exists" do
         result = service.send(:find_next_candidate, issues)
         expect(result).to be_nil
       end

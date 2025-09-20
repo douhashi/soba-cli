@@ -129,25 +129,25 @@ RSpec.describe Soba::Commands::Open do
         before do
           allow(tmux_session_manager).to receive(:find_repository_session_by_pid).and_return({
             success: true,
-            session_name: 'soba-test-repo-12345',
-            exists: true,
+            session_name: nil,
+            exists: false,
           })
           allow(tmux_session_manager).to receive(:find_repository_session).and_return({
             success: true,
-            session_name: 'soba-test-repo-12345',
+            session_name: 'soba-test-repo',
             exists: true,
           })
         end
 
         it 'attaches to the repository session' do
-          expect(tmux_client).to receive(:attach_to_session).with('soba-test-repo-12345')
+          expect(tmux_client).to receive(:attach_to_session).with('soba-test-repo')
           command.execute(nil)
         end
 
         it 'outputs success message' do
           allow(tmux_client).to receive(:attach_to_session)
           expect { command.execute(nil) }.
-            to output(/リポジトリのセッション soba-test-repo-12345 にアタッチします/).to_stdout
+            to output(/リポジトリのセッション soba-test-repo にアタッチします/).to_stdout
         end
       end
 

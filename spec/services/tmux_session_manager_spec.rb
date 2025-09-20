@@ -20,8 +20,8 @@ RSpec.describe Soba::Services::TmuxSessionManager do
       allow(test_process_manager).to receive(:test_mode?).and_return(false)
     end
 
-    it 'creates a new repository session with PID if not exists' do
-      session_name = 'soba-owner-repo-name-12345'
+    it 'creates a new repository session without PID' do
+      session_name = 'soba-owner-repo-name'
       allow(tmux_client).to receive(:session_exists?).with(session_name).and_return(false)
       allow(tmux_client).to receive(:create_session).with(session_name).and_return(true)
 
@@ -34,7 +34,7 @@ RSpec.describe Soba::Services::TmuxSessionManager do
     end
 
     it 'returns existing repository session if exists' do
-      session_name = 'soba-owner-repo-name-12345'
+      session_name = 'soba-owner-repo-name'
       allow(tmux_client).to receive(:session_exists?).with(session_name).and_return(true)
       allow(tmux_client).to receive(:create_session)
 
@@ -50,7 +50,7 @@ RSpec.describe Soba::Services::TmuxSessionManager do
       allow(Soba::Configuration).to receive(:config).and_return(
         double(github: double(repository: 'owner/repo.name-with_special'))
       )
-      session_name = 'soba-owner-repo-name-with-special-12345'
+      session_name = 'soba-owner-repo-name-with-special'
       allow(tmux_client).to receive(:session_exists?).with(session_name).and_return(false)
       allow(tmux_client).to receive(:create_session).with(session_name).and_return(true)
 
@@ -243,7 +243,7 @@ RSpec.describe Soba::Services::TmuxSessionManager do
     end
 
     it 'returns session name when repository session exists' do
-      session_name = 'soba-owner-repo-name-12345'
+      session_name = 'soba-owner-repo-name'
       allow(tmux_client).to receive(:session_exists?).with(session_name).and_return(true)
 
       result = manager.find_repository_session
@@ -254,7 +254,7 @@ RSpec.describe Soba::Services::TmuxSessionManager do
     end
 
     it 'returns not exists when repository session does not exist' do
-      session_name = 'soba-owner-repo-name-12345'
+      session_name = 'soba-owner-repo-name'
       allow(tmux_client).to receive(:session_exists?).with(session_name).and_return(false)
 
       result = manager.find_repository_session
@@ -268,7 +268,7 @@ RSpec.describe Soba::Services::TmuxSessionManager do
       allow(Soba::Configuration).to receive(:config).and_return(
         double(github: double(repository: 'owner/repo.name-with_special'))
       )
-      session_name = 'soba-owner-repo-name-with-special-12345'
+      session_name = 'soba-owner-repo-name-with-special'
       allow(tmux_client).to receive(:session_exists?).with(session_name).and_return(true)
 
       result = manager.find_repository_session

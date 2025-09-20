@@ -125,4 +125,53 @@ RSpec.describe Soba::Commands::Start do
       expect(result).to eq(false)
     end
   end
+
+  describe "#execute_workflow" do
+    let(:global_options) { {} }
+    let(:options) { { foreground: true } }
+    let(:tmux_session_manager) { instance_double(Soba::Services::TmuxSessionManager) }
+    let(:github_client) { instance_double(Soba::Infrastructure::GitHubClient) }
+    let(:tmux_client) { instance_double(Soba::Infrastructure::TmuxClient) }
+    let(:workflow_config) { double("workflow", use_tmux: true, interval: 10, auto_merge_enabled: false, closed_issue_cleanup_enabled: false) }
+    let(:github_config) { double("github", repository: "owner/repo") }
+    let(:config_object) { double("config", workflow: workflow_config, github: github_config) }
+
+    before do
+      # Ensure configuration is properly loaded
+      allow(Soba::Configuration).to receive(:load!).and_return(config_object)
+      allow(Soba::Configuration).to receive(:config).and_return(config_object)
+
+      allow(Soba::Infrastructure::GitHubClient).to receive(:new).and_return(github_client)
+      allow(Soba::Infrastructure::TmuxClient).to receive(:new).and_return(tmux_client)
+      allow(Soba::Services::TmuxSessionManager).to receive(:new).and_return(tmux_session_manager)
+
+      # Stub all other dependencies
+      allow(Soba::Services::WorkflowExecutor).to receive(:new).and_return(instance_double(Soba::Services::WorkflowExecutor))
+      allow(Soba::Domain::PhaseStrategy).to receive(:new).and_return(instance_double(Soba::Domain::PhaseStrategy))
+      allow(Soba::Services::IssueProcessor).to receive(:new).and_return(instance_double(Soba::Services::IssueProcessor))
+      allow(Soba::Services::WorkflowBlockingChecker).to receive(:new).and_return(instance_double(Soba::Services::WorkflowBlockingChecker))
+      allow(Soba::Services::QueueingService).to receive(:new).and_return(instance_double(Soba::Services::QueueingService))
+      allow(Soba::Services::AutoMergeService).to receive(:new).and_return(instance_double(Soba::Services::AutoMergeService))
+      allow(Soba::Services::ClosedIssueWindowCleaner).to receive(:new).and_return(instance_double(Soba::Services::ClosedIssueWindowCleaner, should_clean?: false))
+      allow(Soba::Services::StatusManager).to receive(:new).and_return(instance_double(Soba::Services::StatusManager, update_memory: nil, update_current_issue: nil, update_last_processed: nil))
+      allow(Soba::Services::IssueWatcher).to receive(:new).and_return(instance_double(Soba::Services::IssueWatcher, fetch_issues: []))
+
+      # Stop infinite loop
+      allow(command).to receive(:puts)
+    end
+
+    it "ワークフロー開始時に空のtmuxセッションを作成する" do
+      # Expect tmux session to be created
+      expect(tmux_session_manager).to receive(:find_or_create_repository_session).once.and_return({
+        success: true,
+        session_name: 'soba-owner-repo',
+        created: true,
+      })
+
+      # Mock sleep to prevent waiting
+      allow(command).to receive(:sleep) { command.instance_variable_set(:@running, false) }
+
+      command.send(:execute_workflow, global_options, options)
+    end
+  end
 end

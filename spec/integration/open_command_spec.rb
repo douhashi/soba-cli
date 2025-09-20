@@ -55,14 +55,11 @@ RSpec.describe 'Open Command Integration', integration: true do
       # Skip if tmux is not available
       skip 'tmux not available' unless tmux_client.tmux_installed?
 
-      # Create a session with a specific PID
-      pid = Process.pid
-      session_name = "soba-test-repo-#{pid}"
+      # Create a session
+      session_name = "soba-test-repo"
 
-      # Create session and write PID file
+      # Create session
       tmux_client.create_session(session_name)
-      pid_manager = Soba::Services::PidManager.new(pid_file)
-      pid_manager.write(pid)
 
       # Try to open the session using the Open command
       open_command = Soba::Commands::Open.new
@@ -70,7 +67,7 @@ RSpec.describe 'Open Command Integration', integration: true do
       # Mock attach_to_session to prevent actual attachment
       allow(tmux_client).to receive(:attach_to_session).with(session_name)
 
-      # Execute should find the session by PID
+      # Execute should find the session
       expect { open_command.execute(nil) }.to output(/リポジトリのセッション #{session_name} にアタッチします/).to_stdout
 
       # Verify session exists
@@ -103,18 +100,11 @@ RSpec.describe 'Open Command Integration', integration: true do
       # Skip if tmux is not available
       skip 'tmux not available' unless tmux_client.tmux_installed?
 
-      # Create multiple sessions with different PIDs
-      pid1 = 12345
-      pid2 = 67890
-      session1 = "soba-test-repo-#{pid1}"
-      session2 = "soba-test-repo-#{pid2}"
+      # Create session
+      session2 = "soba-test-repo"
 
-      # Create only the second session
+      # Create the session
       tmux_client.create_session(session2)
-
-      # Write the second PID to file (simulating the most recent process)
-      pid_manager = Soba::Services::PidManager.new(pid_file)
-      pid_manager.write(pid2)
 
       # Try to open the session using the Open command
       open_command = Soba::Commands::Open.new
@@ -125,9 +115,8 @@ RSpec.describe 'Open Command Integration', integration: true do
       # Execute should find the correct session
       expect { open_command.execute(nil) }.to output(/リポジトリのセッション #{session2} にアタッチします/).to_stdout
 
-      # Verify correct session exists
+      # Verify session exists
       expect(tmux_client.session_exists?(session2)).to be true
-      expect(tmux_client.session_exists?(session1)).to be false
     end
   end
 
@@ -136,8 +125,8 @@ RSpec.describe 'Open Command Integration', integration: true do
       # Skip if tmux is not available
       skip 'tmux not available' unless tmux_client.tmux_installed?
 
-      # Create a session without PID
-      session_name = "soba-test-repo-#{Process.pid}"
+      # Create a session
+      session_name = "soba-test-repo"
       tmux_client.create_session(session_name)
 
       # Ensure no PID file exists

@@ -232,12 +232,12 @@ module Soba
 
       private
 
-      # Generate session name with PID for process isolation
+      # Generate session name without PID for simplicity
       def generate_session_name(repository)
         if @test_process_manager.test_mode?
           @test_process_manager.generate_test_session_name(repository)
         else
-          "soba-#{repository.gsub(/[\/._]/, '-')}-#{Process.pid}"
+          "soba-#{repository.gsub(/[\/._]/, '-')}"
         end
       end
 

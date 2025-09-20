@@ -204,8 +204,7 @@ RSpec.describe 'Test Process Isolation' do
         expect(result[:success]).to be true
         expect(result[:session_name]).to start_with('soba-')
         expect(result[:session_name]).not_to start_with('soba-test-')
-        expect(result[:session_name]).to include('owner-integration-repo')
-        expect(result[:session_name]).to include(Process.pid.to_s)
+        expect(result[:session_name]).to eq('soba-owner-integration-repo')
 
         # Verify the session was actually created
         expect(tmux_client.session_exists?(result[:session_name])).to be true

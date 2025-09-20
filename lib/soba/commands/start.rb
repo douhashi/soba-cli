@@ -111,6 +111,21 @@ module Soba
         tmux_session_manager = Soba::Services::TmuxSessionManager.new(
           tmux_client: tmux_client
         )
+
+        # Create empty tmux session at startup
+        session_result = tmux_session_manager.find_or_create_repository_session
+        if session_result[:success]
+          if session_result[:created]
+            message = "Created tmux session: #{session_result[:session_name]}"
+          else
+            message = "Using existing tmux session: #{session_result[:session_name]}"
+          end
+          if options[:foreground]
+            puts message
+          else
+            daemon_service.log(message) if defined?(daemon_service)
+          end
+        end
         workflow_executor = Soba::Services::WorkflowExecutor.new(
           tmux_session_manager: tmux_session_manager
         )

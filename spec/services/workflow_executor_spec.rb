@@ -474,6 +474,52 @@ RSpec.describe Soba::Services::WorkflowExecutor do
     end
   end
 
+  describe '#apply_command_delay' do
+    it 'sleeps for configured delay' do
+      config = double('config')
+      workflow = double('workflow')
+      allow(Soba::Configuration).to receive(:load!).and_return(config)
+      allow(config).to receive(:workflow).and_return(workflow)
+      allow(workflow).to receive(:tmux_command_delay).and_return(2)
+
+      expect(executor).to receive(:sleep).with(2)
+
+      executor.send(:apply_command_delay)
+    end
+
+    it 'does not sleep when delay is 0' do
+      config = double('config')
+      workflow = double('workflow')
+      allow(Soba::Configuration).to receive(:load!).and_return(config)
+      allow(config).to receive(:workflow).and_return(workflow)
+      allow(workflow).to receive(:tmux_command_delay).and_return(0)
+
+      expect(executor).not_to receive(:sleep)
+
+      executor.send(:apply_command_delay)
+    end
+
+    it 'uses default delay when delay is nil' do
+      config = double('config')
+      workflow = double('workflow')
+      allow(Soba::Configuration).to receive(:load!).and_return(config)
+      allow(config).to receive(:workflow).and_return(workflow)
+      allow(workflow).to receive(:tmux_command_delay).and_return(nil)
+
+      expect(executor).to receive(:sleep).with(3)
+
+      executor.send(:apply_command_delay)
+    end
+
+    it 'uses default delay when configuration fails to load' do
+      allow(Soba::Configuration).to receive(:load!).and_raise(StandardError)
+
+      expect(executor).to receive(:sleep).with(3)
+
+      executor.send(:apply_command_delay)
+    end
+  end
+
   describe '#execute_in_tmux' do
     let(:phase_config) do
       double(
@@ -512,6 +558,67 @@ RSpec.describe Soba::Services::WorkflowExecutor do
           window_name: 'issue-123',
           mode: 'tmux'
         )
+      end
+
+      it 'sleeps after creating new window before sending command' do
+        allow(tmux_session_manager).to receive(:find_or_create_repository_session).and_return({
+          success: true,
+          session_name: 'soba-repo',
+          created: false,
+        })
+        allow(tmux_session_manager).to receive(:create_issue_window).and_return({
+          success: true,
+          window_name: 'issue-123',
+          created: true,
+        })
+        allow(tmux_client).to receive(:send_keys).and_return(true)
+        allow(executor).to receive(:apply_command_delay)
+
+        expect(executor).to receive(:apply_command_delay)
+
+        executor.execute_in_tmux(phase: phase_config, issue_number: 123)
+      end
+
+      it 'sleeps after creating new pane before sending command' do
+        allow(tmux_session_manager).to receive(:find_or_create_repository_session).and_return({
+          success: true,
+          session_name: 'soba-repo',
+          created: false,
+        })
+        allow(tmux_session_manager).to receive(:create_issue_window).and_return({
+          success: true,
+          window_name: 'issue-123',
+          created: false,
+        })
+        allow(tmux_session_manager).to receive(:create_phase_pane).and_return({
+          success: true,
+          pane_id: 'soba-repo:issue-123.1',
+        })
+        allow(tmux_client).to receive(:send_keys).and_return(true)
+        allow(executor).to receive(:apply_command_delay)
+
+        expect(executor).to receive(:apply_command_delay)
+
+        executor.execute_in_tmux(phase: phase_config, issue_number: 123)
+      end
+
+      it 'applies command delay' do
+        allow(tmux_session_manager).to receive(:find_or_create_repository_session).and_return({
+          success: true,
+          session_name: 'soba-repo',
+          created: false,
+        })
+        allow(tmux_session_manager).to receive(:create_issue_window).and_return({
+          success: true,
+          window_name: 'issue-123',
+          created: true,
+        })
+        allow(tmux_client).to receive(:send_keys).and_return(true)
+        allow(executor).to receive(:apply_command_delay)
+
+        expect(executor).to receive(:apply_command_delay)
+
+        executor.execute_in_tmux(phase: phase_config, issue_number: 123)
       end
 
       it 'handles tmux session creation failure' do

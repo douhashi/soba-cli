@@ -20,6 +20,7 @@ module Soba
           'auto_merge_enabled' => true,
           'closed_issue_cleanup_enabled' => true,
           'closed_issue_cleanup_interval' => 300,
+          'tmux_command_delay' => 3,
           'phase_labels' => {
             'todo' => 'soba:todo',
             'queued' => 'soba:queued',
@@ -342,6 +343,7 @@ module Soba
             'auto_merge_enabled' => auto_merge_enabled,
             'closed_issue_cleanup_enabled' => true,
             'closed_issue_cleanup_interval' => 300,
+            'tmux_command_delay' => 3,
             'phase_labels' => {
               'todo' => 'soba:todo',
               'queued' => 'soba:queued',
@@ -431,6 +433,9 @@ module Soba
 
             # Cleanup check interval in seconds
             closed_issue_cleanup_interval: #{config['workflow']['closed_issue_cleanup_interval']}
+
+            # Delay (in seconds) before sending commands to new tmux panes/windows
+            tmux_command_delay: #{config['workflow']['tmux_command_delay']}
 
             # Phase labels for tracking issue progress
             phase_labels:

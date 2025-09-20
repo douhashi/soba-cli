@@ -76,7 +76,7 @@ RSpec.describe 'soba-cli.gemspec' do
       expect(gli_dep.requirement.to_s).to match(/~> 2\.21/)
 
       octokit_dep = gemspec.runtime_dependencies.find { |d| d.name == 'octokit' }
-      expect(octokit_dep.requirement.to_s).to match(/~> 8\.0/)
+      expect(octokit_dep.requirement.to_s).to match(/~> 10\.0/)
     end
   end
 

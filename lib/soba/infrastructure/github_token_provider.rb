@@ -56,7 +56,16 @@ module Soba
       end
 
       def last_command_status
-        $CHILD_STATUS || $LAST_CHILD_STATUS
+        # Return the child process status, with nil check
+        status = $CHILD_STATUS || $LAST_CHILD_STATUS
+
+        # If both are nil, create a fake failed status
+        if status.nil?
+          # Create a stub status object that responds to success?
+          Struct.new(:success?).new(false)
+        else
+          status
+        end
       end
 
       def fetch_from_env

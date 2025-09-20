@@ -467,33 +467,34 @@ module Soba
           config['github']['token'] = token
         end
 
-        # Add phase configuration if provided
-        if plan_command || implement_command || review_command
-          config['phase'] = {}
+        # Add phase configuration
+        config['phase'] = {}
 
-          if plan_command
-            config['phase']['plan'] = {
-              'command' => plan_command,
-              'options' => plan_options,
-              'parameter' => plan_parameter,
-            }
-          end
+        # Add plan phase if command is provided
+        if plan_command
+          config['phase']['plan'] = {
+            'command' => plan_command,
+            'options' => plan_options || [],
+            'parameter' => plan_parameter,
+          }
+        end
 
-          if implement_command
-            config['phase']['implement'] = {
-              'command' => implement_command,
-              'options' => implement_options,
-              'parameter' => implement_parameter,
-            }
-          end
+        # Add implement phase if command is provided
+        if implement_command
+          config['phase']['implement'] = {
+            'command' => implement_command,
+            'options' => implement_options || [],
+            'parameter' => implement_parameter,
+          }
+        end
 
-          if review_command
-            config['phase']['review'] = {
-              'command' => review_command,
-              'options' => review_options,
-              'parameter' => review_parameter,
-            }
-          end
+        # Add review phase if command is provided
+        if review_command
+          config['phase']['review'] = {
+            'command' => review_command,
+            'options' => review_options || [],
+            'parameter' => review_parameter,
+          }
         end
 
         # Write configuration file
@@ -581,8 +582,8 @@ module Soba
             notifications_enabled: #{config['slack']['notifications_enabled']}
         YAML
 
-        # Add phase configuration if present
-        if config['phase']
+        # Add phase configuration if present and not empty
+        if config['phase'] && !config['phase'].empty?
           phase_content = "\n          # Phase command configuration\n          phase:\n"
 
           if config['phase']['plan']

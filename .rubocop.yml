@@ -48,12 +48,13 @@ Style/GlobalVars:
   Exclude:
     - 'bin/soba'
 
-# This is not a Rails application
+# Disable Rails-specific rules since this is a pure Ruby CLI application, not a Rails app
+# These cops are incorrectly triggered by rubocop-airbnb but don't apply to CLI tools
 Rails/NegateInclude:
-  Enabled: false
+  Enabled: false  # Rails/NegateInclude expects Rails-specific !include? => exclude? conversion
 
 Rails/Present:
-  Enabled: false
+  Enabled: false  # Rails/Present expects Rails-specific .present? method usage
 
 # For RSpec
 RSpec/MultipleExpectations:
@@ -69,9 +70,9 @@ RSpec/NestedGroups:
 Airbnb/ClassOrModuleDeclaredInWrongFile:
   Enabled: false
 
-# Rails-specific cops that don't apply to CLI applications
+# Additional Rails-specific cops that don't apply to pure Ruby CLI applications
 Rails/Pluck:
-  Enabled: false
+  Enabled: false  # Rails/Pluck is for ActiveRecord query optimization, not applicable here
 
 Rails/PluckInWhere:
-  Enabled: false
+  Enabled: false  # Rails/PluckInWhere is for ActiveRecord query optimization, not applicable here

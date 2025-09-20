@@ -192,6 +192,38 @@ RSpec.describe Soba::Services::WorkflowBlockingChecker do
       end
     end
 
+    context "when soba:done issue exists" do
+      let(:done_issue) do
+        double(
+          number: 9,
+          title: "Done Issue",
+          labels: [{ name: "soba:done" }]
+        )
+      end
+      let(:issues) { [done_issue] }
+
+      it "returns true (intermediate state blocks new issues)" do
+        result = checker.blocking?(repository, issues: issues)
+        expect(result).to be true
+      end
+    end
+
+    context "when soba:merged issue exists" do
+      let(:merged_issue) do
+        double(
+          number: 10,
+          title: "Merged Issue",
+          labels: [{ name: "soba:merged" }]
+        )
+      end
+      let(:issues) { [merged_issue] }
+
+      it "returns true (intermediate state blocks new issues)" do
+        result = checker.blocking?(repository, issues: issues)
+        expect(result).to be true
+      end
+    end
+
     context "when multiple blocking issues exist" do
       let(:planning_issue) do
         double(
@@ -451,6 +483,38 @@ RSpec.describe Soba::Services::WorkflowBlockingChecker do
       it "returns nil" do
         reason = checker.blocking_reason(repository, issues: issues)
         expect(reason).to be_nil
+      end
+    end
+
+    context "when soba:done issue exists" do
+      let(:done_issue) do
+        double(
+          number: 11,
+          title: "Done Issue",
+          labels: [{ name: "soba:done" }]
+        )
+      end
+      let(:issues) { [done_issue] }
+
+      it "returns formatted blocking reason for done state" do
+        reason = checker.blocking_reason(repository, issues: issues)
+        expect(reason).to eq("Issue #11 が soba:done のため、新しいワークフローの開始をスキップしました")
+      end
+    end
+
+    context "when soba:merged issue exists" do
+      let(:merged_issue) do
+        double(
+          number: 12,
+          title: "Merged Issue",
+          labels: [{ name: "soba:merged" }]
+        )
+      end
+      let(:issues) { [merged_issue] }
+
+      it "returns formatted blocking reason for merged state" do
+        reason = checker.blocking_reason(repository, issues: issues)
+        expect(reason).to eq("Issue #12 が soba:merged のため、新しいワークフローの開始をスキップしました")
       end
     end
   end

@@ -48,6 +48,13 @@ Style/GlobalVars:
   Exclude:
     - 'bin/soba'
 
+# Disable Rails-specific rules (pure Ruby CLI, not Rails app)
+Rails/NegateInclude:
+  Enabled: false  # Use !include? instead of Rails' exclude?
+
+Rails/Present:
+  Enabled: false  # Use standard Ruby methods instead of Rails' present?
+
 # For RSpec
 RSpec/MultipleExpectations:
   Max: 3
@@ -62,7 +69,7 @@ RSpec/NestedGroups:
 Airbnb/ClassOrModuleDeclaredInWrongFile:
   Enabled: false
 
-# Rails-specific cops that don't apply to CLI applications
+# Disable ActiveRecord-related cops (not applicable to CLI)
 Rails/Pluck:
   Enabled: false
 

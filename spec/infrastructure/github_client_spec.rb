@@ -8,6 +8,60 @@ RSpec.describe Soba::Infrastructure::GitHubClient do
   let(:github_client) { described_class.new(token: "test_token") }
   let(:repository) { "owner/repo" }
 
+  describe "#initialize" do
+    context "when token is explicitly provided" do
+      it "uses the provided token" do
+        client = described_class.new(token: "explicit_token")
+        expect(client.octokit.access_token).to eq("explicit_token")
+      end
+    end
+
+    context "when token is not provided" do
+      context "when Configuration is available with auth_method" do
+        before do
+          allow(Soba::Configuration).to receive(:config).and_return(
+            double(github: double(token: nil, auth_method: 'gh'))
+          )
+        end
+
+        it "uses GitHubTokenProvider with specified auth_method" do
+          token_provider = instance_double(Soba::Infrastructure::GitHubTokenProvider)
+          allow(Soba::Infrastructure::GitHubTokenProvider).to receive(:new).and_return(token_provider)
+          allow(token_provider).to receive(:fetch).with(auth_method: 'gh').and_return('gh_token')
+
+          client = described_class.new
+          expect(client.octokit.access_token).to eq('gh_token')
+        end
+      end
+
+      context "when Configuration has token set" do
+        before do
+          allow(Soba::Configuration).to receive(:config).and_return(
+            double(github: double(token: 'config_token', auth_method: nil))
+          )
+        end
+
+        it "uses the configuration token" do
+          client = described_class.new
+          expect(client.octokit.access_token).to eq('config_token')
+        end
+      end
+
+      context "when using environment variable fallback" do
+        before do
+          allow(ENV).to receive(:[]).with('GITHUB_TOKEN').and_return('env_token')
+          allow(ENV).to receive(:[]).with('DEBUG').and_return(nil)
+          stub_const("Soba::Configuration", nil)
+        end
+
+        it "uses the environment variable" do
+          client = described_class.new
+          expect(client.octokit.access_token).to eq('env_token')
+        end
+      end
+    end
+  end
+
   describe "#list_labels" do
     context "when labels exist" do
       it "returns the list of labels" do

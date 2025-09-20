@@ -1,7 +1,11 @@
 # soba CLI configuration example
 github:
-  # GitHub Personal Access Token
+  # Authentication method: 'gh', 'env', or omit for auto-detect
+  # auth_method: gh
+
+  # GitHub Personal Access Token (used when auth_method is 'env' or omitted)
   # Generate at: https://github.com/settings/tokens
+  # If auth_method is 'gh', this field can be omitted
   token: ${GITHUB_TOKEN}
 
   # Default repository to monitor (owner/repo format)

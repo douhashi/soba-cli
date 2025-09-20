@@ -7,6 +7,7 @@ require "pathname"
 require "yaml"
 require "io/console"
 require_relative "../infrastructure/github_client"
+require_relative "../infrastructure/github_token_provider"
 
 module Soba
   module Commands
@@ -139,9 +140,28 @@ module Soba
           raise Soba::CommandError, "Cannot detect GitHub repository"
         end
 
+        # Detect best authentication method
+        token_provider = Soba::Infrastructure::GitHubTokenProvider.new
+        detected_method = token_provider.detect_best_method
+
         # Create configuration with default values
         config = DEFAULT_CONFIG.deep_dup
         config['github']['repository'] = repository
+
+        # Set authentication based on detection
+        if detected_method == 'gh'
+          config['github']['auth_method'] = 'gh'
+          config['github'].delete('token')
+          puts "✅ Using gh command authentication (detected)"
+        elsif detected_method == 'env'
+          config['github']['auth_method'] = 'env'
+          config['github']['token'] = '${GITHUB_TOKEN}'
+          puts "✅ Using environment variable authentication"
+        else
+          # Keep default token field for backward compatibility
+          config['github']['token'] = '${GITHUB_TOKEN}'
+          puts "⚠️  No authentication method detected. Please configure manually."
+        end
 
         # Add default phase configuration
         config['phase'] = DEFAULT_PHASE_CONFIG.deep_dup
@@ -187,28 +207,70 @@ module Soba
           repository = default_repo
         end
 
-        while repository.blank? || repository.exclude?('/')
+        while repository.blank? || !repository.include?('/')
           puts "❌ Invalid format. Please use: owner/repo"
           print "Enter GitHub repository: "
           repository = $stdin.gets.chomp
         end
 
-        # GitHub token
+        # GitHub authentication detection
         puts ""
-        puts "GitHub Personal Access Token (PAT) setup:"
-        puts "  1. Use environment variable ${GITHUB_TOKEN} (recommended)"
-        puts "  2. Enter token directly (will be visible in config file)"
-        print "Choose option (1-2) [1]: "
-        token_option = $stdin.gets.chomp
-        token_option = '1' if token_option.empty?
+        token_provider = Soba::Infrastructure::GitHubTokenProvider.new
+        gh_available = token_provider.gh_available?
 
-        token = if token_option == '2'
-                  print "Enter GitHub token: "
-                  # Hide input for security
-                  $stdin.noecho(&:gets).chomp.tap { puts }
-                else
-                  '${GITHUB_TOKEN}'
-                end
+        if gh_available
+          puts "✅ gh command is available and authenticated"
+        elsif ENV['GITHUB_TOKEN']
+          puts "✅ GITHUB_TOKEN environment variable is set"
+        else
+          puts "⚠️  Neither gh command nor GITHUB_TOKEN environment variable is available"
+        end
+
+        # GitHub token setup
+        puts ""
+        puts "GitHub authentication setup:"
+
+        auth_method = nil
+        token = nil
+
+        if gh_available
+          puts "  1. Use environment variable ${GITHUB_TOKEN}"
+          puts "  2. Enter token directly (will be visible in config file)"
+          puts "  3. Use gh command authentication (detected)"
+          print "Choose option (1-3) [3]: "
+          token_option = $stdin.gets.chomp
+          token_option = '3' if token_option.empty?
+
+          case token_option
+          when '2'
+            print "Enter GitHub token: "
+            # Hide input for security
+            token = $stdin.noecho(&:gets).chomp.tap { puts }
+            auth_method = nil
+          when '3'
+            auth_method = 'gh'
+            token = nil
+          else
+            token = '${GITHUB_TOKEN}'
+            auth_method = 'env'
+          end
+        else
+          puts "  1. Use environment variable ${GITHUB_TOKEN} (recommended)"
+          puts "  2. Enter token directly (will be visible in config file)"
+          print "Choose option (1-2) [1]: "
+          token_option = $stdin.gets.chomp
+          token_option = '1' if token_option.empty?
+
+          if token_option == '2'
+            print "Enter GitHub token: "
+            # Hide input for security
+            token = $stdin.noecho(&:gets).chomp.tap { puts }
+            auth_method = nil
+          else
+            token = '${GITHUB_TOKEN}'
+            auth_method = 'env'
+          end
+        end
 
         # Polling interval
         puts ""
@@ -366,7 +428,6 @@ module Soba
         # Create configuration
         config = {
           'github' => {
-            'token' => token,
             'repository' => repository,
           },
           'workflow' => {
@@ -395,30 +456,44 @@ module Soba
           },
         }
 
-        # Add phase configuration if provided
+        # Add token/auth_method based on selection
+        if auth_method
+          config['github']['auth_method'] = auth_method
+          # For env auth method, we still need the token field
+          if auth_method == 'env' || token
+            config['github']['token'] = token
+          end
+        else
+          config['github']['token'] = token
+        end
+
+        # Add phase configuration only if any phase command is provided
         if plan_command || implement_command || review_command
           config['phase'] = {}
 
+          # Add plan phase if command is provided
           if plan_command
             config['phase']['plan'] = {
               'command' => plan_command,
-              'options' => plan_options,
+              'options' => plan_options || [],
               'parameter' => plan_parameter,
             }
           end
 
+          # Add implement phase if command is provided
           if implement_command
             config['phase']['implement'] = {
               'command' => implement_command,
-              'options' => implement_options,
+              'options' => implement_options || [],
               'parameter' => implement_parameter,
             }
           end
 
+          # Add review phase if command is provided
           if review_command
             config['phase']['review'] = {
               'command' => review_command,
-              'options' => review_options,
+              'options' => review_options || [],
               'parameter' => review_parameter,
             }
           end
@@ -445,125 +520,118 @@ module Soba
 
       def write_config_file(config_path, config)
         config_path.dirname.mkpath
-        config_content = <<~YAML
-          # soba CLI configuration
-          # Generated by: soba init
-          # Date: #{Time.now}
 
-          github:
-            # GitHub Personal Access Token
-            # Can use environment variable: ${GITHUB_TOKEN}
-            token: #{config['github']['token']}
+        # Build the complete configuration structure
+        yaml_config = {
+          'github' => {},
+          'workflow' => config['workflow'],
+          'slack' => config['slack'],
+        }
 
-            # Target repository (format: owner/repo)
-            repository: #{config['github']['repository']}
-
-          workflow:
-            # Issue polling interval in seconds
-            interval: #{config['workflow']['interval']}
-
-            # Enable automatic merging of PRs with soba:lgtm label
-            auto_merge_enabled: #{config['workflow']['auto_merge_enabled']}
-
-            # Enable automatic cleanup of tmux windows for closed issues
-            closed_issue_cleanup_enabled: #{config['workflow']['closed_issue_cleanup_enabled']}
-
-            # Cleanup check interval in seconds
-            closed_issue_cleanup_interval: #{config['workflow']['closed_issue_cleanup_interval']}
-
-            # Delay (in seconds) before sending commands to new tmux panes/windows
-            tmux_command_delay: #{config['workflow']['tmux_command_delay']}
-
-            # Phase labels for tracking issue progress
-            phase_labels:
-              todo: #{config['workflow']['phase_labels']['todo']}
-              queued: #{config['workflow']['phase_labels']['queued']}
-              planning: #{config['workflow']['phase_labels']['planning']}
-              ready: #{config['workflow']['phase_labels']['ready']}
-              doing: #{config['workflow']['phase_labels']['doing']}
-              review_requested: #{config['workflow']['phase_labels']['review_requested']}
-              reviewing: #{config['workflow']['phase_labels']['reviewing']}
-              done: #{config['workflow']['phase_labels']['done']}
-              requires_changes: #{config['workflow']['phase_labels']['requires_changes']}
-              revising: #{config['workflow']['phase_labels']['revising']}
-              merged: #{config['workflow']['phase_labels']['merged']}
-
-          # Slack notification configuration
-          slack:
-            # Slack Webhook URL for notifications
-            # Can use environment variable: ${SLACK_WEBHOOK_URL}
-            webhook_url: #{config['slack']['webhook_url']}
-
-            # Enable Slack notifications for phase starts
-            notifications_enabled: #{config['slack']['notifications_enabled']}
-        YAML
-
-        # Add phase configuration if present
-        if config['phase']
-          phase_content = "\n          # Phase command configuration\n          phase:\n"
-
-          if config['phase']['plan']
-            phase_content += "            plan:\n"
-            phase_content += "              command: #{config['phase']['plan']['command']}\n"
-            if config['phase']['plan']['options'].present?
-              phase_content += "              options:\n"
-              config['phase']['plan']['options'].each do |opt|
-                phase_content += "                - #{opt}\n"
-              end
-            end
-            if config['phase']['plan']['parameter']
-              phase_content += "              parameter: '#{config['phase']['plan']['parameter']}'\n"
-            end
-          end
-
-          if config['phase']['implement']
-            phase_content += "            implement:\n"
-            phase_content += "              command: #{config['phase']['implement']['command']}\n"
-            if config['phase']['implement']['options'].present?
-              phase_content += "              options:\n"
-              config['phase']['implement']['options'].each do |opt|
-                phase_content += "                - #{opt}\n"
-              end
-            end
-            if config['phase']['implement']['parameter']
-              phase_content += "              parameter: '#{config['phase']['implement']['parameter']}'\n"
-            end
-          end
-
-          if config['phase']['review']
-            phase_content += "            review:\n"
-            phase_content += "              command: #{config['phase']['review']['command']}\n"
-            if config['phase']['review']['options'].present?
-              phase_content += "              options:\n"
-              config['phase']['review']['options'].each do |opt|
-                phase_content += "                - #{opt}\n"
-              end
-            end
-            if config['phase']['review']['parameter']
-              phase_content += "              parameter: '#{config['phase']['review']['parameter']}'\n"
-            end
-          end
-
-          if config['phase']['revise']
-            phase_content += "            revise:\n"
-            phase_content += "              command: #{config['phase']['revise']['command']}\n"
-            if config['phase']['revise']['options'].present?
-              phase_content += "              options:\n"
-              config['phase']['revise']['options'].each do |opt|
-                phase_content += "                - #{opt}\n"
-              end
-            end
-            if config['phase']['revise']['parameter']
-              phase_content += "              parameter: '#{config['phase']['revise']['parameter']}'\n"
-            end
-          end
-
-          # Remove extra indentation to match YAML structure
-          phase_content = phase_content.gsub(/^          /, '')
-          config_content += phase_content
+        # Add github configuration with proper fields
+        if config['github']['auth_method']
+          yaml_config['github']['auth_method'] = config['github']['auth_method']
         end
 
-        File.write(config_path, config_content)
+        if config['github']['token']
+          yaml_config['github']['token'] = config['github']['token']
+        end
+
+        yaml_config['github']['repository'] = config['github']['repository']
+
+        # Add phase configuration if present
+        if config['phase'] && !config['phase'].empty?
+          yaml_config['phase'] = config['phase']
+        end
+
+        # Generate YAML with comments
+        yaml_output = generate_yaml_with_comments(yaml_config)
+
+        File.write(config_path, yaml_output)
+      end
+
+      def generate_yaml_with_comments(config)
+        output = []
+        output << "# soba CLI configuration"
+        output << "# Generated by: soba init"
+        output << "# Date: #{Time.now}"
+        output << ""
+
+        # GitHub section
+        output << "github:"
+        if config['github']['auth_method']
+          output << "  # Authentication method (gh, env, or null)"
+          output << "  auth_method: #{config['github']['auth_method']}"
+        end
+
+        if config['github']['token']
+          output << "  # GitHub Personal Access Token"
+          output << "  # Can use environment variable: ${GITHUB_TOKEN}"
+          output << "  token: #{config['github']['token']}"
+        end
+
+        output << "  # Target repository (format: owner/repo)"
+        output << "  repository: #{config['github']['repository']}"
+        output << ""
+
+        # Workflow section
+        output << "workflow:"
+        output << "  # Issue polling interval in seconds"
+        output << "  interval: #{config['workflow']['interval']}"
+        output << ""
+        output << "  # Enable automatic merging of PRs with soba:lgtm label"
+        output << "  auto_merge_enabled: #{config['workflow']['auto_merge_enabled']}"
+        output << ""
+        output << "  # Enable automatic cleanup of tmux windows for closed issues"
+        output << "  closed_issue_cleanup_enabled: #{config['workflow']['closed_issue_cleanup_enabled']}"
+        output << ""
+        output << "  # Cleanup check interval in seconds"
+        output << "  closed_issue_cleanup_interval: #{config['workflow']['closed_issue_cleanup_interval']}"
+        output << ""
+        output << "  # Delay (in seconds) before sending commands to new tmux panes/windows"
+        output << "  tmux_command_delay: #{config['workflow']['tmux_command_delay']}"
+        output << ""
+        output << "  # Phase labels for tracking issue progress"
+        output << "  phase_labels:"
+        config['workflow']['phase_labels'].each do |key, value|
+          output << "    #{key}: #{value}"
+        end
+        output << ""
+
+        # Slack section
+        output << "# Slack notification configuration"
+        output << "slack:"
+        output << "  # Slack Webhook URL for notifications"
+        output << "  # Can use environment variable: ${SLACK_WEBHOOK_URL}"
+        output << "  webhook_url: #{config['slack']['webhook_url']}"
+        output << ""
+        output << "  # Enable Slack notifications for phase starts"
+        output << "  notifications_enabled: #{config['slack']['notifications_enabled']}"
+
+        # Phase section (if present)
+        if config['phase'] && !config['phase'].empty?
+          output << ""
+          output << "# Phase command configuration"
+          output << "phase:"
+
+          config['phase'].each do |phase_name, phase_config|
+            output << "  #{phase_name}:"
+            output << "    command: #{phase_config['command']}"
+
+            if phase_config['options'] && !phase_config['options'].empty?
+              output << "    options:"
+              phase_config['options'].each do |opt|
+                output << "      - #{opt}"
+              end
+            end
+
+            if phase_config['parameter']
+              output << "    parameter: '#{phase_config['parameter']}'"
+            end
+          end
+        end
+
+        output.join("\n") + "\n"
       end
 
       def check_github_token(token: '${GITHUB_TOKEN}')

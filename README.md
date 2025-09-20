@@ -81,7 +81,11 @@ When using default settings, please take necessary precautions such as using dev
    Edit `.soba/config.yml`:
    ```yaml
    github:
-     token: ${GITHUB_TOKEN}
+     # Use gh command authentication (if available)
+     auth_method: gh
+     # Or use environment variable
+     # auth_method: env
+     # token: ${GITHUB_TOKEN}
      repository: owner/repo
    ```
 
@@ -97,13 +101,38 @@ When using default settings, please take necessary precautions such as using dev
 
 Configuration file location: `.soba/config.yml` (in project root)
 
+### GitHub Authentication
+
+soba supports multiple authentication methods:
+
+1. **GitHub CLI (gh command)** - Recommended
+   - Uses existing `gh` authentication
+   - No need to manage tokens in config files
+   - Set `auth_method: gh` in config
+
+2. **Environment Variable**
+   - Uses `GITHUB_TOKEN` environment variable
+   - Set `auth_method: env` in config
+
+3. **Auto-detect** (Default)
+   - Automatically tries `gh` command first
+   - Falls back to environment variable if `gh` is not available
+   - Omit `auth_method` field for auto-detection
+
 ### Full Configuration Example
 
 ```yaml
 # GitHub settings
 github:
-  # Personal Access Token (can use environment variable)
-  token: ${GITHUB_TOKEN}
+  # Authentication method: 'gh', 'env', or omit for auto-detect
+  # Use 'gh' to use GitHub CLI authentication (gh auth token)
+  # Use 'env' to use environment variable
+  auth_method: gh  # or 'env', or omit for auto-detect
+
+  # Personal Access Token (required when auth_method is 'env' or omitted)
+  # Can use environment variable
+  # token: ${GITHUB_TOKEN}
+
   # Target repository (format: owner/repo)
   repository: douhashi/soba-cli
 

@@ -81,7 +81,11 @@ soba はAIによる自律的な開発を支援するため、デフォルトの�
    `.soba/config.yml`を編集:
    ```yaml
    github:
-     token: ${GITHUB_TOKEN}
+     # ghコマンド認証を使用（利用可能な場合）
+     auth_method: gh
+     # または環境変数を使用
+     # auth_method: env
+     # token: ${GITHUB_TOKEN}
      repository: owner/repo
    ```
 
@@ -97,13 +101,38 @@ soba はAIによる自律的な開発を支援するため、デフォルトの�
 
 設定ファイルの場所: `.soba/config.yml`（プロジェクトルート）
 
+### GitHub認証
+
+sobaは複数の認証方法をサポートしています：
+
+1. **GitHub CLI (ghコマンド)** - 推奨
+   - 既存の`gh`認証を利用
+   - 設定ファイルでトークンを管理する必要がない
+   - 設定で`auth_method: gh`を指定
+
+2. **環境変数**
+   - `GITHUB_TOKEN`環境変数を利用
+   - 設定で`auth_method: env`を指定
+
+3. **自動検出** (デフォルト)
+   - 最初に`gh`コマンドを試行
+   - `gh`が利用できない場合は環境変数にフォールバック
+   - 自動検出には`auth_method`フィールドを省略
+
 ### 完全な設定例
 
 ```yaml
 # GitHub設定
 github:
-  # Personal Access Token（環境変数可）
-  token: ${GITHUB_TOKEN}
+  # 認証方法: 'gh'、'env'、または省略して自動検出
+  # 'gh'を使用してGitHub CLI認証を利用（gh auth token）
+  # 'env'を使用して環境変数を利用
+  auth_method: gh  # または'env'、省略で自動検出
+
+  # Personal Access Token（auth_methodが'env'または省略時に必要）
+  # 環境変数を使用可能
+  # token: ${GITHUB_TOKEN}
+
   # ターゲットリポジトリ（形式: owner/repo）
   repository: douhashi/soba-cli
 

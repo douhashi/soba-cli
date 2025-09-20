@@ -159,6 +159,18 @@ phase:
 |----------|-------------|----------|
 | `GITHUB_TOKEN` | GitHub Personal Access Token with repo scope | Yes |
 
+### Claude Command Templates
+
+Soba automatically deploys Claude command templates to `.claude/commands/soba/` during initialization. These templates define the workflow automation commands for each phase:
+
+- **plan.md** - Issue planning phase template
+- **implement.md** - Implementation phase template
+- **review.md** - PR review phase template
+- **revise.md** - Revision phase template
+
+These templates are included in the gem package and can be found in:
+[lib/soba/templates/claude_commands/](lib/soba/templates/claude_commands/)
+
 ## Commands
 
 ### `soba init`

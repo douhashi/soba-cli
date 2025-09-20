@@ -81,6 +81,7 @@ Thumbs.db
 .env
 .env.local
 .env.*.local
+.envrc
 
 # soba config directory
 .soba/

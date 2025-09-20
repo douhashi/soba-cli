@@ -39,6 +39,8 @@ RSpec.describe 'Queueing Workflow Integration' do
     allow(Soba::Services::ClosedIssueWindowCleaner).to receive(:new).and_return(cleaner_service)
     # Mock tmux client
     allow(tmux_client).to receive(:list_soba_sessions).and_return([])
+    allow(tmux_client).to receive(:session_exists?).and_return(false)
+    allow(tmux_client).to receive(:create_session).and_return(true)
     # Mock auto-merge service to return no PRs by default
     allow(auto_merge_service).to receive(:execute).and_return(
       merged_count: 0,

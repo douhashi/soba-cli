@@ -13,16 +13,23 @@ module Soba
       def notify_phase_start(issue_data)
         return false unless enabled?
 
+        logger.debug "Starting Slack notification for issue ##{issue_data[:number]}, phase: #{issue_data[:phase]}"
+
         begin
-          response = send_notification(build_message(issue_data))
+          message = build_message(issue_data)
+          logger.debug "Sending notification to Slack webhook"
+
+          response = send_notification(message)
+
           if response.success?
+            logger.debug "Slack notification sent successfully (HTTP #{response.status})"
             true
           else
-            logger.error("Failed to send Slack notification: HTTP #{response.status}")
+            logger.warn("Failed to send Slack notification: HTTP #{response.status}")
             false
           end
         rescue StandardError => e
-          logger.error("Error sending Slack notification: #{e.message}")
+          logger.warn("Error sending Slack notification: #{e.message}")
           false
         end
       end

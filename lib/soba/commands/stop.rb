@@ -27,8 +27,9 @@ module Soba
 
         puts "Stopping daemon (PID: #{pid})..."
 
-        # Create stopping file for graceful shutdown
-        stopping_file = File.expand_path('~/.soba/stopping')
+        # Create PID-based stopping file for graceful shutdown
+        # This ensures each process has its own stopping file to avoid conflicts
+        stopping_file = File.expand_path("~/.soba/stopping.#{pid}")
         FileUtils.mkdir_p(File.dirname(stopping_file))
         FileUtils.touch(stopping_file)
 

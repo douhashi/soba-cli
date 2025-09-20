@@ -6,12 +6,13 @@ Gem::Specification.new do |spec|
   spec.name = "soba-cli"
   spec.version = Soba::VERSION
   spec.authors = ["douhashi"]
-  spec.email = ["soba@douhashi.dev"]
+  spec.email = ["douhashi@gmail.com"]
 
-  spec.summary = "GitHub to Claude Code workflow automation CLI"
-  spec.description = "Soba is a CLI tool that automates the workflow between GitHub Issues and Claude Code, " \
-                     "streamlining the development process from issue creation to pull request."
-  spec.homepage = "https://github.com/douhashi/soba"
+  spec.summary = "Autonomous GitHub Issue-driven development CLI with Claude Code"
+  spec.description = "Soba is an autonomous CLI tool that fully automates GitHub Issue-driven development workflows. " \
+                     "It monitors issues, creates implementation plans, generates code, and manages pull requests " \
+                     "through seamless integration with Claude Code AI, enabling hands-free development cycles."
+  spec.homepage = "https://github.com/douhashi/soba-cli"
   spec.license = "MIT"
   spec.required_ruby_version = ">= 3.0.0"
 

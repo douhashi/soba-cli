@@ -9,6 +9,73 @@ require "soba/infrastructure/github_client"
 RSpec.describe Soba::Commands::Init do
   let(:command) { described_class.new(interactive: true) }
 
+  # Helper method to build interactive input sequence
+  def build_interactive_input(options = {})
+    inputs = []
+
+    # Repository
+    inputs << (options[:repository] || "douhashi/soba")
+
+    # GitHub token option (1 or 2)
+    inputs << (options[:token_option] || "1")
+
+    # GitHub token (only if option 2)
+    # This is handled by noecho, not regular gets
+
+    # Polling interval
+    inputs << (options[:interval] || "20")
+
+    # Phase labels
+    inputs << (options[:planning_label] || "")
+    inputs << (options[:ready_label] || "")
+    inputs << (options[:doing_label] || "")
+    inputs << (options[:review_label] || "")
+
+    # Auto-merge
+    inputs << (options[:auto_merge] || "")
+
+    # Slack notifications (NEW)
+    inputs << (options[:slack_enabled] || "n")
+
+    # Slack webhook option (only if slack enabled)
+    if options[:slack_enabled] == "y"
+      inputs << (options[:slack_option] || "1")
+    end
+
+    # Workflow commands
+    plan_cmd = options.fetch(:plan_command, "skip")
+    inputs << plan_cmd
+
+    if plan_cmd != "skip"
+      inputs << (options[:plan_options] || "")
+      inputs << (options[:plan_parameter] || "")
+    end
+
+    implement_cmd = options.fetch(:implement_command, "skip")
+    inputs << implement_cmd
+
+    if implement_cmd != "skip"
+      inputs << (options[:implement_options] || "")
+      inputs << (options[:implement_parameter] || "")
+    end
+
+    review_cmd = options.fetch(:review_command, "skip")
+    inputs << review_cmd
+
+    if review_cmd != "skip"
+      inputs << (options[:review_options] || "")
+      inputs << (options[:review_parameter] || "")
+    end
+
+    # Label creation prompt (if interactive)
+    inputs << (options[:create_labels] || "") if options[:with_label_prompt]
+
+    # Gitignore prompt
+    inputs << (options[:add_gitignore] || "") if options[:with_gitignore_prompt]
+
+    StringIO.new(inputs.join("\n") + "\n")
+  end
+
   describe "#execute with interactive mode" do
     let(:temp_dir) { Dir.mktmpdir }
     let(:config_path) { Pathname.new(temp_dir).join('.soba', 'config.yml') }
@@ -23,7 +90,7 @@ RSpec.describe Soba::Commands::Init do
 
     context "when config file does not exist" do
       it "creates a new configuration file" do
-        input = StringIO.new("douhashi/soba\n1\n20\n\n\n\n\n\nskip\nskip\nskip\n")
+        input = build_interactive_input
         allow($stdin).to receive(:gets) { input.gets }
         allow($stdin).to receive(:noecho).and_yield(input)
 
@@ -53,7 +120,7 @@ RSpec.describe Soba::Commands::Init do
       end
 
       it "accepts direct token input" do
-        input = StringIO.new("douhashi/soba\n2\n30\n\n\n\n\n\nskip\nskip\nskip\n")
+        input = build_interactive_input(token_option: "2", interval: "30")
         allow($stdin).to receive(:gets) { input.gets }
         allow($stdin).to receive(:noecho).and_yield(StringIO.new("secret_token\n"))
 
@@ -68,7 +135,12 @@ RSpec.describe Soba::Commands::Init do
       end
 
       it "accepts custom phase labels" do
-        input = StringIO.new("douhashi/soba\n1\n20\nplanning\nready\ndoing\nreview\n\nskip\nskip\nskip\n")
+        input = build_interactive_input(
+          planning_label: "planning",
+          ready_label: "ready",
+          doing_label: "doing",
+          review_label: "review"
+        )
         allow($stdin).to receive(:gets) { input.gets }
         allow($stdin).to receive(:noecho).and_yield(input)
 
@@ -93,7 +165,17 @@ RSpec.describe Soba::Commands::Init do
       end
 
       it "accepts workflow phase commands" do
-        input = StringIO.new("douhashi/soba\n1\n20\n\n\n\n\n\nclaude\n--dangerously-skip-permissions\n/soba:plan {{issue-number}}\nclaude\n--dangerously-skip-permissions\n/soba:implement {{issue-number}}\nclaude\n--dangerously-skip-permissions\n/soba:review {{issue-number}}\n")
+        input = build_interactive_input(
+          plan_command: "claude",
+          plan_options: "--dangerously-skip-permissions",
+          plan_parameter: "/soba:plan {{issue-number}}",
+          implement_command: "claude",
+          implement_options: "--dangerously-skip-permissions",
+          implement_parameter: "/soba:implement {{issue-number}}",
+          review_command: "claude",
+          review_options: "--dangerously-skip-permissions",
+          review_parameter: "/soba:review {{issue-number}}"
+        )
         allow($stdin).to receive(:gets) { input.gets }
         allow($stdin).to receive(:noecho).and_yield(input)
 
@@ -116,7 +198,11 @@ RSpec.describe Soba::Commands::Init do
       end
 
       it "shows default values in prompts and applies them on empty input" do
-        input = StringIO.new("douhashi/soba\n1\n20\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n")
+        input = build_interactive_input(
+          plan_command: "",
+          implement_command: "",
+          review_command: ""
+        )
         allow($stdin).to receive(:gets) { input.gets }
         allow($stdin).to receive(:noecho).and_yield(input)
 
@@ -144,7 +230,11 @@ RSpec.describe Soba::Commands::Init do
 
       it "applies default values for phase commands when empty input is given" do
         # すべてのプロンプトで空入力（Enterキー）を入力
-        input = StringIO.new("douhashi/soba\n1\n20\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n")
+        input = build_interactive_input(
+          plan_command: "",
+          implement_command: "",
+          review_command: ""
+        )
         allow($stdin).to receive(:gets) { input.gets }
         allow($stdin).to receive(:noecho).and_yield(input)
 
@@ -170,7 +260,11 @@ RSpec.describe Soba::Commands::Init do
 
       it "allows partial customization with some default values" do
         # plan commandはカスタマイズ、他はデフォルト値を使用
-        input = StringIO.new("douhashi/soba\n1\n20\n\n\n\n\n\ncustom-claude\n\n\n\n\n\n\n\n\n\n")
+        input = build_interactive_input(
+          plan_command: "custom-claude",
+          implement_command: "",
+          review_command: ""
+        )
         allow($stdin).to receive(:gets) { input.gets }
         allow($stdin).to receive(:noecho).and_yield(input)
 
@@ -201,7 +295,7 @@ RSpec.describe Soba::Commands::Init do
         end
 
         it "creates labels after configuration file is created" do
-          input = StringIO.new("#{repository}\n1\n20\n\n\n\n\n\nskip\nskip\nskip\ny\n")
+          input = build_interactive_input(repository: repository, with_label_prompt: true, create_labels: "y")
           allow($stdin).to receive(:gets) { input.gets }
           allow($stdin).to receive(:noecho).and_yield(input)
 
@@ -250,7 +344,7 @@ RSpec.describe Soba::Commands::Init do
         end
 
         it "skips label creation when user declines" do
-          input = StringIO.new("#{repository}\n1\n20\n\n\n\n\n\nskip\nskip\nskip\nn\n")
+          input = build_interactive_input(repository: repository, with_label_prompt: true, create_labels: "n")
           allow($stdin).to receive(:gets) { input.gets }
           allow($stdin).to receive(:noecho).and_yield(input)
 
@@ -262,7 +356,7 @@ RSpec.describe Soba::Commands::Init do
         end
 
         it "skips existing labels" do
-          input = StringIO.new("#{repository}\n1\n20\n\n\n\n\n\nskip\nskip\nskip\ny\n")
+          input = build_interactive_input(repository: repository, with_label_prompt: true, create_labels: "y")
           allow($stdin).to receive(:gets) { input.gets }
           allow($stdin).to receive(:noecho).and_yield(input)
 
@@ -313,7 +407,7 @@ RSpec.describe Soba::Commands::Init do
         end
 
         it "handles label creation errors gracefully" do
-          input = StringIO.new("#{repository}\n1\n20\n\n\n\n\n\nskip\nskip\nskip\ny\n")
+          input = build_interactive_input(repository: repository, with_label_prompt: true, create_labels: "y")
           allow($stdin).to receive(:gets) { input.gets }
           allow($stdin).to receive(:noecho).and_yield(input)
 
@@ -330,7 +424,17 @@ RSpec.describe Soba::Commands::Init do
       end
 
       it "uses correct default values for workflow phase commands" do
-        input = StringIO.new("douhashi/soba\n1\n20\n\n\n\n\n\nclaude\n--dangerously-skip-permissions\n\nclaude\n--dangerously-skip-permissions\n\nclaude\n--dangerously-skip-permissions\n\n")
+        input = build_interactive_input(
+          plan_command: "claude",
+          plan_options: "--dangerously-skip-permissions",
+          plan_parameter: "",
+          implement_command: "claude",
+          implement_options: "--dangerously-skip-permissions",
+          implement_parameter: "",
+          review_command: "claude",
+          review_options: "--dangerously-skip-permissions",
+          review_parameter: ""
+        )
         allow($stdin).to receive(:gets) { input.gets }
         allow($stdin).to receive(:noecho).and_yield(input)
 
@@ -352,7 +456,7 @@ RSpec.describe Soba::Commands::Init do
       end
 
       it "skips workflow commands when skip is entered" do
-        input = StringIO.new("douhashi/soba\n1\n20\n\n\n\n\n\nskip\nskip\nskip\n")
+        input = build_interactive_input # defaults to skip for commands
         allow($stdin).to receive(:gets) { input.gets }
         allow($stdin).to receive(:noecho).and_yield(input)
 
@@ -362,8 +466,72 @@ RSpec.describe Soba::Commands::Init do
         expect(config['phase']).to be_nil
       end
 
+      context "with Slack notification configuration" do
+        it "configures Slack notifications when enabled" do
+          input = build_interactive_input(slack_enabled: "y", slack_option: "1")
+          allow($stdin).to receive(:gets) { input.gets }
+          allow($stdin).to receive(:noecho).and_yield(input)
+
+          expect { command.execute }.to output(/Slack notifications?/).to_stdout
+
+          config = YAML.safe_load_file(config_path)
+          expect(config['slack']).not_to be_nil
+          expect(config['slack']['webhook_url']).to eq('${SLACK_WEBHOOK_URL}')
+          expect(config['slack']['notifications_enabled']).to eq(true)
+        end
+
+        it "allows direct Slack webhook URL input" do
+          input = build_interactive_input(slack_enabled: "y", slack_option: "2")
+          allow($stdin).to receive(:gets) { input.gets }
+          allow($stdin).to receive(:noecho).and_yield(StringIO.new("https://hooks.slack.com/services/TEST\n"))
+
+          expect { command.execute }.to output(/Slack notifications?/).to_stdout
+
+          config = YAML.safe_load_file(config_path)
+          expect(config['slack']).not_to be_nil
+          expect(config['slack']['webhook_url']).to eq('https://hooks.slack.com/services/TEST')
+          expect(config['slack']['notifications_enabled']).to eq(true)
+        end
+
+        it "disables Slack notifications when declined" do
+          input = build_interactive_input(slack_enabled: "n")
+          allow($stdin).to receive(:gets) { input.gets }
+          allow($stdin).to receive(:noecho).and_yield(input)
+
+          expect { command.execute }.to output(/Configuration created successfully/).to_stdout
+
+          config = YAML.safe_load_file(config_path)
+          expect(config['slack']).not_to be_nil
+          expect(config['slack']['webhook_url']).to eq('${SLACK_WEBHOOK_URL}')
+          expect(config['slack']['notifications_enabled']).to eq(false)
+        end
+
+        it "checks for SLACK_WEBHOOK_URL environment variable when configured" do
+          allow(ENV).to receive(:[]).and_return(nil)
+          allow(ENV).to receive(:[]).with('GITHUB_TOKEN').and_return(nil)
+          allow(ENV).to receive(:[]).with('SLACK_WEBHOOK_URL').and_return('https://hooks.slack.com/services/ENV')
+          input = build_interactive_input(slack_enabled: "y", slack_option: "1")
+          allow($stdin).to receive(:gets) { input.gets }
+
+          expect { command.execute }.to output(/SLACK_WEBHOOK_URL environment variable is set/).to_stdout
+        end
+
+        it "warns when SLACK_WEBHOOK_URL is not set" do
+          allow(ENV).to receive(:[]).and_return(nil)
+          allow(ENV).to receive(:[]).with('GITHUB_TOKEN').and_return(nil)
+          allow(ENV).to receive(:[]).with('SLACK_WEBHOOK_URL').and_return(nil)
+          input = build_interactive_input(slack_enabled: "y", slack_option: "1")
+          allow($stdin).to receive(:gets) { input.gets }
+
+          expect { command.execute }.to output(/SLACK_WEBHOOK_URL environment variable is not set/).to_stdout
+        end
+      end
+
       it "validates repository format" do
-        input = StringIO.new("invalid\ndouhashi/soba\n1\n20\n\n\n\n\n\nskip\nskip\nskip\n")
+        inputs = []
+        inputs << "invalid" # Invalid repository format
+        inputs += build_interactive_input.string.split("\n") # Rest of the inputs
+        input = StringIO.new(inputs.join("\n") + "\n")
         allow($stdin).to receive(:gets) { input.gets }
 
         expect { command.execute }.to output(/Invalid format/).to_stdout
@@ -375,7 +543,7 @@ RSpec.describe Soba::Commands::Init do
       end
 
       it "uses default values when empty input" do
-        input = StringIO.new("douhashi/soba\n\n\n\n\n\n\n\nskip\nskip\nskip\n")
+        input = build_interactive_input(token_option: "", interval: "")
         allow($stdin).to receive(:gets) { input.gets }
 
         expect { command.execute }.to output(/Configuration created successfully/).to_stdout
@@ -403,7 +571,7 @@ RSpec.describe Soba::Commands::Init do
           allow(Dir).to receive(:exist?).with('.git').and_return(true)
           allow(command).to receive(:`).with('git config --get remote.origin.url 2>/dev/null').and_return("https://github.com/user/repo.git\n")
 
-          input = StringIO.new("\n1\n20\n\n\n\n\n\nskip\nskip\nskip\n")
+          input = build_interactive_input(repository: "")
           allow($stdin).to receive(:gets) { input.gets }
 
           expect { command.execute }.to output(/\[user\/repo\]/).to_stdout
@@ -417,7 +585,7 @@ RSpec.describe Soba::Commands::Init do
           allow(Dir).to receive(:exist?).with('.git').and_return(true)
           allow(command).to receive(:`).with('git config --get remote.origin.url 2>/dev/null').and_return("git@github.com:owner/project.git\n")
 
-          input = StringIO.new("\n1\n20\n\n\n\n\n\nskip\nskip\nskip\n")
+          input = build_interactive_input(repository: "")
           allow($stdin).to receive(:gets) { input.gets }
 
           expect { command.execute }.to output(/\[owner\/project\]/).to_stdout
@@ -431,7 +599,7 @@ RSpec.describe Soba::Commands::Init do
           allow(Dir).to receive(:exist?).with('.git').and_return(true)
           allow(command).to receive(:`).with('git config --get remote.origin.url 2>/dev/null').and_return("https://github.com/user/repo.git\n")
 
-          input = StringIO.new("different/repo\n1\n20\n\n\n\n\n\nskip\nskip\nskip\n")
+          input = build_interactive_input(repository: "different/repo")
           allow($stdin).to receive(:gets) { input.gets }
 
           expect { command.execute }.to output(/\[user\/repo\]/).to_stdout
@@ -450,7 +618,9 @@ RSpec.describe Soba::Commands::Init do
       end
 
       it "asks for confirmation before overwriting" do
-        input = StringIO.new("y\ndouhashi/soba\n1\n20\n\n\n\n\n\nskip\nskip\nskip\n")
+        inputs = ["y"] # Overwrite confirmation
+        inputs += build_interactive_input.string.split("\n")
+        input = StringIO.new(inputs.join("\n") + "\n")
         allow($stdin).to receive(:gets) { input.gets }
 
         expect { command.execute }.to output(
@@ -481,7 +651,7 @@ RSpec.describe Soba::Commands::Init do
       end
 
       it "adds .soba to .gitignore when requested" do
-        input = StringIO.new("douhashi/soba\n1\n20\n\n\n\n\n\nskip\nskip\nskip\n\ny\n")
+        input = build_interactive_input(with_gitignore_prompt: true, add_gitignore: "y")
         allow($stdin).to receive(:gets) { input.gets }
         allow($stdin).to receive(:noecho).and_yield(input)
 
@@ -493,7 +663,7 @@ RSpec.describe Soba::Commands::Init do
 
       it "does not add .soba when already present" do
         File.write(gitignore_path, "*.log\n.soba/\n")
-        input = StringIO.new("douhashi/soba\n1\n20\n\n\n\n\n\nskip\nskip\nskip\n")
+        input = build_interactive_input
         allow($stdin).to receive(:gets) { input.gets }
 
         expect { command.execute }.not_to output(/Add .soba\/ to .gitignore/).to_stdout
@@ -504,7 +674,7 @@ RSpec.describe Soba::Commands::Init do
       it "detects when GITHUB_TOKEN is set" do
         allow(ENV).to receive(:[]).and_return(nil)
         allow(ENV).to receive(:[]).with('GITHUB_TOKEN').and_return('test_token')
-        input = StringIO.new("douhashi/soba\n1\n20\n\n\n\n\n\nskip\nskip\nskip\n")
+        input = build_interactive_input
         allow($stdin).to receive(:gets) { input.gets }
 
         expect { command.execute }.to output(/GITHUB_TOKEN environment variable is set/).to_stdout
@@ -513,7 +683,7 @@ RSpec.describe Soba::Commands::Init do
       it "warns when GITHUB_TOKEN is not set" do
         allow(ENV).to receive(:[]).and_return(nil)
         allow(ENV).to receive(:[]).with('GITHUB_TOKEN').and_return(nil)
-        input = StringIO.new("douhashi/soba\n1\n20\n\n\n\n\n\nskip\nskip\nskip\n")
+        input = build_interactive_input
         allow($stdin).to receive(:gets) { input.gets }
 
         expect { command.execute }.to output(/GITHUB_TOKEN environment variable is not set/).to_stdout
@@ -569,6 +739,11 @@ RSpec.describe Soba::Commands::Init do
         expect(config['workflow']['closed_issue_cleanup_enabled']).to eq(true)
         expect(config['workflow']['closed_issue_cleanup_interval']).to eq(300)
         expect(config['workflow']['tmux_command_delay']).to eq(3)
+
+        # Slack configuration should be present with default values
+        expect(config['slack']).not_to be_nil
+        expect(config['slack']['webhook_url']).to eq('${SLACK_WEBHOOK_URL}')
+        expect(config['slack']['notifications_enabled']).to eq(false)
 
         # Phase configuration should be present with default values
         expect(config['phase']).not_to be_nil

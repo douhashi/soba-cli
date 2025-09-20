@@ -38,7 +38,7 @@ Gem::Specification.new do |spec|
   spec.add_runtime_dependency "dry-auto_inject", "~> 1.0"
   spec.add_runtime_dependency "faraday", "~> 2.9"
   spec.add_runtime_dependency "faraday-retry", "~> 2.2"
-  spec.add_runtime_dependency "octokit", "~> 8.0"
+  spec.add_runtime_dependency "octokit", "~> 10.0"
   spec.add_runtime_dependency "concurrent-ruby", "~> 1.2"
   spec.add_runtime_dependency "semantic_logger", "~> 4.15"
   spec.add_runtime_dependency "dry-configurable", "~> 1.1"

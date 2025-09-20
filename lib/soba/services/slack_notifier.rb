@@ -35,6 +35,20 @@ module Soba
         new(webhook_url: ENV["SLACK_WEBHOOK_URL"])
       end
 
+      def self.from_config
+        config = Soba::Configuration.config
+        return unless config.slack.notifications_enabled
+
+        webhook_url = config.slack.webhook_url
+        # 環境変数形式の場合は展開
+        if webhook_url&.match?(/\$\{([^}]+)\}/)
+          var_name = webhook_url.match(/\$\{([^}]+)\}/)[1]
+          webhook_url = ENV[var_name]
+        end
+
+        new(webhook_url: webhook_url)
+      end
+
       private
 
       def send_notification(message)

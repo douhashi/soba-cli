@@ -207,7 +207,7 @@ module Soba
           repository = default_repo
         end
 
-        while repository.blank? || repository.exclude?('/')
+        while repository.blank? || !repository.include?('/')
           puts "❌ Invalid format. Please use: owner/repo"
           print "Enter GitHub repository: "
           repository = $stdin.gets.chomp
@@ -467,34 +467,36 @@ module Soba
           config['github']['token'] = token
         end
 
-        # Add phase configuration
-        config['phase'] = {}
+        # Add phase configuration only if any phase command is provided
+        if plan_command || implement_command || review_command
+          config['phase'] = {}
 
-        # Add plan phase if command is provided
-        if plan_command
-          config['phase']['plan'] = {
-            'command' => plan_command,
-            'options' => plan_options || [],
-            'parameter' => plan_parameter,
-          }
-        end
+          # Add plan phase if command is provided
+          if plan_command
+            config['phase']['plan'] = {
+              'command' => plan_command,
+              'options' => plan_options || [],
+              'parameter' => plan_parameter,
+            }
+          end
 
-        # Add implement phase if command is provided
-        if implement_command
-          config['phase']['implement'] = {
-            'command' => implement_command,
-            'options' => implement_options || [],
-            'parameter' => implement_parameter,
-          }
-        end
+          # Add implement phase if command is provided
+          if implement_command
+            config['phase']['implement'] = {
+              'command' => implement_command,
+              'options' => implement_options || [],
+              'parameter' => implement_parameter,
+            }
+          end
 
-        # Add review phase if command is provided
-        if review_command
-          config['phase']['review'] = {
-            'command' => review_command,
-            'options' => review_options || [],
-            'parameter' => review_parameter,
-          }
+          # Add review phase if command is provided
+          if review_command
+            config['phase']['review'] = {
+              'command' => review_command,
+              'options' => review_options || [],
+              'parameter' => review_parameter,
+            }
+          end
         end
 
         # Write configuration file
@@ -584,66 +586,65 @@ module Soba
 
         # Add phase configuration if present and not empty
         if config['phase'] && !config['phase'].empty?
-          phase_content = "\n          # Phase command configuration\n          phase:\n"
+          phase_content = "\n# Phase command configuration\nphase:\n"
 
           if config['phase']['plan']
-            phase_content += "            plan:\n"
-            phase_content += "              command: #{config['phase']['plan']['command']}\n"
-            if config['phase']['plan']['options'].present?
-              phase_content += "              options:\n"
+            phase_content += "  plan:\n"
+            phase_content += "    command: #{config['phase']['plan']['command']}\n"
+            if config['phase']['plan']['options'] && !config['phase']['plan']['options'].empty?
+              phase_content += "    options:\n"
               config['phase']['plan']['options'].each do |opt|
-                phase_content += "                - #{opt}\n"
+                phase_content += "      - #{opt}\n"
               end
             end
             if config['phase']['plan']['parameter']
-              phase_content += "              parameter: '#{config['phase']['plan']['parameter']}'\n"
+              phase_content += "    parameter: '#{config['phase']['plan']['parameter']}'\n"
             end
           end
 
           if config['phase']['implement']
-            phase_content += "            implement:\n"
-            phase_content += "              command: #{config['phase']['implement']['command']}\n"
-            if config['phase']['implement']['options'].present?
-              phase_content += "              options:\n"
+            phase_content += "  implement:\n"
+            phase_content += "    command: #{config['phase']['implement']['command']}\n"
+            if config['phase']['implement']['options'] && !config['phase']['implement']['options'].empty?
+              phase_content += "    options:\n"
               config['phase']['implement']['options'].each do |opt|
-                phase_content += "                - #{opt}\n"
+                phase_content += "      - #{opt}\n"
               end
             end
             if config['phase']['implement']['parameter']
-              phase_content += "              parameter: '#{config['phase']['implement']['parameter']}'\n"
+              phase_content += "    parameter: '#{config['phase']['implement']['parameter']}'\n"
             end
           end
 
           if config['phase']['review']
-            phase_content += "            review:\n"
-            phase_content += "              command: #{config['phase']['review']['command']}\n"
-            if config['phase']['review']['options'].present?
-              phase_content += "              options:\n"
+            phase_content += "  review:\n"
+            phase_content += "    command: #{config['phase']['review']['command']}\n"
+            if config['phase']['review']['options'] && !config['phase']['review']['options'].empty?
+              phase_content += "    options:\n"
               config['phase']['review']['options'].each do |opt|
-                phase_content += "                - #{opt}\n"
+                phase_content += "      - #{opt}\n"
               end
             end
             if config['phase']['review']['parameter']
-              phase_content += "              parameter: '#{config['phase']['review']['parameter']}'\n"
+              phase_content += "    parameter: '#{config['phase']['review']['parameter']}'\n"
             end
           end
 
           if config['phase']['revise']
-            phase_content += "            revise:\n"
-            phase_content += "              command: #{config['phase']['revise']['command']}\n"
-            if config['phase']['revise']['options'].present?
-              phase_content += "              options:\n"
+            phase_content += "  revise:\n"
+            phase_content += "    command: #{config['phase']['revise']['command']}\n"
+            if config['phase']['revise']['options'] && !config['phase']['revise']['options'].empty?
+              phase_content += "    options:\n"
               config['phase']['revise']['options'].each do |opt|
-                phase_content += "                - #{opt}\n"
+                phase_content += "      - #{opt}\n"
               end
             end
             if config['phase']['revise']['parameter']
-              phase_content += "              parameter: '#{config['phase']['revise']['parameter']}'\n"
+              phase_content += "    parameter: '#{config['phase']['revise']['parameter']}'\n"
             end
           end
 
-          # Remove extra indentation to match YAML structure
-          phase_content = phase_content.gsub(/^          /, '')
+          # YAML structure is now correct
           config_content += phase_content
         end
 

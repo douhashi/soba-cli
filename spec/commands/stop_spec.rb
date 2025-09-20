@@ -33,7 +33,7 @@ RSpec.describe Soba::Commands::Stop do
     end
 
     context 'with --force option' do
-      let(:test_pid) { Process.pid }
+      let(:test_pid) { 88967 } # Use fake PID to avoid affecting real processes
       let(:options) { { force: true } }
 
       before do
@@ -64,7 +64,7 @@ RSpec.describe Soba::Commands::Stop do
     end
 
     context 'with --timeout option' do
-      let(:test_pid) { Process.pid }
+      let(:test_pid) { 88967 } # Use fake PID to avoid affecting real processes
       let(:options) { { timeout: 5 } }
 
       before do
@@ -82,7 +82,7 @@ RSpec.describe Soba::Commands::Stop do
     end
 
     context 'when daemon is running' do
-      let(:test_pid) { Process.pid }
+      let(:test_pid) { 88967 } # Use fake PID to avoid affecting real processes
 
       before do
         # Create PID file with current process
@@ -156,7 +156,7 @@ RSpec.describe Soba::Commands::Stop do
     end
 
     context 'when process does not terminate gracefully' do
-      let(:test_pid) { Process.pid }
+      let(:test_pid) { 88967 } # Use fake PID to avoid affecting real processes
 
       before do
         File.write(pid_file, test_pid.to_s)
@@ -218,7 +218,7 @@ RSpec.describe Soba::Commands::Stop do
   end
 
   describe 'graceful shutdown' do
-    let(:test_pid) { Process.pid }
+    let(:test_pid) { 88967 } # Use fake PID to avoid affecting real processes
     let(:stopping_file) { '/tmp/test_stopping' }
 
     before do

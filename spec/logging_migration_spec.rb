@@ -130,16 +130,23 @@ RSpec.describe "Logging Migration" do
         # Debug レベルの場合、debug ログが出力される
         SemanticLogger.default_level = :debug
         logger.debug("debug message")
-        expect(log_output.string).to include("debug message")
+        log_output.flush
+        expect(log_output.string).to include("Test -- debug message")
 
         # Info レベルの場合、debug ログは出力されない
-        log_output.truncate(0)
-        log_output.rewind
+        # 新しいStringIOを作成してログレベルテストを行う
+        new_log_output = StringIO.new
+        SemanticLogger.clear_appenders!
+        SemanticLogger.add_appender(io: new_log_output, formatter: :default)
         SemanticLogger.default_level = :info
-        logger.debug("debug message")
-        logger.info("info message")
-        expect(log_output.string).not_to include("debug message")
-        expect(log_output.string).to match(/Test -- info message/)
+        # 新しいLoggerインスタンスを作成してレベル変更を確実に反映
+        info_logger = SemanticLogger["Test"]
+        info_logger.debug("debug message")
+        info_logger.info("info message")
+        SemanticLogger.flush  # Semantic Loggerに対するflush
+        result_string = new_log_output.string
+        expect(result_string).not_to include("debug message")
+        expect(result_string).to include("Test -- info message")
       end
     end
   end

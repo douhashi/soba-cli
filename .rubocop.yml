@@ -52,6 +52,9 @@ Style/GlobalVars:
 Rails/NegateInclude:
   Enabled: false
 
+Rails/Present:
+  Enabled: false
+
 # For RSpec
 RSpec/MultipleExpectations:
   Max: 3

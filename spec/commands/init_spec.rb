@@ -643,6 +643,68 @@ RSpec.describe Soba::Commands::Init do
       end
     end
 
+    context "with Claude template deployment" do
+      it "deploys Claude command templates during initialization" do
+        input = build_interactive_input
+        allow($stdin).to receive(:gets) { input.gets }
+        allow($stdin).to receive(:noecho).and_yield(input)
+
+        expect { command.execute }.to output(/Configuration created successfully/).to_stdout
+
+        # Check that Claude command template files are created
+        claude_dir = Pathname.new(temp_dir).join('.claude', 'commands', 'soba')
+        expect(claude_dir).to exist
+        expect(claude_dir.join('plan.md')).to exist
+        expect(claude_dir.join('implement.md')).to exist
+        expect(claude_dir.join('review.md')).to exist
+        expect(claude_dir.join('revise.md')).to exist
+      end
+
+      context "when Claude command files already exist" do
+        before do
+          claude_dir = Pathname.new(temp_dir).join('.claude', 'commands', 'soba')
+          claude_dir.mkpath
+          File.write(claude_dir.join('plan.md'), "existing content")
+        end
+
+        it "prompts for confirmation before overwriting" do
+          # Create a custom input that includes responses for Claude template prompts
+          base_inputs = build_interactive_input.string.split("\n")
+          template_response = "y" # Response for overwriting the plan.md template
+
+          # Build custom input including template response
+          all_inputs = base_inputs + [template_response]
+          input = StringIO.new(all_inputs.join("\n") + "\n")
+          allow($stdin).to receive(:gets) { input.gets }
+          allow($stdin).to receive(:noecho).and_yield(input)
+
+          expect { command.execute }.to output(/Claude command template already exists.*Overwriting/m).to_stdout
+
+          # Verify file was overwritten
+          plan_content = File.read(Pathname.new(temp_dir).join('.claude', 'commands', 'soba', 'plan.md'))
+          expect(plan_content).not_to eq("existing content")
+        end
+
+        it "skips overwriting when user declines" do
+          # Create a custom input that includes responses for Claude template prompts
+          base_inputs = build_interactive_input.string.split("\n")
+          template_response = "n" # Response for keeping the existing plan.md template
+
+          # Build custom input including template response
+          all_inputs = base_inputs + [template_response]
+          input = StringIO.new(all_inputs.join("\n") + "\n")
+          allow($stdin).to receive(:gets) { input.gets }
+          allow($stdin).to receive(:noecho).and_yield(input)
+
+          expect { command.execute }.to output(/Claude command template already exists.*Keeping existing/m).to_stdout
+
+          # Verify file was not overwritten
+          plan_content = File.read(Pathname.new(temp_dir).join('.claude', 'commands', 'soba', 'plan.md'))
+          expect(plan_content).to eq("existing content")
+        end
+      end
+    end
+
     context "with .gitignore handling" do
       let(:gitignore_path) { Pathname.new(temp_dir).join('.gitignore') }
 
@@ -803,6 +865,23 @@ RSpec.describe Soba::Commands::Init do
 
         content = File.read(config_path)
         expect(content).to eq("existing: config")
+      end
+    end
+
+    context "with Claude template deployment" do
+      it "deploys Claude command templates during non-interactive initialization" do
+        allow(Dir).to receive(:exist?).with('.git').and_return(true)
+        allow(command).to receive(:`).with('git config --get remote.origin.url 2>/dev/null').and_return("https://github.com/douhashi/soba.git\n")
+
+        expect { command.execute }.to output(/Configuration created successfully/).to_stdout
+
+        # Check that Claude command template files are created
+        claude_dir = Pathname.new(temp_dir).join('.claude', 'commands', 'soba')
+        expect(claude_dir).to exist
+        expect(claude_dir.join('plan.md')).to exist
+        expect(claude_dir.join('implement.md')).to exist
+        expect(claude_dir.join('review.md')).to exist
+        expect(claude_dir.join('revise.md')).to exist
       end
     end
 

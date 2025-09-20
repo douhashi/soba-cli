@@ -159,6 +159,18 @@ phase:
 |--------|------|------|
 | `GITHUB_TOKEN` | repoスコープを持つGitHub Personal Access Token | はい |
 
+### Claudeコマンドテンプレート
+
+Sobaは初期化時に自動的にClaudeコマンドテンプレートを `.claude/commands/soba/` に展開します。これらのテンプレートは各フェーズのワークフロー自動化コマンドを定義します：
+
+- **plan.md** - Issue計画フェーズテンプレート
+- **implement.md** - 実装フェーズテンプレート
+- **review.md** - PRレビューフェーズテンプレート
+- **revise.md** - 修正フェーズテンプレート
+
+これらのテンプレートはgemパッケージに含まれており、以下で確認できます：
+[lib/soba/templates/claude_commands/](lib/soba/templates/claude_commands/)
+
 ## コマンド
 
 ### `soba init`

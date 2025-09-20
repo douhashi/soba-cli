@@ -158,6 +158,7 @@ module Soba
 
         check_github_token(token: '${GITHUB_TOKEN}')
         check_slack_webhook_url(config: config)
+        deploy_claude_templates
         handle_gitignore
         create_github_labels(config)
 
@@ -432,6 +433,7 @@ module Soba
 
         check_github_token(token: token)
         check_slack_webhook_url(config: config)
+        deploy_claude_templates
         handle_gitignore
         create_github_labels(config)
 
@@ -615,6 +617,48 @@ module Soba
             end
           end
         end
+      end
+
+      def deploy_claude_templates
+        # Deploy Claude command templates to .claude/commands/soba/
+        claude_dir = Pathname.pwd.join('.claude', 'commands', 'soba')
+        template_dir = Pathname.new(__dir__).join('..', 'templates', 'claude_commands')
+
+        # Create directory if it doesn't exist
+        claude_dir.mkpath
+
+        # List of template files to deploy
+        template_files = ['plan.md', 'implement.md', 'review.md', 'revise.md']
+
+        template_files.each do |filename|
+          source_file = template_dir.join(filename)
+          target_file = claude_dir.join(filename)
+
+          # Check if file already exists
+          if target_file.exist?
+            if @interactive
+              puts ""
+              puts "⚠️  Claude command template already exists: #{target_file.relative_path_from(Pathname.pwd)}"
+              print "Do you want to overwrite it? (y/N): "
+              response = $stdin.gets
+              next unless response # Skip if no response
+              response = response.chomp.downcase
+              if response != 'y' && response != 'yes'
+                puts "✅ Keeping existing template: #{filename}"
+                next
+              else
+                puts "✅ Overwriting template: #{filename}"
+              end
+            end
+          end
+
+          # Copy the template file
+          FileUtils.cp(source_file, target_file)
+          Soba.logger.debug "Deployed Claude template: #{filename}"
+        end
+
+        puts ""
+        puts "✅ Claude command templates deployed to .claude/commands/soba/"
       end
 
       def detect_github_repository

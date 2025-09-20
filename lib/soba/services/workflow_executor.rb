@@ -3,6 +3,7 @@
 require 'open3'
 require 'shellwords'
 require_relative 'git_workspace_manager'
+require_relative '../configuration'
 
 module Soba
   module Services
@@ -98,6 +99,7 @@ module Soba
           # フェーズごとにpane分割（既存のwindowがある場合は新規pane作成）
           if window_result[:created]
             # 新規windowの場合は最初のpaneでコマンド実行
+            apply_command_delay
             tmux_client = Soba::Infrastructure::TmuxClient.new
             tmux_client.send_keys("#{session_result[:session_name]}:#{window_result[:window_name]}", command_string)
             pane_id = nil
@@ -111,6 +113,7 @@ module Soba
             )
             return pane_result unless pane_result[:success]
 
+            apply_command_delay
             pane_id = pane_result[:pane_id]
             tmux_client = Soba::Infrastructure::TmuxClient.new
             tmux_client.send_keys(pane_id, command_string)
@@ -194,6 +197,20 @@ module Soba
           "cd #{worktree_path} && #{command_string}"
         else
           command_string
+        end
+      end
+
+      def apply_command_delay
+        begin
+          config = Soba::Configuration.load!
+          delay = config&.workflow&.tmux_command_delay
+          delay = 3 if delay.nil?
+        rescue StandardError
+          delay = 3
+        end
+
+        if delay && delay > 0
+          sleep(delay)
         end
       end
     end

@@ -48,6 +48,7 @@ RSpec.describe Soba::Commands::Init do
         expect(config['workflow']['phase_labels']['merged']).to eq('soba:merged')
         expect(config['workflow']['closed_issue_cleanup_enabled']).to eq(true)
         expect(config['workflow']['closed_issue_cleanup_interval']).to eq(300)
+        expect(config['workflow']['tmux_command_delay']).to eq(3)
         expect(config['phase']).to be_nil
       end
 
@@ -63,6 +64,7 @@ RSpec.describe Soba::Commands::Init do
         expect(config['workflow']['auto_merge_enabled']).to eq(true)
         expect(config['workflow']['closed_issue_cleanup_enabled']).to eq(true)
         expect(config['workflow']['closed_issue_cleanup_interval']).to eq(300)
+        expect(config['workflow']['tmux_command_delay']).to eq(3)
       end
 
       it "accepts custom phase labels" do
@@ -87,6 +89,7 @@ RSpec.describe Soba::Commands::Init do
         expect(config['workflow']['auto_merge_enabled']).to eq(true)
         expect(config['workflow']['closed_issue_cleanup_enabled']).to eq(true)
         expect(config['workflow']['closed_issue_cleanup_interval']).to eq(300)
+        expect(config['workflow']['tmux_command_delay']).to eq(3)
       end
 
       it "accepts workflow phase commands" do
@@ -100,6 +103,7 @@ RSpec.describe Soba::Commands::Init do
         expect(config['workflow']['auto_merge_enabled']).to eq(true)
         expect(config['workflow']['closed_issue_cleanup_enabled']).to eq(true)
         expect(config['workflow']['closed_issue_cleanup_interval']).to eq(300)
+        expect(config['workflow']['tmux_command_delay']).to eq(3)
         expect(config['phase']['plan']['command']).to eq('claude')
         expect(config['phase']['plan']['options']).to eq(['--dangerously-skip-permissions'])
         expect(config['phase']['plan']['parameter']).to eq('/soba:plan {{issue-number}}')
@@ -126,6 +130,7 @@ RSpec.describe Soba::Commands::Init do
         expect(config['workflow']['auto_merge_enabled']).to eq(true)
         expect(config['workflow']['closed_issue_cleanup_enabled']).to eq(true)
         expect(config['workflow']['closed_issue_cleanup_interval']).to eq(300)
+        expect(config['workflow']['tmux_command_delay']).to eq(3)
         expect(config['phase']['plan']['command']).to eq('claude')
         expect(config['phase']['plan']['options']).to eq(['--dangerously-skip-permissions'])
         expect(config['phase']['plan']['parameter']).to eq('/soba:plan {{issue-number}}')
@@ -150,6 +155,7 @@ RSpec.describe Soba::Commands::Init do
         expect(config['workflow']['auto_merge_enabled']).to eq(true)
         expect(config['workflow']['closed_issue_cleanup_enabled']).to eq(true)
         expect(config['workflow']['closed_issue_cleanup_interval']).to eq(300)
+        expect(config['workflow']['tmux_command_delay']).to eq(3)
         expect(config['phase']).not_to be_nil
         expect(config['phase']['plan']['command']).to eq('claude')
         expect(config['phase']['plan']['options']).to eq(['--dangerously-skip-permissions'])
@@ -174,6 +180,7 @@ RSpec.describe Soba::Commands::Init do
         expect(config['workflow']['auto_merge_enabled']).to eq(true)
         expect(config['workflow']['closed_issue_cleanup_enabled']).to eq(true)
         expect(config['workflow']['closed_issue_cleanup_interval']).to eq(300)
+        expect(config['workflow']['tmux_command_delay']).to eq(3)
         expect(config['phase']['plan']['command']).to eq('custom-claude')
         expect(config['phase']['plan']['options']).to eq(['--dangerously-skip-permissions'])
         expect(config['phase']['plan']['parameter']).to eq('/soba:plan {{issue-number}}')
@@ -332,6 +339,7 @@ RSpec.describe Soba::Commands::Init do
         config = YAML.safe_load_file(config_path)
         expect(config['workflow']['closed_issue_cleanup_enabled']).to eq(true)
         expect(config['workflow']['closed_issue_cleanup_interval']).to eq(300)
+        expect(config['workflow']['tmux_command_delay']).to eq(3)
         expect(config['phase']['plan']['command']).to eq('claude')
         expect(config['phase']['plan']['options']).to eq(['--dangerously-skip-permissions'])
         expect(config['phase']['plan']['parameter']).to eq('/soba:plan {{issue-number}}')
@@ -387,6 +395,7 @@ RSpec.describe Soba::Commands::Init do
         expect(config['workflow']['phase_labels']['requires_changes']).to eq('soba:requires-changes')
         expect(config['workflow']['phase_labels']['revising']).to eq('soba:revising')
         expect(config['workflow']['phase_labels']['merged']).to eq('soba:merged')
+        expect(config['workflow']['tmux_command_delay']).to eq(3)
       end
 
       context "with git repository detection" do
@@ -559,6 +568,7 @@ RSpec.describe Soba::Commands::Init do
         expect(config['workflow']['phase_labels']['merged']).to eq('soba:merged')
         expect(config['workflow']['closed_issue_cleanup_enabled']).to eq(true)
         expect(config['workflow']['closed_issue_cleanup_interval']).to eq(300)
+        expect(config['workflow']['tmux_command_delay']).to eq(3)
 
         # Phase configuration should be present with default values
         expect(config['phase']).not_to be_nil
@@ -581,6 +591,7 @@ RSpec.describe Soba::Commands::Init do
         expect(config['phase']['revise']['command']).to eq('claude')
         expect(config['phase']['revise']['options']).to eq(['--dangerously-skip-permissions'])
         expect(config['phase']['revise']['parameter']).to eq('/soba:revise {{issue-number}}')
+        expect(config['workflow']['tmux_command_delay']).to eq(3)
       end
 
       it "fails when GitHub repository cannot be detected" do

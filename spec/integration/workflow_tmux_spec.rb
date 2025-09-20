@@ -37,6 +37,13 @@ RSpec.describe 'Workflow Tmux Integration' do
 
     context 'when executing in a new repository session' do
       before do
+        # Mock configuration for tmux command delay
+        config_mock = double(
+          workflow: double(tmux_command_delay: 3),
+          github: double(repository: 'owner/repo-name')
+        )
+        allow(Soba::Configuration).to receive(:load!).and_return(config_mock)
+
         # Repository session doesn't exist with PID
         allow(tmux_client).to receive(:session_exists?).with(session_name_with_pid).and_return(false)
         allow(tmux_client).to receive(:create_session).with(session_name_with_pid).and_return(true)
@@ -69,6 +76,13 @@ RSpec.describe 'Workflow Tmux Integration' do
 
     context 'when executing in an existing session with existing window' do
       before do
+        # Mock configuration for tmux command delay
+        config_mock = double(
+          workflow: double(tmux_command_delay: 3),
+          github: double(repository: 'owner/repo-name')
+        )
+        allow(Soba::Configuration).to receive(:load!).and_return(config_mock)
+
         # Repository session exists with PID
         allow(tmux_client).to receive(:session_exists?).with(session_name_with_pid).and_return(true)
         allow(tmux_client).to receive(:create_session) # Allow but don't expect
@@ -148,6 +162,13 @@ RSpec.describe 'Workflow Tmux Integration' do
 
     context 'when executing multiple phases for the same issue' do
       before do
+        # Mock configuration for tmux command delay
+        config_mock = double(
+          workflow: double(tmux_command_delay: 3),
+          github: double(repository: 'owner/repo-name')
+        )
+        allow(Soba::Configuration).to receive(:load!).and_return(config_mock)
+
         # Repository session exists with PID
         allow(tmux_client).to receive(:session_exists?).with(session_name_with_pid).and_return(true)
 

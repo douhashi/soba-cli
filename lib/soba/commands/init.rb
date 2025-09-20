@@ -7,6 +7,7 @@ require "pathname"
 require "yaml"
 require "io/console"
 require_relative "../infrastructure/github_client"
+require_relative "../infrastructure/github_token_provider"
 
 module Soba
   module Commands
@@ -139,9 +140,27 @@ module Soba
           raise Soba::CommandError, "Cannot detect GitHub repository"
         end
 
+        # Detect best authentication method
+        token_provider = Soba::Infrastructure::GitHubTokenProvider.new
+        detected_method = token_provider.detect_best_method
+
         # Create configuration with default values
         config = DEFAULT_CONFIG.deep_dup
         config['github']['repository'] = repository
+
+        # Set authentication based on detection
+        if detected_method == 'gh'
+          config['github']['auth_method'] = 'gh'
+          config['github'].delete('token')
+          puts "✅ Using gh command authentication (detected)"
+        elsif detected_method == 'env'
+          config['github']['auth_method'] = 'env'
+          config['github']['token'] = '${GITHUB_TOKEN}'
+          puts "✅ Using environment variable authentication"
+        else
+          # Keep default token field
+          puts "⚠️  No authentication method detected. Please configure manually."
+        end
 
         # Add default phase configuration
         config['phase'] = DEFAULT_PHASE_CONFIG.deep_dup
@@ -193,22 +212,64 @@ module Soba
           repository = $stdin.gets.chomp
         end
 
-        # GitHub token
+        # GitHub authentication detection
         puts ""
-        puts "GitHub Personal Access Token (PAT) setup:"
-        puts "  1. Use environment variable ${GITHUB_TOKEN} (recommended)"
-        puts "  2. Enter token directly (will be visible in config file)"
-        print "Choose option (1-2) [1]: "
-        token_option = $stdin.gets.chomp
-        token_option = '1' if token_option.empty?
+        token_provider = Soba::Infrastructure::GitHubTokenProvider.new
+        gh_available = token_provider.gh_available?
 
-        token = if token_option == '2'
-                  print "Enter GitHub token: "
-                  # Hide input for security
-                  $stdin.noecho(&:gets).chomp.tap { puts }
-                else
-                  '${GITHUB_TOKEN}'
-                end
+        if gh_available
+          puts "✅ gh command is available and authenticated"
+        elsif ENV['GITHUB_TOKEN']
+          puts "✅ GITHUB_TOKEN environment variable is set"
+        else
+          puts "⚠️  Neither gh command nor GITHUB_TOKEN environment variable is available"
+        end
+
+        # GitHub token setup
+        puts ""
+        puts "GitHub authentication setup:"
+
+        auth_method = nil
+        token = nil
+
+        if gh_available
+          puts "  1. Use environment variable ${GITHUB_TOKEN}"
+          puts "  2. Enter token directly (will be visible in config file)"
+          puts "  3. Use gh command authentication (detected)"
+          print "Choose option (1-3) [3]: "
+          token_option = $stdin.gets.chomp
+          token_option = '3' if token_option.empty?
+
+          case token_option
+          when '2'
+            print "Enter GitHub token: "
+            # Hide input for security
+            token = $stdin.noecho(&:gets).chomp.tap { puts }
+            auth_method = nil
+          when '3'
+            auth_method = 'gh'
+            token = nil
+          else
+            token = '${GITHUB_TOKEN}'
+            auth_method = 'env'
+          end
+        else
+          puts "  1. Use environment variable ${GITHUB_TOKEN} (recommended)"
+          puts "  2. Enter token directly (will be visible in config file)"
+          print "Choose option (1-2) [1]: "
+          token_option = $stdin.gets.chomp
+          token_option = '1' if token_option.empty?
+
+          if token_option == '2'
+            print "Enter GitHub token: "
+            # Hide input for security
+            token = $stdin.noecho(&:gets).chomp.tap { puts }
+            auth_method = nil
+          else
+            token = '${GITHUB_TOKEN}'
+            auth_method = 'env'
+          end
+        end
 
         # Polling interval
         puts ""
@@ -366,7 +427,6 @@ module Soba
         # Create configuration
         config = {
           'github' => {
-            'token' => token,
             'repository' => repository,
           },
           'workflow' => {
@@ -394,6 +454,14 @@ module Soba
             'notifications_enabled' => slack_notifications_enabled,
           },
         }
+
+        # Add token/auth_method based on selection
+        if auth_method
+          config['github']['auth_method'] = auth_method
+          config['github']['token'] = token if token
+        else
+          config['github']['token'] = token
+        end
 
         # Add phase configuration if provided
         if plan_command || implement_command || review_command

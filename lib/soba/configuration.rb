@@ -4,6 +4,7 @@ require 'active_support/core_ext/object/blank'
 require 'dry-configurable'
 require 'yaml'
 require 'pathname'
+require_relative 'infrastructure/github_token_provider'
 
 module Soba
   class Configuration
@@ -12,6 +13,7 @@ module Soba
     setting :github do
       setting :token, default: ENV.fetch('GITHUB_TOKEN', nil)
       setting :repository
+      setting :auth_method, default: nil # 'gh', 'env', or nil (auto-detect)
     end
 
     setting :workflow do
@@ -62,6 +64,7 @@ module Soba
         configure do |c|
           c.github.token = ENV.fetch('GITHUB_TOKEN', nil)
           c.github.repository = nil
+          c.github.auth_method = nil
           c.workflow.interval = 20
           c.workflow.use_tmux = true
           c.workflow.auto_merge_enabled = true
@@ -141,6 +144,7 @@ module Soba
           if data['github']
             c.github.token = data.dig('github', 'token') || ENV.fetch('GITHUB_TOKEN', nil)
             c.github.repository = data.dig('github', 'repository')
+            c.github.auth_method = data.dig('github', 'auth_method')
           end
 
           if data['workflow']
@@ -160,7 +164,7 @@ module Soba
 
           if data['git']
             c.git.worktree_base_path = data.dig('git', 'worktree_base_path') || '.git/soba/worktrees'
-            c.git.setup_workspace = data.dig('git', 'setup_workspace') != false  # default true
+            c.git.setup_workspace = data.dig('git', 'setup_workspace') != false # default true
           end
 
           if data['phase']
@@ -194,7 +198,10 @@ module Soba
         default_content = <<~YAML
           # soba CLI configuration
           github:
-            # GitHub Personal Access Token
+            # Authentication method: 'gh', 'env', or omit for auto-detect
+            # auth_method: gh
+
+            # GitHub Personal Access Token (used when auth_method is 'env' or omitted)
             # Can use environment variable: ${GITHUB_TOKEN}
             token: ${GITHUB_TOKEN}
 
@@ -255,7 +262,33 @@ module Soba
       def validate!
         errors = []
 
-        errors << "GitHub token is not set" if config.github.token.blank?
+        # Validate auth_method if specified
+        if config.github.auth_method && ['gh', 'env'].exclude?(config.github.auth_method)
+          errors << "Invalid auth_method: #{config.github.auth_method}. Must be 'gh', 'env', or nil"
+        end
+
+        # Token validation now depends on auth_method
+        # Let GitHubTokenProvider handle token fetching and validation
+        # We only need to check if token can be obtained
+        begin
+          token_provider = Soba::Infrastructure::GitHubTokenProvider.new
+          if config.github.auth_method
+            # Try to fetch with specified method
+            token = token_provider.fetch(auth_method: config.github.auth_method)
+            # Store the fetched token if not already set
+            config.github.token ||= token
+          elsif config.github.token.blank?
+            # Auto-detect mode when no token is provided
+            token = token_provider.fetch(auth_method: nil)
+            config.github.token = token
+          end
+        rescue Soba::Infrastructure::GitHubTokenProvider::TokenFetchError => e
+          # Only add error if token is required and cannot be fetched
+          if config.github.token.blank?
+            errors << "GitHub token is not available: #{e.message}"
+          end
+        end
+
         errors << "GitHub repository is not set" if config.github.repository.blank?
         errors << "Workflow interval must be positive" if config.workflow.interval <= 0
 

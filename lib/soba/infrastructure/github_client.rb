@@ -5,6 +5,7 @@ require "faraday"
 require "faraday/retry"
 require "semantic_logger"
 require_relative "errors"
+require_relative "github_token_provider"
 
 module Soba
   module Infrastructure
@@ -14,8 +15,27 @@ module Soba
       attr_reader :octokit
 
       def initialize(token: nil)
-        token ||= Configuration.config.github.token if defined?(Configuration)
-        token ||= ENV["GITHUB_TOKEN"]
+        # If token is explicitly provided, use it
+        if token.nil?
+          # Try to get token from configuration or token provider
+          if defined?(Configuration) && Configuration.respond_to?(:config) && Configuration.config
+            config = Configuration.config
+            if config.github.token.present?
+              token = config.github.token
+            elsif config.github.auth_method
+              # Use GitHubTokenProvider with specified auth_method
+              token_provider = GitHubTokenProvider.new
+              token = token_provider.fetch(auth_method: config.github.auth_method)
+            else
+              # Auto-detect mode
+              token_provider = GitHubTokenProvider.new
+              token = token_provider.fetch(auth_method: nil)
+            end
+          else
+            # Fallback to environment variable
+            token = ENV["GITHUB_TOKEN"]
+          end
+        end
 
         stack = build_middleware_stack
 

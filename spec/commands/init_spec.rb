@@ -752,6 +752,70 @@ RSpec.describe Soba::Commands::Init do
       end
     end
 
+    context "with GitHub auth method detection" do
+      it "detects when gh command is available" do
+        token_provider = instance_double(Soba::Infrastructure::GitHubTokenProvider)
+        allow(Soba::Infrastructure::GitHubTokenProvider).to receive(:new).and_return(token_provider)
+        allow(token_provider).to receive(:gh_available?).and_return(true)
+        allow(token_provider).to receive(:detect_best_method).and_return('gh')
+
+        input = build_interactive_input
+        allow($stdin).to receive(:gets) { input.gets }
+
+        expect { command.execute }.to output(/gh command is available/).to_stdout
+
+        config = YAML.safe_load_file(config_path)
+        expect(config['github']['auth_method']).to eq('gh')
+      end
+
+      it "detects when gh command is not available" do
+        token_provider = instance_double(Soba::Infrastructure::GitHubTokenProvider)
+        allow(Soba::Infrastructure::GitHubTokenProvider).to receive(:new).and_return(token_provider)
+        allow(token_provider).to receive(:gh_available?).and_return(false)
+        allow(token_provider).to receive(:detect_best_method).and_return('env')
+
+        input = build_interactive_input
+        allow($stdin).to receive(:gets) { input.gets }
+
+        expect { command.execute }.to output(/Using environment variable/).to_stdout
+
+        config = YAML.safe_load_file(config_path)
+        expect(config['github']['auth_method']).to eq('env')
+      end
+
+      it "prompts for auth method choice in interactive mode" do
+        token_provider = instance_double(Soba::Infrastructure::GitHubTokenProvider)
+        allow(Soba::Infrastructure::GitHubTokenProvider).to receive(:new).and_return(token_provider)
+        allow(token_provider).to receive(:gh_available?).and_return(true)
+
+        # Add auth method selection to input
+        inputs = []
+        inputs << "douhashi/soba" # repository
+        inputs << "3" # Option 3: Use gh command
+        inputs << "20" # interval
+        # ... rest of inputs
+        inputs << "" # planning_label
+        inputs << "" # ready_label
+        inputs << "" # doing_label
+        inputs << "" # review_label
+        inputs << "" # auto_merge
+        inputs << "n" # slack
+        inputs << "skip" # plan_command
+        inputs << "skip" # implement_command
+        inputs << "skip" # review_command
+
+        input = StringIO.new(inputs.join("\n") + "\n")
+        allow($stdin).to receive(:gets) { input.gets }
+        allow($stdin).to receive(:noecho).and_yield(input)
+
+        expect { command.execute }.to output(/Use gh command authentication/).to_stdout
+
+        config = YAML.safe_load_file(config_path)
+        expect(config['github']['auth_method']).to eq('gh')
+        expect(config['github']['token']).to be_nil
+      end
+    end
+
     context "error handling" do
       it "handles interrupt gracefully" do
         allow($stdin).to receive(:gets).and_raise(Interrupt)

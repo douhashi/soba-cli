@@ -89,9 +89,16 @@ RSpec.describe Soba::Configuration do
         original_token = ENV['GITHUB_TOKEN']
         ENV['GITHUB_TOKEN'] = nil
 
+        # Mock GitHubTokenProvider to indicate no token is available
+        token_provider = instance_double(Soba::Infrastructure::GitHubTokenProvider)
+        allow(Soba::Infrastructure::GitHubTokenProvider).to receive(:new).and_return(token_provider)
+        allow(token_provider).to receive(:fetch).with(auth_method: nil).and_raise(
+          Soba::Infrastructure::GitHubTokenProvider::TokenFetchError, "No GitHub token available"
+        )
+
         expect { described_class.load!(path: config_file) }.to raise_error(
           Soba::ConfigurationError,
-          /GitHub token is not set/
+          /GitHub token is not available/
         )
       ensure
         # Restore original token
@@ -311,6 +318,91 @@ RSpec.describe Soba::Configuration do
         expect(config.phase.plan.command).to be_nil
         expect(config.phase.implement.command).to be_nil
         expect(config.phase.review.command).to be_nil
+      end
+    end
+  end
+
+  describe 'auth_method configuration' do
+    context 'when auth_method is not specified' do
+      before do
+        FileUtils.mkdir_p(config_dir)
+        File.write(config_file, <<~YAML)
+          github:
+            token: test_token
+            repository: owner/repo
+          workflow:
+            interval: 20
+        YAML
+      end
+
+      it 'defaults to nil (auto-detect)' do
+        config = described_class.load!(path: config_file)
+        expect(config.github.auth_method).to be_nil
+      end
+    end
+
+    context 'when auth_method is set to "gh"' do
+      before do
+        FileUtils.mkdir_p(config_dir)
+        File.write(config_file, <<~YAML)
+          github:
+            auth_method: gh
+            repository: owner/repo
+          workflow:
+            interval: 20
+        YAML
+      end
+
+      it 'loads auth_method as "gh"' do
+        # Mock gh command availability check
+        allow_any_instance_of(Soba::Infrastructure::GitHubTokenProvider).to receive(:gh_available?).and_return(true)
+        allow_any_instance_of(Soba::Infrastructure::GitHubTokenProvider).to receive(:fetch).with(auth_method: 'gh').and_return('gh_token')
+
+        config = described_class.load!(path: config_file)
+        expect(config.github.auth_method).to eq('gh')
+      end
+    end
+
+    context 'when auth_method is set to "env"' do
+      before do
+        FileUtils.mkdir_p(config_dir)
+        File.write(config_file, <<~YAML)
+          github:
+            auth_method: env
+            repository: owner/repo
+          workflow:
+            interval: 20
+        YAML
+        ENV['GITHUB_TOKEN'] = 'env_test_token'
+      end
+
+      after do
+        ENV.delete('GITHUB_TOKEN')
+      end
+
+      it 'loads auth_method as "env"' do
+        config = described_class.load!(path: config_file)
+        expect(config.github.auth_method).to eq('env')
+      end
+    end
+
+    context 'when auth_method is set to invalid value' do
+      before do
+        FileUtils.mkdir_p(config_dir)
+        File.write(config_file, <<~YAML)
+          github:
+            auth_method: invalid
+            repository: owner/repo
+          workflow:
+            interval: 20
+        YAML
+      end
+
+      it 'raises validation error' do
+        expect { described_class.load!(path: config_file) }.to raise_error(
+          Soba::ConfigurationError,
+          /Invalid auth_method: invalid/
+        )
       end
     end
   end

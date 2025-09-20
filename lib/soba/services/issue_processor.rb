@@ -75,6 +75,9 @@ module Soba
         phase_config = get_phase_config(phase)
 
         if phase_config&.command
+          puts "Processing phase: #{phase} with command: #{phase_config.command}"
+          puts "  Phase name: #{phase_config.name || 'not set'}"
+
           actual_config = config.respond_to?(:config) ? config.config : config
           use_tmux = actual_config.workflow.use_tmux
           setup_workspace = actual_config.git.setup_workspace
@@ -146,6 +149,7 @@ module Soba
 
           if values
             OpenStruct.new(
+              name: 'plan',
               command: values[:command],
               options: values[:options],
               parameter: values[:parameter]
@@ -160,6 +164,7 @@ module Soba
 
           if values
             OpenStruct.new(
+              name: 'implement',
               command: values[:command],
               options: values[:options],
               parameter: values[:parameter]
@@ -174,6 +179,7 @@ module Soba
 
           if values
             OpenStruct.new(
+              name: 'review',
               command: values[:command],
               options: values[:options],
               parameter: values[:parameter]
@@ -188,6 +194,7 @@ module Soba
 
           if values
             OpenStruct.new(
+              name: 'revise',
               command: values[:command],
               options: values[:options],
               parameter: values[:parameter]

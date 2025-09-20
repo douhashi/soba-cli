@@ -729,7 +729,9 @@ RSpec.describe Soba::Services::WorkflowExecutor do
         before do
           config = double('config')
           slack = double('slack', notifications_enabled: true)
+          github = double('github', repository: nil)
           allow(config).to receive(:slack).and_return(slack)
+          allow(config).to receive(:github).and_return(github)
           allow(Soba::Configuration).to receive(:config).and_return(config)
         end
 
@@ -739,7 +741,8 @@ RSpec.describe Soba::Services::WorkflowExecutor do
           expect(slack_notifier).to receive(:notify_phase_start).with(
             hash_including(
               number: 123,
-              phase: 'test-phase'
+              phase: 'test-phase',
+              repository: nil
             )
           ).and_return(true)
 
@@ -815,7 +818,9 @@ RSpec.describe Soba::Services::WorkflowExecutor do
         before do
           config = double('config')
           slack = double('slack', notifications_enabled: false)
+          github = double('github', repository: nil)
           allow(config).to receive(:slack).and_return(slack)
+          allow(config).to receive(:github).and_return(github)
           allow(Soba::Configuration).to receive(:config).and_return(config)
         end
 

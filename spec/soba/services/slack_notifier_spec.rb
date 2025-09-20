@@ -11,6 +11,7 @@ RSpec.describe Soba::Services::SlackNotifier do
       number: 134,
       title: "sobaが管理する各フェーズの実行時にslack通知をしたい",
       phase: "plan",
+      repository: "douhashi/soba",
     }
   end
 
@@ -57,7 +58,7 @@ RSpec.describe Soba::Services::SlackNotifier do
           expect(url).to eq(webhook_url)
 
           json_payload = JSON.parse(payload)
-          expect(json_payload["text"]).to include("Issue #134")
+          expect(json_payload["text"]).to eq("🚀 Soba started plan phase: Issue #134")
           expect(json_payload["attachments"].first["title"]).to include("sobaが管理する各フェーズの実行時にslack通知をしたい")
 
           fields = json_payload["attachments"].first["fields"]
@@ -82,10 +83,26 @@ RSpec.describe Soba::Services::SlackNotifier do
 
           fields = json_payload["attachments"].first["fields"]
           expect(fields).to include(
-            hash_including("title" => "Issue", "value" => "#134"),
-            hash_including("title" => "Phase", "value" => "plan"),
-            hash_including("title" => "Title", "value" => "sobaが管理する各フェーズの実行時にslack通知をしたい")
+            hash_including("title" => "Issue", "value" => "<https://github.com/douhashi/soba/issues/134|#134>"),
+            hash_including("title" => "Phase", "value" => "plan")
           )
+          expect(fields).not_to include(
+            hash_including("title" => "Title")
+          )
+
+          response_stub
+        end
+
+        notifier.notify_phase_start(issue_data)
+      end
+
+      it "includes GitHub issue URL link in issue field" do
+        expect(connection_stub).to receive(:post) do |url, payload|
+          json_payload = JSON.parse(payload)
+
+          fields = json_payload["attachments"].first["fields"]
+          issue_field = fields.find { |f| f["title"] == "Issue" }
+          expect(issue_field["value"]).to eq("<https://github.com/douhashi/soba/issues/134|#134>")
 
           response_stub
         end

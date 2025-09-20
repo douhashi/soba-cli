@@ -64,6 +64,14 @@ bin/soba --help
 
 ## Quick Start
 
+### ⚠ Important Notice ⚠
+
+soba uses `--dangerously-skip-permissions` by default to support AI-driven autonomous development. (This can be disabled in the configuration file)
+
+When using default settings, please take necessary precautions such as using devcontainers and restricting external access.
+
+---
+
 1. **Initialize configuration**
    ```bash
    soba init
@@ -157,11 +165,13 @@ phase:
 
 | Variable | Description | Required |
 |----------|-------------|----------|
-| `GITHUB_TOKEN` | GitHub Personal Access Token with repo scope | Yes |
+| `GITHUB_TOKEN` | GitHub Personal Access Token with repo/read:org/write:discussion scopes | Yes |
+| `SLACK_WEBHOOK_URL` | Slack Webhook URL | No |
 
 ### Claude Command Templates
 
 Soba automatically deploys Claude command templates to `.claude/commands/soba/` during initialization. These templates define the workflow automation commands for each phase:
+
 
 - **plan.md** - Issue planning phase template
 - **implement.md** - Implementation phase template
@@ -191,8 +201,8 @@ Start the workflow automation daemon.
 # Start in daemon mode (background)
 soba start
 
-# Start in foreground mode
-soba start --foreground
+# Start in daemon mode
+soba start --daemon
 
 # Start with specific issue
 soba start 123
@@ -233,8 +243,8 @@ soba stop --timeout 60
 Open or list tmux sessions for tasks.
 
 ```bash
-# Open specific task session
-soba open 123
+# Open tmux session
+soba open
 
 # List all active sessions
 soba open --list

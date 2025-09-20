@@ -64,6 +64,14 @@ bin/soba --help
 
 ## クイックスタート
 
+### ⚠ 重要な注意 ⚠
+
+soba はAIによる自律的な開発を支援するため、デフォルトの設定で `--dangerously-skip-permissions` を使用します。(設定ファイルで無効化することができます)
+
+デフォルト設定で利用する場合、devcontainerの利用や外部アクセスの制限など、可能な限りの保全作業を行ったうえで使用してください。
+
+---
+
 1. **設定の初期化**
    ```bash
    soba init
@@ -157,11 +165,13 @@ phase:
 
 | 変数名 | 説明 | 必須 |
 |--------|------|------|
-| `GITHUB_TOKEN` | repoスコープを持つGitHub Personal Access Token | はい |
+| `GITHUB_TOKEN` | repo/read:org/write:discussion スコープを持つGitHub Personal Access Token | はい |
+| `SLACK_WEBHOOK_URL` | SlackのWebhookURL | いいえ |
 
 ### Claudeコマンドテンプレート
 
 Sobaは初期化時に自動的にClaudeコマンドテンプレートを `.claude/commands/soba/` に展開します。これらのテンプレートは各フェーズのワークフロー自動化コマンドを定義します：
+
 
 - **plan.md** - Issue計画フェーズテンプレート
 - **implement.md** - 実装フェーズテンプレート
@@ -191,8 +201,8 @@ soba init --interactive
 # デーモンモード（バックグラウンド）で開始
 soba start
 
-# フォアグラウンドモードで開始
-soba start --foreground
+# デーモンモードで開始
+soba start --daemon
 
 # 特定のIssueを指定して開始
 soba start 123
@@ -233,8 +243,8 @@ soba stop --timeout 60
 タスクのtmuxセッションを開くまたは一覧表示。
 
 ```bash
-# 特定のタスクセッションを開く
-soba open 123
+# tmuxセッションを開く
+soba open
 
 # すべてのアクティブなセッションを一覧表示
 soba open --list

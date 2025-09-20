@@ -22,8 +22,7 @@ module Soba
           puts ""
           puts "Configuration loaded from: #{find_config_path(config_path)}"
         rescue Soba::ConfigurationError => e
-          puts "Configuration Error:"
-          puts e.message
+          Soba.logger.error "Configuration Error: #{e.message}"
           exit 1
         end
 

@@ -20,7 +20,7 @@ module Soba
         end
 
         unless pid_manager.running?
-          puts "Daemon was not running (stale PID file cleaned up)"
+          Soba.logger.info "Daemon was not running (stale PID file cleaned up)"
           pid_manager.delete
           return 0
         end
@@ -37,44 +37,44 @@ module Soba
           # Check if force option is specified
           if options[:force]
             # Force kill immediately
-            puts "Forcefully terminating daemon (PID: #{pid})..."
+            Soba.logger.warn "Forcefully terminating daemon (PID: #{pid})"
             Process.kill('KILL', pid)
             sleep 1
             cleanup_tmux_sessions
             pid_manager.delete
             FileUtils.rm_f(stopping_file)
-            puts "Daemon forcefully terminated"
+            Soba.logger.warn "Daemon forcefully terminated"
             return 0
           end
 
           # Send SIGTERM for graceful shutdown
           Process.kill('TERM', pid)
-          puts "Sent SIGTERM signal, waiting for daemon to terminate..."
+          Soba.logger.info "Sent SIGTERM signal, waiting for daemon to terminate"
 
           # Use custom timeout if specified
           timeout_value = options[:timeout] || 30
 
           # Wait for process to terminate gracefully
           if wait_for_termination(pid, timeout: timeout_value)
-            puts "Daemon stopped successfully"
+            Soba.logger.info "Daemon stopped successfully"
             cleanup_tmux_sessions
             pid_manager.delete
             FileUtils.rm_f(stopping_file)
             0
           else
             # Force kill if not terminated
-            puts "Daemon did not stop gracefully, forcefully terminating..."
+            Soba.logger.warn "Daemon did not stop gracefully, forcefully terminating"
             Process.kill('KILL', pid)
             sleep 1
             cleanup_tmux_sessions
             pid_manager.delete
             FileUtils.rm_f(stopping_file)
-            puts "Daemon forcefully terminated"
+            Soba.logger.warn "Daemon forcefully terminated"
             0
           end
         rescue Errno::ESRCH
           # Process doesn't exist
-          puts "Process not found (already terminated)"
+          Soba.logger.info "Process not found (already terminated)"
           pid_manager.delete
           FileUtils.rm_f(stopping_file)
           0
@@ -85,7 +85,7 @@ module Soba
           FileUtils.rm_f(stopping_file)
           1
         rescue StandardError => e
-          puts "Error stopping daemon: #{e.message}"
+          Soba.logger.error "Error stopping daemon: #{e.message}"
           FileUtils.rm_f(stopping_file)
           1
         end
@@ -118,29 +118,29 @@ module Soba
           # Kill only the current process's session
           session_name = "soba-#{repository.gsub(/[\/._]/, '-')}-#{Process.pid}"
           if tmux_client.session_exists?(session_name)
-            puts "Cleaning up tmux session..."
+            Soba.logger.info "Cleaning up tmux session"
             if tmux_client.kill_session(session_name)
-              puts "  Killed tmux session: #{session_name}"
+              Soba.logger.info "Killed tmux session: #{session_name}"
             else
-              puts "  Warning: Failed to kill tmux session: #{session_name}"
+              Soba.logger.warn "Failed to kill tmux session: #{session_name}"
             end
           end
         else
           # If no repository configured, try to clean up sessions with current PID
           sessions = tmux_client.list_soba_sessions.select { |s| s.end_with?("-#{Process.pid}") }
           unless sessions.empty?
-            puts "Cleaning up tmux sessions..."
+            Soba.logger.info "Cleaning up tmux sessions"
             sessions.each do |session|
               if tmux_client.kill_session(session)
-                puts "  Killed tmux session: #{session}"
+                Soba.logger.info "Killed tmux session: #{session}"
               else
-                puts "  Warning: Failed to kill tmux session: #{session}"
+                Soba.logger.warn "Failed to kill tmux session: #{session}"
               end
             end
           end
         end
       rescue StandardError => e
-        puts "  Warning: Failed to cleanup tmux sessions: #{e.message}"
+        Soba.logger.warn "Failed to cleanup tmux sessions: #{e.message}"
       end
     end
   end

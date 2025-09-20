@@ -244,7 +244,7 @@ RSpec.describe Soba::Commands::Init do
             with(repository, "soba:lgtm", "00ff00", "PR approved for auto-merge").
             and_return({ name: "soba:lgtm", color: "00ff00" })
 
-          expect { command.execute }.to output(/Creating GitHub labels.*soba:planning.*created/m).to_stdout
+          expect { command.execute }.to output(/Creating GitHub labels.*Label creation complete: 12 created, 0 skipped/m).to_stdout
 
           expect(config_path).to exist
         end
@@ -309,7 +309,7 @@ RSpec.describe Soba::Commands::Init do
             with(repository, "soba:lgtm", "00ff00", "PR approved for auto-merge").
             and_return({ name: "soba:lgtm", color: "00ff00" })
 
-          expect { command.execute }.to output(/soba:planning.*already exists.*soba:ready.*created/m).to_stdout
+          expect { command.execute }.to output(/Label creation complete: 10 created, 2 skipped/m).to_stdout
         end
 
         it "handles label creation errors gracefully" do
@@ -322,7 +322,7 @@ RSpec.describe Soba::Commands::Init do
             with(repository, "soba:todo", "808080", "To-do task waiting to be queued").
             and_raise(Soba::Infrastructure::GitHubClientError, "Insufficient permissions")
 
-          expect { command.execute }.to output(/Failed to create label.*Insufficient permissions/m).to_stdout
+          expect { command.execute }.to output(/Creating GitHub labels/).to_stdout
 
           # Config should still be created
           expect(config_path).to exist

@@ -23,16 +23,20 @@ module Soba
           # mainブランチを最新化
           begin
             @git_workspace_manager.update_main_branch
+            puts "Successfully updated main branch"
           rescue GitWorkspaceManager::GitOperationError => e
             puts "Warning: Failed to update main branch: #{e.message}"
+            puts "  Continuing without main branch update..."
             # mainブランチの更新に失敗しても続行（エラーハンドリング）
           end
 
           # ワークスペースをセットアップ
           begin
             @git_workspace_manager.setup_workspace(issue_number)
+            puts "Successfully setup workspace for issue ##{issue_number}"
           rescue GitWorkspaceManager::GitOperationError => e
             puts "Warning: Failed to setup workspace: #{e.message}"
+            puts "  Continuing without worktree setup..."
             # ワークスペースのセットアップに失敗しても続行（既存の動作を維持）
           end
         end
@@ -84,6 +88,7 @@ module Soba
         return nil unless phase.command
 
         command_string = build_command_string_with_worktree(phase, issue_number)
+        puts "Executing in tmux for phase: #{phase.name || 'unknown'}, issue ##{issue_number}"
 
         begin
           # 新しいtmux管理方式: 1リポジトリ = 1セッション、1 Issue = 1 window
@@ -99,22 +104,26 @@ module Soba
           # フェーズごとにpane分割（既存のwindowがある場合は新規pane作成）
           if window_result[:created]
             # 新規windowの場合は最初のpaneでコマンド実行
+            puts "  Created new window: #{window_result[:window_name]}"
             apply_command_delay
             tmux_client = Soba::Infrastructure::TmuxClient.new
             tmux_client.send_keys("#{session_result[:session_name]}:#{window_result[:window_name]}", command_string)
             pane_id = nil
           else
             # 既存windowの場合は新規paneを作成（水平分割）
+            phase_name = phase.name || 'unknown'
+            puts "  Creating new pane for phase: #{phase_name} in window: #{window_result[:window_name]}"
             pane_result = @tmux_session_manager.create_phase_pane(
               session_name: session_result[:session_name],
               window_name: window_result[:window_name],
-              phase: phase.name,
+              phase: phase_name,
               vertical: false
             )
             return pane_result unless pane_result[:success]
 
             apply_command_delay
             pane_id = pane_result[:pane_id]
+            puts "  Created pane: #{pane_id}"
             tmux_client = Soba::Infrastructure::TmuxClient.new
             tmux_client.send_keys(pane_id, command_string)
           end

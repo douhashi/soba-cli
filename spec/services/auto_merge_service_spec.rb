@@ -5,6 +5,7 @@ require "soba/services/auto_merge_service"
 require "soba/infrastructure/github_client"
 require "soba/configuration"
 require "soba/services/slack_notifier"
+require "soba/services/git_workspace_manager"
 
 RSpec.describe Soba::Services::AutoMergeService do
   let(:service) { described_class.new }
@@ -17,6 +18,13 @@ RSpec.describe Soba::Services::AutoMergeService do
   end
 
   describe "#execute" do
+    let(:git_workspace_manager) { instance_double(Soba::Services::GitWorkspaceManager) }
+
+    before do
+      allow(Soba::Services::GitWorkspaceManager).to receive(:new).and_return(git_workspace_manager)
+      allow(git_workspace_manager).to receive(:update_main_branch).and_return(true)
+    end
+
     context "when there are approved PRs" do
       let(:approved_prs) do
         [
@@ -64,6 +72,12 @@ RSpec.describe Soba::Services::AutoMergeService do
           expect(result[:failed_count]).to eq(0)
         end
 
+        it "updates main branch after each successful merge" do
+          expect(git_workspace_manager).to receive(:update_main_branch).twice
+
+          service.execute
+        end
+
         it "closes related issues with merged label" do
           expect(github_client).to receive(:close_issue_with_label).
             with(repository, 58, label: "soba:merged").
@@ -109,6 +123,12 @@ RSpec.describe Soba::Services::AutoMergeService do
           expect(result[:failed_count]).to eq(1)
           expect(result[:details][:failed].first).to include(number: 10, reason: /conflict/)
         end
+
+        it "updates main branch only for successful merges" do
+          expect(git_workspace_manager).to receive(:update_main_branch).once
+
+          service.execute
+        end
       end
 
       context "when merge operation fails" do
@@ -136,6 +156,12 @@ RSpec.describe Soba::Services::AutoMergeService do
           expect(result[:merged_count]).to eq(0)
           expect(result[:failed_count]).to eq(2)
           expect(result[:details][:failed].first).to include(number: 10, reason: /Cannot merge/)
+        end
+
+        it "does not update main branch when merge fails" do
+          expect(git_workspace_manager).not_to receive(:update_main_branch)
+
+          service.execute
         end
       end
     end
@@ -172,8 +198,12 @@ RSpec.describe Soba::Services::AutoMergeService do
     let(:pr_number) { 123 }
     let(:issue_number) { 160 }
     let(:slack_notifier) { instance_double(Soba::Services::SlackNotifier) }
+    let(:git_workspace_manager) { instance_double(Soba::Services::GitWorkspaceManager) }
 
     before do
+      allow(Soba::Services::GitWorkspaceManager).to receive(:new).and_return(git_workspace_manager)
+      allow(git_workspace_manager).to receive(:update_main_branch).and_return(true)
+
       allow(github_client).to receive(:get_pr_issue_number).
         with(repository, pr_number).
         and_return(issue_number)
@@ -252,6 +282,32 @@ RSpec.describe Soba::Services::AutoMergeService do
         expect(github_client).not_to receive(:close_issue_with_label)
 
         service.send(:handle_post_merge, pr_number, sha: nil)
+      end
+    end
+
+    context "main branch update" do
+      before do
+        allow(slack_notifier).to receive(:enabled?).and_return(false)
+      end
+
+      it "updates main branch after merge" do
+        expect(git_workspace_manager).to receive(:update_main_branch)
+
+        service.send(:handle_post_merge, pr_number, sha: nil)
+      end
+
+      context "when main branch update fails" do
+        before do
+          allow(git_workspace_manager).to receive(:update_main_branch).
+            and_raise(Soba::Services::GitWorkspaceManager::GitOperationError, "Failed to update main branch")
+        end
+
+        it "logs error but continues with other post-merge actions" do
+          expect(github_client).to receive(:close_issue_with_label).
+            with(repository, issue_number, label: "soba:merged")
+
+          expect { service.send(:handle_post_merge, pr_number, sha: nil) }.not_to raise_error
+        end
       end
     end
   end

@@ -108,7 +108,7 @@ RSpec.describe Soba::Commands::Stop do
             end
           else
             # For any other PID, return safe defaults
-            raise Errno::ESRCH  # Process not found (safe)
+            raise Errno::ESRCH # Process not found (safe)
           end
         end
       end

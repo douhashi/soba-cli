@@ -151,8 +151,7 @@ module Soba
           blocking_checker: blocking_checker
         )
         auto_merge_service = Soba::Services::AutoMergeService.new
-        cleanup_logger = Logger.new(STDOUT)
-        cleanup_logger.level = Logger::INFO
+        cleanup_logger = SemanticLogger["ClosedIssueWindowCleaner"]
         cleaner_service = Soba::Services::ClosedIssueWindowCleaner.new(
           github_client: github_client,
           tmux_client: tmux_client,

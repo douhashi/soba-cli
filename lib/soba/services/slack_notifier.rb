@@ -99,8 +99,7 @@ module Soba
         @logger ||= if defined?(Soba.logger)
                       Soba.logger
                     else
-                      require "logger"
-                      Logger.new($stdout)
+                      SemanticLogger["SlackNotifier"]
                     end
       end
     end

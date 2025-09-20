@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require "logger"
-
 module Soba
   module Services
     class QueueingService
@@ -13,7 +11,7 @@ module Soba
       def initialize(github_client:, blocking_checker:, logger: nil)
         @github_client = github_client
         @blocking_checker = blocking_checker
-        @logger = logger || Logger.new(STDOUT)
+        @logger = logger || SemanticLogger["QueueingService"]
       end
 
       def queue_next_issue(repository)

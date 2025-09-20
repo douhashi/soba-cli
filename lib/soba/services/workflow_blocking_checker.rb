@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require "logger"
-
 module Soba
   module Services
     class WorkflowBlockingChecker
@@ -25,7 +23,7 @@ module Soba
 
       def initialize(github_client:, logger: nil)
         @github_client = github_client
-        @logger = logger || Logger.new(STDOUT)
+        @logger = logger || SemanticLogger["WorkflowBlockingChecker"]
       end
 
       def blocking?(repository, issues:, except_issue_number: nil)

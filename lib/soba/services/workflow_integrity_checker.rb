@@ -1,6 +1,5 @@
 # frozen_string_literal: true
 
-require "logger"
 require_relative "../configuration"
 
 module Soba
@@ -23,7 +22,7 @@ module Soba
 
       def initialize(github_client:, logger: nil)
         @github_client = github_client
-        @logger = logger || Logger.new(STDOUT)
+        @logger = logger || SemanticLogger["WorkflowIntegrityChecker"]
       end
 
       def check_and_fix(repository, issues:, dry_run: false)

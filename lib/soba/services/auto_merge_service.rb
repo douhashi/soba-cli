@@ -3,6 +3,7 @@
 require "semantic_logger"
 require_relative "../infrastructure/github_client"
 require_relative "../configuration"
+require_relative "slack_notifier"
 
 module Soba
   module Services
@@ -41,7 +42,7 @@ module Soba
             if check_mergeable(pr_number)
               result = perform_merge(pr_number)
               if result[:merged]
-                handle_post_merge(pr_number)
+                handle_post_merge(pr_number, sha: result[:sha])
                 merged << { number: pr_number, title: pr[:title], sha: result[:sha] }
                 logger.info "PR merged successfully", pr_number: pr_number, sha: result[:sha]
               else
@@ -113,7 +114,7 @@ module Soba
         @github_client.merge_pull_request(@repository, pr_number, merge_method: "squash")
       end
 
-      def handle_post_merge(pr_number)
+      def handle_post_merge(pr_number, sha: nil)
         logger.debug "Handling post-merge actions", pr_number: pr_number
 
         # Extract issue number from PR body
@@ -122,11 +123,40 @@ module Soba
         if issue_number
           logger.info "Closing related issue", pr_number: pr_number, issue_number: issue_number
           @github_client.close_issue_with_label(@repository, issue_number, label: "soba:merged")
+
+          # Send Slack notification for merged issue
+          send_merge_notification(issue_number, pr_number, sha)
         else
           logger.warn "No related issue found in PR body", pr_number: pr_number
         end
       rescue => e
         logger.error "Failed to handle post-merge actions", pr_number: pr_number, error: e.message
+      end
+
+      def send_merge_notification(issue_number, pr_number, sha)
+        slack_notifier = SlackNotifier.from_config
+        return unless slack_notifier&.enabled?
+
+        begin
+          pr_data = @github_client.get_pull_request(@repository, pr_number)
+          issue_data = @github_client.issue(@repository, issue_number)
+
+          merge_data = {
+            issue_number: issue_number,
+            issue_title: issue_data[:title],
+            pr_number: pr_number,
+            pr_title: pr_data[:title],
+            sha: sha,
+            repository: @repository,
+          }
+
+          slack_notifier.notify_issue_merged(merge_data)
+          logger.debug "Slack notification sent for merged issue", issue_number: issue_number
+        rescue => e
+          logger.warn "Failed to send Slack notification for merged issue",
+                      issue_number: issue_number,
+                      error: e.message
+        end
       end
     end
   end

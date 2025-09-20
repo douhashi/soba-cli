@@ -4,6 +4,7 @@ require "spec_helper"
 require "soba/services/auto_merge_service"
 require "soba/infrastructure/github_client"
 require "soba/configuration"
+require "soba/services/slack_notifier"
 
 RSpec.describe Soba::Services::AutoMergeService do
   let(:service) { described_class.new }
@@ -164,6 +165,94 @@ RSpec.describe Soba::Services::AutoMergeService do
         and_return([])
 
       service.send(:find_approved_prs)
+    end
+  end
+
+  describe "#handle_post_merge" do
+    let(:pr_number) { 123 }
+    let(:issue_number) { 160 }
+    let(:slack_notifier) { instance_double(Soba::Services::SlackNotifier) }
+
+    before do
+      allow(github_client).to receive(:get_pr_issue_number).
+        with(repository, pr_number).
+        and_return(issue_number)
+
+      allow(github_client).to receive(:close_issue_with_label).
+        with(repository, issue_number, label: "soba:merged").
+        and_return(true)
+
+      allow(Soba::Services::SlackNotifier).to receive(:from_config).and_return(slack_notifier)
+      allow(slack_notifier).to receive(:notify_issue_merged).and_return(true)
+    end
+
+    context "when Slack notification is enabled" do
+      before do
+        allow(slack_notifier).to receive(:enabled?).and_return(true)
+      end
+
+      it "sends Slack notification after closing issue" do
+        allow(github_client).to receive(:get_pull_request).
+          with(repository, pr_number).
+          and_return({ title: "feat: Test PR", number: pr_number })
+
+        allow(github_client).to receive(:issue).
+          with(repository, issue_number).
+          and_return({ title: "Test Issue", number: issue_number })
+
+        expect(slack_notifier).to receive(:notify_issue_merged).with(
+          hash_including(
+            issue_number: issue_number,
+            issue_title: "Test Issue",
+            pr_number: pr_number,
+            pr_title: "feat: Test PR",
+            repository: repository
+          )
+        )
+
+        service.send(:handle_post_merge, pr_number, sha: nil)
+      end
+
+      it "continues if Slack notification fails" do
+        allow(github_client).to receive(:get_pull_request).
+          with(repository, pr_number).
+          and_return({ title: "feat: Test PR", number: pr_number })
+
+        allow(github_client).to receive(:issue).
+          with(repository, issue_number).
+          and_return({ title: "Test Issue", number: issue_number })
+
+        allow(slack_notifier).to receive(:notify_issue_merged).and_return(false)
+
+        expect { service.send(:handle_post_merge, pr_number) }.not_to raise_error
+      end
+    end
+
+    context "when Slack notification is disabled" do
+      before do
+        allow(Soba::Services::SlackNotifier).to receive(:from_config).and_return(nil)
+      end
+
+      it "does not send Slack notification" do
+        expect(slack_notifier).not_to receive(:notify_issue_merged)
+
+        service.send(:handle_post_merge, pr_number, sha: nil)
+      end
+    end
+
+    context "when issue is not found" do
+      before do
+        allow(github_client).to receive(:get_pr_issue_number).
+          with(repository, pr_number).
+          and_return(nil)
+      end
+
+      it "does not send Slack notification" do
+        expect(slack_notifier).not_to receive(:notify_issue_merged)
+        expect(github_client).not_to receive(:close_issue_with_label)
+
+        service.send(:handle_post_merge, pr_number, sha: nil)
+      end
     end
   end
 

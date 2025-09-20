@@ -621,8 +621,6 @@ RSpec.describe Soba::Services::WorkflowExecutor do
         executor.execute_in_tmux(phase: phase_config, issue_number: 123)
       end
 
-
-
       it 'handles tmux session creation failure' do
         expect(tmux_session_manager).to receive(:find_or_create_repository_session).and_return({
           success: false,

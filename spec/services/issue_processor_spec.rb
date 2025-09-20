@@ -57,6 +57,8 @@ RSpec.describe Soba::Services::IssueProcessor do
         expect(workflow_executor).to receive(:execute).with(
           phase: anything,
           issue_number: 123,
+          issue_title: 'Test Issue',
+          phase_name: 'queued_to_planning',
           use_tmux: true,
           setup_workspace: true
         ).and_return({ success: true, mode: 'tmux' })
@@ -83,6 +85,8 @@ RSpec.describe Soba::Services::IssueProcessor do
         expect(workflow_executor).to receive(:execute).with(
           phase: anything,
           issue_number: 123,
+          issue_title: 'Test Issue',
+          phase_name: 'plan',
           use_tmux: true,
           setup_workspace: true
         ).and_return({ success: true, session_name: 'soba-repo', window_name: 'issue-123', mode: 'tmux' })
@@ -109,6 +113,8 @@ RSpec.describe Soba::Services::IssueProcessor do
           expect(workflow_executor).to receive(:execute).with(
             phase: anything,
             issue_number: 123,
+            issue_title: 'Test Issue',
+            phase_name: 'plan',
             use_tmux: true,
             setup_workspace: true
           ).and_return({ success: false, error: 'Command failed', mode: 'tmux' })
@@ -158,6 +164,8 @@ RSpec.describe Soba::Services::IssueProcessor do
         expect(workflow_executor).to receive(:execute).with(
           phase: anything,
           issue_number: 123,
+          issue_title: 'Test Issue',
+          phase_name: 'implement',
           use_tmux: true,
           setup_workspace: true
         ).and_return({ success: true, session_name: 'soba-repo', window_name: 'issue-123', mode: 'tmux' })
@@ -193,6 +201,8 @@ RSpec.describe Soba::Services::IssueProcessor do
         expect(workflow_executor).to receive(:execute).with(
           phase: anything,
           issue_number: 123,
+          issue_title: 'Test Issue',
+          phase_name: 'plan',
           use_tmux: false,
           setup_workspace: true
         ).and_return({ success: true, output: 'Plan phase started', mode: 'direct' })

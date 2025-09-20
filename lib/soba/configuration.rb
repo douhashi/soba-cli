@@ -21,6 +21,7 @@ module Soba
       setting :closed_issue_cleanup_enabled, default: true
       setting :closed_issue_cleanup_interval, default: 300 # 5 minutes in seconds
       setting :tmux_command_delay, default: 3 # delay in seconds before sending commands to tmux
+      setting :slack_notifications_enabled, default: false
     end
 
     setting :git do
@@ -63,6 +64,7 @@ module Soba
           c.workflow.closed_issue_cleanup_enabled = true
           c.workflow.closed_issue_cleanup_interval = 300
           c.workflow.tmux_command_delay = 3
+          c.workflow.slack_notifications_enabled = false
           c.git.worktree_base_path = '.git/soba/worktrees'
           c.git.setup_workspace = true
           c.phase.plan.command = nil
@@ -144,6 +146,7 @@ module Soba
             c.workflow.closed_issue_cleanup_enabled = cleanup_enabled != false # default true
             c.workflow.closed_issue_cleanup_interval = data.dig('workflow', 'closed_issue_cleanup_interval') || 300
             c.workflow.tmux_command_delay = data.dig('workflow', 'tmux_command_delay') || 3
+            c.workflow.slack_notifications_enabled = data.dig('workflow', 'slack_notifications_enabled') || false
           end
 
           if data['git']
@@ -202,6 +205,9 @@ module Soba
             closed_issue_cleanup_interval: 300
             # Delay in seconds before sending commands to new tmux panes/windows (default: 3)
             tmux_command_delay: 3
+            # Enable Slack notifications for phase starts (default: false)
+            # Requires SLACK_WEBHOOK_URL environment variable
+            slack_notifications_enabled: false
 
           git:
             # Base path for git worktrees

@@ -35,6 +35,10 @@ module Soba
             'merged' => 'soba:merged',
           },
         },
+        'slack' => {
+          'webhook_url' => '${SLACK_WEBHOOK_URL}',
+          'notifications_enabled' => false,
+        },
       }.freeze
 
       LABEL_COLORS = {
@@ -142,6 +146,8 @@ module Soba
         # Add default phase configuration
         config['phase'] = DEFAULT_PHASE_CONFIG.deep_dup
 
+        # Slack configuration is already included in DEFAULT_CONFIG
+
         # Write configuration file
         write_config_file(config_path, config)
 
@@ -151,6 +157,7 @@ module Soba
         puts "📦 Repository: #{repository}"
 
         check_github_token(token: '${GITHUB_TOKEN}')
+        check_slack_webhook_url(config: config)
         handle_gitignore
         create_github_labels(config)
 
@@ -242,6 +249,29 @@ module Soba
         auto_merge = $stdin.gets.chomp.downcase
         auto_merge = 'y' if auto_merge.empty?
         auto_merge_enabled = auto_merge != 'n'
+
+        # Slack notification configuration
+        puts ""
+        print "Enable Slack notifications for phase starts? (y/N): "
+        slack_enabled = $stdin.gets.chomp.downcase
+        slack_enabled = 'n' if slack_enabled.empty?
+        slack_notifications_enabled = slack_enabled == 'y'
+
+        slack_webhook_url = '${SLACK_WEBHOOK_URL}'
+        if slack_notifications_enabled
+          puts "Slack Webhook URL setup:"
+          puts "  1. Use environment variable ${SLACK_WEBHOOK_URL} (recommended)"
+          puts "  2. Enter webhook URL directly (will be visible in config file)"
+          print "Choose option (1-2) [1]: "
+          slack_option = $stdin.gets.chomp
+          slack_option = '1' if slack_option.empty?
+
+          if slack_option == '2'
+            print "Enter Slack webhook URL: "
+            # Hide input for security
+            slack_webhook_url = $stdin.noecho(&:gets).chomp.tap { puts }
+          end
+        end
 
         # Workflow commands configuration
         puts ""
@@ -358,6 +388,10 @@ module Soba
               'merged' => 'soba:merged',
             },
           },
+          'slack' => {
+            'webhook_url' => slack_webhook_url,
+            'notifications_enabled' => slack_notifications_enabled,
+          },
         }
 
         # Add phase configuration if provided
@@ -397,6 +431,7 @@ module Soba
         puts "📁 Location: #{config_path}"
 
         check_github_token(token: token)
+        check_slack_webhook_url(config: config)
         handle_gitignore
         create_github_labels(config)
 
@@ -450,6 +485,15 @@ module Soba
               requires_changes: #{config['workflow']['phase_labels']['requires_changes']}
               revising: #{config['workflow']['phase_labels']['revising']}
               merged: #{config['workflow']['phase_labels']['merged']}
+
+          # Slack notification configuration
+          slack:
+            # Slack Webhook URL for notifications
+            # Can use environment variable: ${SLACK_WEBHOOK_URL}
+            webhook_url: #{config['slack']['webhook_url']}
+
+            # Enable Slack notifications for phase starts
+            notifications_enabled: #{config['slack']['notifications_enabled']}
         YAML
 
         # Add phase configuration if present
@@ -530,6 +574,24 @@ module Soba
             puts "⚠️  GITHUB_TOKEN environment variable is not set"
             puts "   Please set it before running soba commands:"
             puts "   export GITHUB_TOKEN='your-token-here'"
+          end
+        end
+      end
+
+      def check_slack_webhook_url(config:)
+        # Verify Slack webhook URL if environment variable is used and notifications are enabled
+        if config['slack'] && config['slack']['notifications_enabled']
+          webhook_url = config['slack']['webhook_url']
+          if webhook_url == '${SLACK_WEBHOOK_URL}'
+            puts ""
+            if ENV['SLACK_WEBHOOK_URL']
+              puts "✅ SLACK_WEBHOOK_URL environment variable is set"
+            else
+              puts "⚠️  SLACK_WEBHOOK_URL environment variable is not set"
+              puts "   Slack notifications are enabled but webhook URL is missing."
+              puts "   Please set it before running soba commands:"
+              puts "   export SLACK_WEBHOOK_URL='your-webhook-url-here'"
+            end
           end
         end
       end

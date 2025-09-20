@@ -187,8 +187,8 @@ RSpec.describe Soba::Configuration do
     end
   end
 
-  describe 'workflow.slack_notifications_enabled setting' do
-    context 'when slack_notifications_enabled is not set' do
+  describe 'slack.notifications_enabled setting' do
+    context 'when notifications_enabled is not set' do
       before do
         FileUtils.mkdir_p(config_dir)
         File.write(config_file, <<~YAML)
@@ -202,45 +202,46 @@ RSpec.describe Soba::Configuration do
 
       it 'defaults to false' do
         config = described_class.load!(path: config_file)
-        expect(config.workflow.slack_notifications_enabled).to be false
+        expect(config.slack.notifications_enabled).to be false
       end
     end
 
-    context 'when slack_notifications_enabled is explicitly set to true' do
+    context 'when notifications_enabled is explicitly set to true' do
       before do
         FileUtils.mkdir_p(config_dir)
         File.write(config_file, <<~YAML)
           github:
             token: test_token
             repository: owner/repo
-          workflow:
-            interval: 20
-            slack_notifications_enabled: true
+          slack:
+            webhook_url: 'https://hooks.slack.com/services/TEST'
+            notifications_enabled: true
         YAML
       end
 
       it 'loads as true' do
         config = described_class.load!(path: config_file)
-        expect(config.workflow.slack_notifications_enabled).to be true
+        expect(config.slack.notifications_enabled).to be true
+        expect(config.slack.webhook_url).to eq('https://hooks.slack.com/services/TEST')
       end
     end
 
-    context 'when slack_notifications_enabled is explicitly set to false' do
+    context 'when notifications_enabled is explicitly set to false' do
       before do
         FileUtils.mkdir_p(config_dir)
         File.write(config_file, <<~YAML)
           github:
             token: test_token
             repository: owner/repo
-          workflow:
-            interval: 20
-            slack_notifications_enabled: false
+          slack:
+            webhook_url: 'https://hooks.slack.com/services/TEST'
+            notifications_enabled: false
         YAML
       end
 
       it 'loads as false' do
         config = described_class.load!(path: config_file)
-        expect(config.workflow.slack_notifications_enabled).to be false
+        expect(config.slack.notifications_enabled).to be false
       end
     end
   end

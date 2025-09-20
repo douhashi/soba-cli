@@ -4,6 +4,7 @@ require "semantic_logger"
 require_relative "../infrastructure/github_client"
 require_relative "../configuration"
 require_relative "slack_notifier"
+require_relative "git_workspace_manager"
 
 module Soba
   module Services
@@ -13,6 +14,7 @@ module Soba
       def initialize
         @github_client = Infrastructure::GitHubClient.new
         @repository = Configuration.config.github.repository
+        @git_workspace_manager = GitWorkspaceManager.new
       end
 
       def execute
@@ -116,6 +118,17 @@ module Soba
 
       def handle_post_merge(pr_number, sha: nil)
         logger.debug "Handling post-merge actions", pr_number: pr_number
+
+        # Update main branch after successful merge
+        begin
+          logger.info "Updating main branch after merge", pr_number: pr_number
+          @git_workspace_manager.update_main_branch
+          logger.info "Main branch updated successfully"
+        rescue GitWorkspaceManager::GitOperationError => e
+          logger.error "Failed to update main branch", error: e.message
+        rescue => e
+          logger.error "Unexpected error updating main branch", error: e.message
+        end
 
         # Extract issue number from PR body
         issue_number = @github_client.get_pr_issue_number(@repository, pr_number)

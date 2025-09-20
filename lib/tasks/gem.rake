@@ -39,13 +39,18 @@ namespace :gem do
     end
   end
 
-  desc "Build, tag, and push gem to RubyGems.org"
+  desc "Build, tag, and push gem to RubyGems.org (manual release)"
   task release: "gem:build" do
+    puts "🚨 NOTICE: This is a manual release task."
+    puts "📋 For automated releases, create a GitHub Release with a tag like 'v1.2.3'"
+    puts "🤖 GitHub Actions will automatically build and publish the gem."
+    puts ""
+
     gem_file = Dir.glob("soba-cli-*.gem").max_by { |f| File.mtime(f) }
     abort("No gem file found") unless gem_file
 
     puts "WARNING: This will push #{gem_file} to RubyGems.org!"
-    print "Are you sure? (y/N): "
+    print "Are you sure you want to proceed with manual release? (y/N): "
     input = $stdin.gets.chomp
 
     if input.downcase == "y"

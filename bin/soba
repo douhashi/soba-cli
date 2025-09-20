@@ -1,9 +1,15 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 
-require "bundler/setup"
+# Load from gem if installed, otherwise use local development setup
+begin
+  require "soba"
+rescue LoadError
+  require "bundler/setup"
+  require_relative "../lib/soba"
+end
+
 require "gli"
-require_relative "../lib/soba"
 
 include GLI::App
 

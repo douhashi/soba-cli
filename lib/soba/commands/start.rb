@@ -29,6 +29,13 @@ module Soba
       end
 
       def execute(global_options, options, args)
+        # Handle deprecated --foreground option
+        if options[:foreground]
+          puts "DEPRECATED: The --foreground option is now the default behavior."
+          puts "This option will be removed in a future version."
+          options.delete(:foreground)
+        end
+
         if args.empty?
           # ワークフロー実行モード（既存のworkflow runの動作）
           execute_workflow(global_options, options)
@@ -46,16 +53,16 @@ module Soba
       private
 
       def log_output(message, options, daemon_service = nil)
-        if options[:foreground]
-          puts message
-        else
+        if options[:daemon]
           daemon_service&.log(message)
+        else
+          puts message
         end
       end
 
       def execute_workflow(global_options, options)
         # Daemon mode setup
-        unless options[:foreground]
+        if options[:daemon]
           # Allow test environment to override PID file path
           pid_file = ENV['SOBA_TEST_PID_FILE'] || File.expand_path('~/.soba/soba.pid')
           log_file = ENV['SOBA_TEST_LOG_FILE'] || File.expand_path('~/.soba/logs/daemon.log')
@@ -120,10 +127,10 @@ module Soba
           else
             message = "Using existing tmux session: #{session_result[:session_name]}"
           end
-          if options[:foreground]
-            puts message
-          else
+          if options[:daemon]
             daemon_service.log(message) if defined?(daemon_service)
+          else
+            puts message
           end
         end
         workflow_executor = Soba::Services::WorkflowExecutor.new(
@@ -169,15 +176,15 @@ module Soba
           "Closed issue cleanup enabled: #{Soba::Configuration.config.workflow.closed_issue_cleanup_enabled}",
         ]
 
-        if options[:foreground]
+        if options[:daemon]
+          startup_message.each { |msg| daemon_service.log(msg) if defined?(daemon_service) }
+        else
           startup_message.each { |msg| puts msg }
           puts "Press Ctrl+C to stop"
-        else
-          startup_message.each { |msg| daemon_service.log(msg) if defined?(daemon_service) }
         end
 
         @running = true
-        if options[:foreground]
+        unless options[:daemon]
           Signal.trap('INT') { @running = false }
           Signal.trap('TERM') { @running = false }
         end

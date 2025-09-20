@@ -43,6 +43,36 @@ RSpec.describe Soba::Commands::Start do
         expect(command).to receive(:execute_workflow).with(global_options, options)
         command.execute(global_options, options, args)
       end
+
+      context "デフォルト（フォアグラウンド実行）" do
+        it "フォアグラウンドで実行される" do
+          expect(command).to receive(:execute_workflow).with(global_options, options)
+          command.execute(global_options, options, args)
+        end
+      end
+
+      context "--daemonオプションが指定された場合" do
+        let(:options) { { daemon: true } }
+
+        it "デーモンモードで実行される" do
+          expect(command).to receive(:execute_workflow).with(global_options, options)
+          command.execute(global_options, options, args)
+        end
+      end
+
+      context "--foregroundオプションが指定された場合（廃止予定）" do
+        let(:options) { { foreground: true } }
+
+        it "廃止予定の警告を表示する" do
+          expect { command.execute(global_options, options, args) }.to output(/DEPRECATED/).to_stdout
+        end
+
+        it "フォアグラウンドで実行される（互換性のため）" do
+          allow(command).to receive(:puts)
+          expect(command).to receive(:execute_workflow).with(global_options, hash_excluding(:foreground))
+          command.execute(global_options, options, args)
+        end
+      end
     end
 
     context "Issue番号が指定された場合（単一Issue実行）" do
@@ -128,7 +158,7 @@ RSpec.describe Soba::Commands::Start do
 
   describe "#execute_workflow" do
     let(:global_options) { {} }
-    let(:options) { { foreground: true } }
+    let(:options) { {} } # デフォルトはフォアグラウンド
     let(:tmux_session_manager) { instance_double(Soba::Services::TmuxSessionManager) }
     let(:github_client) { instance_double(Soba::Infrastructure::GitHubClient) }
     let(:tmux_client) { instance_double(Soba::Infrastructure::TmuxClient) }
@@ -160,18 +190,65 @@ RSpec.describe Soba::Commands::Start do
       allow(command).to receive(:puts)
     end
 
-    it "ワークフロー開始時に空のtmuxセッションを作成する" do
-      # Expect tmux session to be created
-      expect(tmux_session_manager).to receive(:find_or_create_repository_session).once.and_return({
-        success: true,
-        session_name: 'soba-owner-repo',
-        created: true,
-      })
+    context "デフォルト（フォアグラウンドモード）" do
+      it "ワークフロー開始時に空のtmuxセッションを作成する" do
+        # Expect tmux session to be created
+        expect(tmux_session_manager).to receive(:find_or_create_repository_session).once.and_return({
+          success: true,
+          session_name: 'soba-owner-repo',
+          created: true,
+        })
 
-      # Mock sleep to prevent waiting
-      allow(command).to receive(:sleep) { command.instance_variable_set(:@running, false) }
+        # Mock sleep to prevent waiting
+        allow(command).to receive(:sleep) { command.instance_variable_set(:@running, false) }
 
-      command.send(:execute_workflow, global_options, options)
+        command.send(:execute_workflow, global_options, options)
+      end
+
+      it "デーモン化されない" do
+        expect(Soba::Services::DaemonService).not_to receive(:new)
+        allow(tmux_session_manager).to receive(:find_or_create_repository_session).and_return({
+          success: true,
+          session_name: 'soba-owner-repo',
+          created: false,
+        })
+        allow(command).to receive(:sleep) { command.instance_variable_set(:@running, false) }
+        command.send(:execute_workflow, global_options, options)
+      end
+    end
+
+    context "--daemonオプションが指定された場合" do
+      let(:options) { { daemon: true } }
+      let(:pid_manager) { instance_double(Soba::Services::PidManager) }
+      let(:daemon_service) { instance_double(Soba::Services::DaemonService) }
+
+      before do
+        allow(Soba::Services::PidManager).to receive(:new).and_return(pid_manager)
+        allow(Soba::Services::DaemonService).to receive(:new).and_return(daemon_service)
+        allow(daemon_service).to receive(:already_running?).and_return(false)
+        allow(daemon_service).to receive(:daemonize!)
+        allow(daemon_service).to receive(:log)
+        allow(daemon_service).to receive(:setup_signal_handlers)
+
+        # Add tmux_session_manager mock
+        allow(tmux_session_manager).to receive(:find_or_create_repository_session).and_return({
+          success: true,
+          session_name: 'soba-owner-repo',
+          created: false,
+        })
+      end
+
+      it "デーモン化される" do
+        expect(daemon_service).to receive(:daemonize!)
+        allow(command).to receive(:sleep) { command.instance_variable_set(:@running, false) }
+        command.send(:execute_workflow, global_options, options)
+      end
+
+      it "ログファイルに出力される" do
+        expect(daemon_service).to receive(:log).with(/Daemon started successfully/)
+        allow(command).to receive(:sleep) { command.instance_variable_set(:@running, false) }
+        command.send(:execute_workflow, global_options, options)
+      end
     end
   end
 end

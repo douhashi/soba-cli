@@ -34,6 +34,30 @@ module Soba
         end
       end
 
+      def notify_issue_merged(merge_data)
+        return false unless enabled?
+
+        logger.debug "Starting Slack notification for merged issue ##{merge_data[:issue_number]}"
+
+        begin
+          message = build_merged_message(merge_data)
+          logger.debug "Sending notification to Slack webhook"
+
+          response = send_notification(message)
+
+          if response.success?
+            logger.debug "Slack notification sent successfully (HTTP #{response.status})"
+            true
+          else
+            logger.warn("Failed to send Slack notification: HTTP #{response.status}")
+            false
+          end
+        rescue StandardError => e
+          logger.warn("Error sending Slack notification: #{e.message}")
+          false
+        end
+      end
+
       def enabled?
         @webhook_url.present?
       end
@@ -101,6 +125,60 @@ module Soba
                   short: true,
                 },
               ],
+              footer: "Soba CLI",
+              footer_icon: "https://github.com/favicon.ico",
+              ts: Time.now.to_i,
+            },
+          ],
+        }
+      end
+
+      def build_merged_message(merge_data)
+        issue_url = if merge_data[:repository]
+                      "https://github.com/#{merge_data[:repository]}/issues/#{merge_data[:issue_number]}"
+                    else
+                      "##{merge_data[:issue_number]}"
+                    end
+
+        issue_value = if merge_data[:repository]
+                        "<#{issue_url}|##{merge_data[:issue_number]}>"
+                      else
+                        "##{merge_data[:issue_number]}"
+                      end
+
+        fields = [
+          {
+            title: "Issue",
+            value: issue_value,
+            short: true,
+          },
+        ]
+
+        if merge_data[:pr_number] && merge_data[:repository]
+          pr_url = "https://github.com/#{merge_data[:repository]}/pull/#{merge_data[:pr_number]}"
+          pr_value = "<#{pr_url}|##{merge_data[:pr_number]}>"
+          fields << {
+            title: "PR",
+            value: pr_value,
+            short: true,
+          }
+        end
+
+        if merge_data[:sha]
+          fields << {
+            title: "SHA",
+            value: merge_data[:sha],
+            short: true,
+          }
+        end
+
+        {
+          text: "✅ Soba merged: Issue ##{merge_data[:issue_number]}",
+          attachments: [
+            {
+              color: "good",
+              title: merge_data[:issue_title],
+              fields: fields,
               footer: "Soba CLI",
               footer_icon: "https://github.com/favicon.ico",
               ts: Time.now.to_i,

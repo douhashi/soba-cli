@@ -235,6 +235,158 @@ RSpec.describe Soba::Services::SlackNotifier do
     end
   end
 
+  describe "#notify_issue_merged" do
+    let(:merge_data) do
+      {
+        issue_number: 160,
+        issue_title: "soba:merged にするときもslack通知を行いたい",
+        pr_number: 165,
+        pr_title: "feat: Add Slack notification for merged issues (#160)",
+        sha: "abc123def456",
+        repository: "douhashi/soba",
+      }
+    end
+
+    context "when webhook_url is configured" do
+      let(:connection_stub) { instance_double(Faraday::Connection) }
+      let(:response_stub) { instance_double(Faraday::Response, status: 200, success?: true) }
+
+      before do
+        allow(Faraday).to receive(:new).and_return(connection_stub)
+        allow(connection_stub).to receive(:post).and_return(response_stub)
+      end
+
+      it "sends a merge notification successfully" do
+        logger = instance_double(Logger)
+        allow(notifier).to receive(:logger).and_return(logger)
+        expect(logger).to receive(:debug).with(/Starting Slack notification for merged issue/)
+        expect(logger).to receive(:debug).with(/Sending notification to Slack webhook/)
+        expect(logger).to receive(:debug).with(/Slack notification sent successfully/)
+
+        expect(connection_stub).to receive(:post) do |url, payload|
+          expect(url).to eq(webhook_url)
+
+          json_payload = JSON.parse(payload)
+          expect(json_payload["text"]).to eq("✅ Soba merged: Issue #160")
+          expect(json_payload["attachments"].first["title"]).to eq("soba:merged にするときもslack通知を行いたい")
+          expect(json_payload["attachments"].first["color"]).to eq("good")
+
+          fields = json_payload["attachments"].first["fields"]
+          issue_field = fields.find { |f| f["title"] == "Issue" }
+          expect(issue_field["value"]).to eq("<https://github.com/douhashi/soba/issues/160|#160>")
+
+          pr_field = fields.find { |f| f["title"] == "PR" }
+          expect(pr_field["value"]).to eq("<https://github.com/douhashi/soba/pull/165|#165>")
+
+          sha_field = fields.find { |f| f["title"] == "SHA" }
+          expect(sha_field["value"]).to eq("abc123def456")
+
+          response_stub
+        end
+
+        result = notifier.notify_issue_merged(merge_data)
+        expect(result).to be true
+      end
+
+      context "when optional data is missing" do
+        let(:minimal_merge_data) do
+          {
+            issue_number: 160,
+            issue_title: "soba:merged にするときもslack通知を行いたい",
+            repository: "douhashi/soba",
+          }
+        end
+
+        it "sends notification with available data only" do
+          expect(connection_stub).to receive(:post) do |url, payload|
+            json_payload = JSON.parse(payload)
+
+            fields = json_payload["attachments"].first["fields"]
+            issue_field = fields.find { |f| f["title"] == "Issue" }
+            expect(issue_field).to be_present
+
+            pr_field = fields.find { |f| f["title"] == "PR" }
+            expect(pr_field).to be_nil
+
+            sha_field = fields.find { |f| f["title"] == "SHA" }
+            expect(sha_field).to be_nil
+
+            response_stub
+          end
+
+          result = notifier.notify_issue_merged(minimal_merge_data)
+          expect(result).to be true
+        end
+      end
+
+      context "when HTTP request fails" do
+        let(:error_response) { instance_double(Faraday::Response, status: 500, success?: false) }
+
+        before do
+          allow(connection_stub).to receive(:post).and_return(error_response)
+        end
+
+        it "returns false" do
+          result = notifier.notify_issue_merged(merge_data)
+          expect(result).to be false
+        end
+
+        it "logs a warning message" do
+          logger = instance_double(Logger)
+          allow(notifier).to receive(:logger).and_return(logger)
+          expect(logger).to receive(:debug).with(/Starting Slack notification for merged issue/)
+          expect(logger).to receive(:debug).with(/Sending notification to Slack webhook/)
+          expect(logger).to receive(:warn).with(/Failed to send Slack notification/)
+
+          notifier.notify_issue_merged(merge_data)
+        end
+      end
+
+      context "when network error occurs" do
+        before do
+          allow(connection_stub).to receive(:post).and_raise(Faraday::ConnectionFailed.new("Connection failed"))
+        end
+
+        it "returns false" do
+          result = notifier.notify_issue_merged(merge_data)
+          expect(result).to be false
+        end
+
+        it "logs the error" do
+          logger = instance_double(Logger)
+          allow(notifier).to receive(:logger).and_return(logger)
+          expect(logger).to receive(:debug).with(/Starting Slack notification for merged issue/)
+          expect(logger).to receive(:debug).with(/Sending notification to Slack webhook/)
+          expect(logger).to receive(:warn).with(/Error sending Slack notification/)
+
+          notifier.notify_issue_merged(merge_data)
+        end
+      end
+    end
+
+    context "when webhook_url is not configured" do
+      let(:notifier) { described_class.new(webhook_url: nil) }
+
+      it "returns false without making HTTP request" do
+        expect(Faraday).not_to receive(:new)
+
+        result = notifier.notify_issue_merged(merge_data)
+        expect(result).to be false
+      end
+    end
+
+    context "when webhook_url is empty" do
+      let(:notifier) { described_class.new(webhook_url: "") }
+
+      it "returns false without making HTTP request" do
+        expect(Faraday).not_to receive(:new)
+
+        result = notifier.notify_issue_merged(merge_data)
+        expect(result).to be false
+      end
+    end
+  end
+
   describe ".from_config" do
     context "when slack notifications are enabled in config" do
       let(:config) do

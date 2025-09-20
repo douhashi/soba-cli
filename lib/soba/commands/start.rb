@@ -260,13 +260,12 @@ module Soba
 
             # Cleanup closed issue windows (if enabled and interval has passed)
             if cleaner_service.should_clean?
-              timestamp = Time.now.strftime('%Y-%m-%d %H:%M:%S')
-              puts "[#{timestamp}] Running closed issue cleanup..."
+              Soba.logger.info "Running closed issue cleanup..."
               active_sessions = tmux_client.list_soba_sessions
               active_sessions.each do |session|
                 cleaner_service.clean(session)
               end
-              puts "[#{timestamp}] Closed issue cleanup completed for #{active_sessions.size} session(s)"
+              Soba.logger.info "Closed issue cleanup completed for #{active_sessions.size} session(s)"
             end
 
             # Process the first issue if available
@@ -349,7 +348,7 @@ module Soba
 
             sleep(interval) if @running
           rescue StandardError => e
-            puts "Error: #{e.message}"
+            Soba.logger.error "Workflow execution error: #{e.message}"
             puts e.backtrace.first(5).join("\n") if ENV['DEBUG']
             sleep(interval) if @running
           end

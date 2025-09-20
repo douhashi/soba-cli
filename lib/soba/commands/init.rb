@@ -613,7 +613,7 @@ module Soba
           # Create phase labels
           phase_labels.each do |phase, label_name|
             if existing_label_names.include?(label_name)
-              puts "   ⏩ Label '#{label_name}' already exists, skipping"
+              Soba.logger.debug "Label '#{label_name}' already exists, skipping"
               skipped_count += 1
             else
               color = LABEL_COLORS[phase]
@@ -621,10 +621,10 @@ module Soba
 
               result = github_client.create_label(repository, label_name, color, description)
               if result
-                puts "   ✅ Label '#{label_name}' created"
+                Soba.logger.info "Label '#{label_name}' created"
                 created_count += 1
               else
-                puts "   ⚠️  Label '#{label_name}' could not be created (may already exist)"
+                Soba.logger.warn "Label '#{label_name}' could not be created (may already exist)"
                 skipped_count += 1
               end
             end
@@ -638,7 +638,7 @@ module Soba
           additional_labels.each do |label_info|
             label_name = label_info[:name]
             if existing_label_names.include?(label_name)
-              puts "   ⏩ Label '#{label_name}' already exists, skipping"
+              Soba.logger.debug "Label '#{label_name}' already exists, skipping"
               skipped_count += 1
             else
               color = LABEL_COLORS[label_info[:phase]]
@@ -646,10 +646,10 @@ module Soba
 
               result = github_client.create_label(repository, label_name, color, description)
               if result
-                puts "   ✅ Label '#{label_name}' created"
+                Soba.logger.info "Label '#{label_name}' created"
                 created_count += 1
               else
-                puts "   ⚠️  Label '#{label_name}' could not be created (may already exist)"
+                Soba.logger.warn "Label '#{label_name}' could not be created (may already exist)"
                 skipped_count += 1
               end
             end
@@ -658,13 +658,13 @@ module Soba
           puts ""
           puts "✅ Label creation complete: #{created_count} created, #{skipped_count} skipped"
         rescue Infrastructure::AuthenticationError => e
-          puts "   ❌ Authentication failed: #{e.message}"
-          puts "   Please ensure your GitHub token has 'repo' permission"
+          Soba.logger.error "Authentication failed: #{e.message}"
+          Soba.logger.error "Please ensure your GitHub token has 'repo' permission"
         rescue Infrastructure::GitHubClientError => e
-          puts "   ❌ Failed to create labels: #{e.message}"
-          puts "   Please check your repository permissions"
+          Soba.logger.error "Failed to create labels: #{e.message}"
+          Soba.logger.error "Please check your repository permissions"
         rescue StandardError => e
-          puts "   ❌ Unexpected error: #{e.message}"
+          Soba.logger.error "Unexpected error: #{e.message}"
         end
       end
     end

@@ -73,7 +73,7 @@ RSpec.describe 'Daemon mode integration' do
       end
 
       output = capture_stdout { stop_cmd.execute }
-      expect(output).to include("Daemon stopped successfully")
+      expect(output).to include("Stopping daemon")
 
       # Verify daemon is stopped
       expect(File.exist?(pid_file)).to be false

@@ -870,6 +870,7 @@ RSpec.describe Soba::Commands::Init do
         token_provider = instance_double(Soba::Infrastructure::GitHubTokenProvider)
         allow(Soba::Infrastructure::GitHubTokenProvider).to receive(:new).and_return(token_provider)
         allow(token_provider).to receive(:detect_best_method).and_return(nil)
+        allow(token_provider).to receive(:fetch).with(auth_method: nil).and_return(nil)
 
         allow(Dir).to receive(:exist?).with('.git').and_return(true)
         allow(command).to receive(:`).with('git config --get remote.origin.url 2>/dev/null').and_return("https://github.com/douhashi/soba.git\n")

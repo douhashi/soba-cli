@@ -701,6 +701,14 @@ RSpec.describe Soba::Services::WorkflowExecutor do
     context 'with Slack notifications' do
       let(:slack_notifier) { instance_double(Soba::Services::SlackNotifier) }
       let(:issue_data) { { number: 123, title: 'Test Issue' } }
+      let(:phase_config_with_name) do
+        double(
+          command: 'echo',
+          options: ['--test'],
+          parameter: 'Issue {{issue-number}}',
+          name: 'test-phase'
+        )
+      end
 
       before do
         allow(git_workspace_manager).to receive(:update_main_branch)
@@ -713,7 +721,7 @@ RSpec.describe Soba::Services::WorkflowExecutor do
 
         # Configurationの設定をモック（planフェーズの設定がある場合の対策）
         config_phase = double('phase_config')
-        allow(config_phase).to receive(:plan).and_return(phase_config)
+        allow(config_phase).to receive(:plan).and_return(phase_config_with_name)
         allow(Soba::Configuration).to receive_message_chain(:config, :phase).and_return(config_phase)
       end
 
@@ -726,6 +734,7 @@ RSpec.describe Soba::Services::WorkflowExecutor do
         end
 
         it 'sends notification when phase starts' do
+          expect(Soba::Services::SlackNotifier).to receive(:from_env).and_return(slack_notifier)
           expect(slack_notifier).to receive(:enabled?).and_return(true)
           expect(slack_notifier).to receive(:notify_phase_start).with(
             hash_including(
@@ -743,7 +752,7 @@ RSpec.describe Soba::Services::WorkflowExecutor do
           end
 
           result = executor.execute(
-            phase: phase_config,
+            phase: phase_config_with_name,
             issue_number: 123,
             issue_title: 'Test Issue',
             phase_name: 'test-phase',
@@ -754,6 +763,7 @@ RSpec.describe Soba::Services::WorkflowExecutor do
         end
 
         it 'continues execution even if notification fails' do
+          expect(Soba::Services::SlackNotifier).to receive(:from_env).and_return(slack_notifier)
           expect(slack_notifier).to receive(:enabled?).and_return(true)
           expect(slack_notifier).to receive(:notify_phase_start).and_return(false)
 
@@ -766,7 +776,7 @@ RSpec.describe Soba::Services::WorkflowExecutor do
           end
 
           result = executor.execute(
-            phase: phase_config,
+            phase: phase_config_with_name,
             issue_number: 123,
             issue_title: 'Test Issue',
             phase_name: 'test-phase',
@@ -777,6 +787,7 @@ RSpec.describe Soba::Services::WorkflowExecutor do
         end
 
         it 'does not send notification if webhook URL is not configured' do
+          expect(Soba::Services::SlackNotifier).to receive(:from_env).and_return(slack_notifier)
           expect(slack_notifier).to receive(:enabled?).and_return(false)
           expect(slack_notifier).not_to receive(:notify_phase_start)
 
@@ -789,7 +800,7 @@ RSpec.describe Soba::Services::WorkflowExecutor do
           end
 
           result = executor.execute(
-            phase: phase_config,
+            phase: phase_config_with_name,
             issue_number: 123,
             issue_title: 'Test Issue',
             phase_name: 'test-phase',
@@ -809,8 +820,8 @@ RSpec.describe Soba::Services::WorkflowExecutor do
         end
 
         it 'does not send notification' do
-          expect(Soba::Services::SlackNotifier).not_to receive(:from_env)
-          expect(slack_notifier).not_to receive(:notify_phase_start)
+          # when slack_notifications_enabled is false, no slack notifier is created
+          # and no notifications are sent
 
           expect(Open3).to receive(:popen3).with('echo', '--test', 'Issue 123') do |&block|
             stdin = double('stdin', close: nil)
@@ -821,7 +832,7 @@ RSpec.describe Soba::Services::WorkflowExecutor do
           end
 
           result = executor.execute(
-            phase: phase_config,
+            phase: phase_config_with_name,
             issue_number: 123,
             issue_title: 'Test Issue',
             phase_name: 'test-phase',

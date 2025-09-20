@@ -33,7 +33,7 @@ RSpec.describe Soba::Commands::Stop do
     end
 
     context 'with --force option' do
-      let(:test_pid) { 88967 } # Use fake PID to avoid affecting real processes
+      let(:test_pid) { 99999999 } # Use impossibly high PID that cannot exist (max is usually 4194304)
       let(:options) { { force: true } }
 
       before do
@@ -64,7 +64,7 @@ RSpec.describe Soba::Commands::Stop do
     end
 
     context 'with --timeout option' do
-      let(:test_pid) { 88967 } # Use fake PID to avoid affecting real processes
+      let(:test_pid) { 99999999 } # Use impossibly high PID that cannot exist (max is usually 4194304)
       let(:options) { { timeout: 5 } }
 
       before do
@@ -82,18 +82,20 @@ RSpec.describe Soba::Commands::Stop do
     end
 
     context 'when daemon is running' do
-      let(:test_pid) { 88967 } # Use fake PID to avoid affecting real processes
+      let(:test_pid) { 99999999 } # Use impossibly high PID that cannot exist (max is usually 4194304)
 
       before do
         # Create PID file with current process
         File.write(pid_file, test_pid.to_s)
-        # Mock Process.kill to prevent actually killing the test process
+        # Mock Process.kill to prevent actually killing any process
         allow(stop_command).to receive(:cleanup_tmux_sessions) # Prevent actual tmux operations
-        # First check if running (kill 0), then send TERM
+        # Mock all Process.kill calls for safety
         call_count = 0
         allow(Process).to receive(:kill) do |signal, pid|
+          # Safety check: never allow real kill for any PID
+          call_count += 1 if pid == test_pid
+
           if pid == test_pid
-            call_count += 1
             case [signal, call_count]
             when [0, 1]
               1  # Process is running
@@ -104,6 +106,9 @@ RSpec.describe Soba::Commands::Stop do
             else
               raise "Unexpected kill call: #{signal} #{call_count}"
             end
+          else
+            # For any other PID, return safe defaults
+            raise Errno::ESRCH  # Process not found (safe)
           end
         end
       end
@@ -156,7 +161,7 @@ RSpec.describe Soba::Commands::Stop do
     end
 
     context 'when process does not terminate gracefully' do
-      let(:test_pid) { 88967 } # Use fake PID to avoid affecting real processes
+      let(:test_pid) { 99999999 } # Use impossibly high PID that cannot exist (max is usually 4194304)
 
       before do
         File.write(pid_file, test_pid.to_s)
@@ -218,7 +223,7 @@ RSpec.describe Soba::Commands::Stop do
   end
 
   describe 'graceful shutdown' do
-    let(:test_pid) { 88967 } # Use fake PID to avoid affecting real processes
+    let(:test_pid) { 99999999 } # Use impossibly high PID that cannot exist (max is usually 4194304)
     let(:stopping_file) { '/tmp/test_stopping' }
 
     before do

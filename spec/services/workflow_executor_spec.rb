@@ -4,6 +4,7 @@ require 'spec_helper'
 require 'soba/services/workflow_executor'
 require 'soba/services/tmux_session_manager'
 require 'soba/infrastructure/tmux_client'
+require 'soba/services/slack_notifier'
 
 RSpec.describe Soba::Services::WorkflowExecutor do
   let(:tmux_session_manager) { instance_double(Soba::Services::TmuxSessionManager) }
@@ -694,6 +695,141 @@ RSpec.describe Soba::Services::WorkflowExecutor do
         result = executor.execute_in_tmux(phase: phase_config, issue_number: 123)
 
         expect(result).to be_nil
+      end
+    end
+
+    context 'with Slack notifications' do
+      let(:slack_notifier) { instance_double(Soba::Services::SlackNotifier) }
+      let(:issue_data) { { number: 123, title: 'Test Issue' } }
+
+      before do
+        allow(git_workspace_manager).to receive(:update_main_branch)
+        allow(git_workspace_manager).to receive(:setup_workspace)
+        allow(git_workspace_manager).to receive(:get_worktree_path).with(123).and_return('/tmp/test-worktree')
+        allow(Soba::Services::SlackNotifier).to receive(:from_env).and_return(slack_notifier)
+
+        # worktree内での実行をモック
+        allow(Dir).to receive(:chdir).with('/tmp/test-worktree').and_yield
+
+        # Configurationの設定をモック（planフェーズの設定がある場合の対策）
+        config_phase = double('phase_config')
+        allow(config_phase).to receive(:plan).and_return(phase_config)
+        allow(Soba::Configuration).to receive_message_chain(:config, :phase).and_return(config_phase)
+      end
+
+      context 'when Slack notifications are enabled' do
+        before do
+          config = double('config')
+          workflow = double('workflow', slack_notifications_enabled: true)
+          allow(config).to receive(:workflow).and_return(workflow)
+          allow(Soba::ConfigLoader).to receive(:config).and_return(config)
+        end
+
+        it 'sends notification when phase starts' do
+          expect(slack_notifier).to receive(:enabled?).and_return(true)
+          expect(slack_notifier).to receive(:notify_phase_start).with(
+            hash_including(
+              number: 123,
+              phase: 'test-phase'
+            )
+          ).and_return(true)
+
+          expect(Open3).to receive(:popen3).with('echo', '--test', 'Issue 123') do |&block|
+            stdin = double('stdin', close: nil)
+            stdout = double('stdout', read: 'Success')
+            stderr = double('stderr', read: '')
+            thread = double('thread', value: double(exitstatus: 0))
+            block.call(stdin, stdout, stderr, thread)
+          end
+
+          result = executor.execute(
+            phase: phase_config,
+            issue_number: 123,
+            issue_title: 'Test Issue',
+            phase_name: 'test-phase',
+            use_tmux: false
+          )
+
+          expect(result).to include(success: true)
+        end
+
+        it 'continues execution even if notification fails' do
+          expect(slack_notifier).to receive(:enabled?).and_return(true)
+          expect(slack_notifier).to receive(:notify_phase_start).and_return(false)
+
+          expect(Open3).to receive(:popen3).with('echo', '--test', 'Issue 123') do |&block|
+            stdin = double('stdin', close: nil)
+            stdout = double('stdout', read: 'Success')
+            stderr = double('stderr', read: '')
+            thread = double('thread', value: double(exitstatus: 0))
+            block.call(stdin, stdout, stderr, thread)
+          end
+
+          result = executor.execute(
+            phase: phase_config,
+            issue_number: 123,
+            issue_title: 'Test Issue',
+            phase_name: 'test-phase',
+            use_tmux: false
+          )
+
+          expect(result).to include(success: true)
+        end
+
+        it 'does not send notification if webhook URL is not configured' do
+          expect(slack_notifier).to receive(:enabled?).and_return(false)
+          expect(slack_notifier).not_to receive(:notify_phase_start)
+
+          expect(Open3).to receive(:popen3).with('echo', '--test', 'Issue 123') do |&block|
+            stdin = double('stdin', close: nil)
+            stdout = double('stdout', read: 'Success')
+            stderr = double('stderr', read: '')
+            thread = double('thread', value: double(exitstatus: 0))
+            block.call(stdin, stdout, stderr, thread)
+          end
+
+          result = executor.execute(
+            phase: phase_config,
+            issue_number: 123,
+            issue_title: 'Test Issue',
+            phase_name: 'test-phase',
+            use_tmux: false
+          )
+
+          expect(result).to include(success: true)
+        end
+      end
+
+      context 'when Slack notifications are disabled' do
+        before do
+          config = double('config')
+          workflow = double('workflow', slack_notifications_enabled: false)
+          allow(config).to receive(:workflow).and_return(workflow)
+          allow(Soba::ConfigLoader).to receive(:config).and_return(config)
+        end
+
+        it 'does not send notification' do
+          expect(Soba::Services::SlackNotifier).not_to receive(:from_env)
+          expect(slack_notifier).not_to receive(:notify_phase_start)
+
+          expect(Open3).to receive(:popen3).with('echo', '--test', 'Issue 123') do |&block|
+            stdin = double('stdin', close: nil)
+            stdout = double('stdout', read: 'Success')
+            stderr = double('stderr', read: '')
+            thread = double('thread', value: double(exitstatus: 0))
+            block.call(stdin, stdout, stderr, thread)
+          end
+
+          result = executor.execute(
+            phase: phase_config,
+            issue_number: 123,
+            issue_title: 'Test Issue',
+            phase_name: 'test-phase',
+            use_tmux: false
+          )
+
+          expect(result).to include(success: true)
+        end
       end
     end
   end

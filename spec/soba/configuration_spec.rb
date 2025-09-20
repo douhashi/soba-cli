@@ -187,6 +187,64 @@ RSpec.describe Soba::Configuration do
     end
   end
 
+  describe 'workflow.slack_notifications_enabled setting' do
+    context 'when slack_notifications_enabled is not set' do
+      before do
+        FileUtils.mkdir_p(config_dir)
+        File.write(config_file, <<~YAML)
+          github:
+            token: test_token
+            repository: owner/repo
+          workflow:
+            interval: 20
+        YAML
+      end
+
+      it 'defaults to false' do
+        config = described_class.load!(path: config_file)
+        expect(config.workflow.slack_notifications_enabled).to be false
+      end
+    end
+
+    context 'when slack_notifications_enabled is explicitly set to true' do
+      before do
+        FileUtils.mkdir_p(config_dir)
+        File.write(config_file, <<~YAML)
+          github:
+            token: test_token
+            repository: owner/repo
+          workflow:
+            interval: 20
+            slack_notifications_enabled: true
+        YAML
+      end
+
+      it 'loads as true' do
+        config = described_class.load!(path: config_file)
+        expect(config.workflow.slack_notifications_enabled).to be true
+      end
+    end
+
+    context 'when slack_notifications_enabled is explicitly set to false' do
+      before do
+        FileUtils.mkdir_p(config_dir)
+        File.write(config_file, <<~YAML)
+          github:
+            token: test_token
+            repository: owner/repo
+          workflow:
+            interval: 20
+            slack_notifications_enabled: false
+        YAML
+      end
+
+      it 'loads as false' do
+        config = described_class.load!(path: config_file)
+        expect(config.workflow.slack_notifications_enabled).to be false
+      end
+    end
+  end
+
   describe 'phase configuration' do
     context 'when phase settings are provided' do
       before do

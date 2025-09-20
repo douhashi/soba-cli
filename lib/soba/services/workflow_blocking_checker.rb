@@ -17,6 +17,8 @@ module Soba
       INTERMEDIATE_LABELS = %w(
         soba:review-requested
         soba:requires-changes
+        soba:done
+        soba:merged
       ).freeze
 
       attr_reader :github_client, :logger

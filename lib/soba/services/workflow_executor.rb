@@ -3,7 +3,9 @@
 require 'open3'
 require 'shellwords'
 require_relative 'git_workspace_manager'
+require_relative 'slack_notifier'
 require_relative '../configuration'
+require_relative '../config_loader'
 
 module Soba
   module Services
@@ -15,8 +17,11 @@ module Soba
         @git_workspace_manager = git_workspace_manager || GitWorkspaceManager.new
       end
 
-      def execute(phase:, issue_number:, use_tmux: true, setup_workspace: true)
+      def execute(phase:, issue_number:, use_tmux: true, setup_workspace: true, issue_title: nil, phase_name: nil)
         return nil unless phase.command
+
+        # Slack通知を送信（設定が有効な場合）
+        send_slack_notification(issue_number, issue_title, phase_name) if phase_name
 
         # フェーズ開始時にmainブランチを更新し、ワークスペースをセットアップ
         if setup_workspace
@@ -160,6 +165,21 @@ module Soba
       end
 
       private
+
+      def send_slack_notification(issue_number, issue_title, phase_name)
+        return unless ConfigLoader.config.workflow.slack_notifications_enabled
+
+        notifier = SlackNotifier.from_env
+        return unless notifier.enabled?
+
+        notifier.notify_phase_start(
+          number: issue_number,
+          title: issue_title || "Issue ##{issue_number}",
+          phase: phase_name
+        )
+      rescue StandardError => e
+        Soba.logger.warn "Failed to send Slack notification: #{e.message}"
+      end
 
       def build_command(phase_config, issue_number)
         command = [phase_config.command]

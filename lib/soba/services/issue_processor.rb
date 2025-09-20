@@ -86,7 +86,9 @@ module Soba
             phase: phase_config,
             issue_number: issue[:number],
             use_tmux: use_tmux,
-            setup_workspace: setup_workspace
+            setup_workspace: setup_workspace,
+            issue_title: issue[:title],
+            phase_name: phase.to_s
           )
 
           result = {

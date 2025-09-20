@@ -224,14 +224,14 @@ RSpec.describe Soba::Commands::Stop do
 
   describe 'graceful shutdown' do
     let(:test_pid) { 99999999 } # Use impossibly high PID that cannot exist (max is usually 4194304)
-    let(:stopping_file) { '/tmp/test_stopping' }
+    let(:stopping_file) { "/tmp/test_stopping.#{test_pid}" }
 
     before do
       File.write(pid_file, test_pid.to_s)
       allow(Process).to receive(:kill).with(0, test_pid).and_return(1)
       allow(Process).to receive(:kill).with('TERM', test_pid).and_return(1)
       allow(File).to receive(:expand_path).and_call_original
-      allow(File).to receive(:expand_path).with('~/.soba/stopping').and_return(stopping_file)
+      allow(File).to receive(:expand_path).with("~/.soba/stopping.#{test_pid}").and_return(stopping_file)
       allow(FileUtils).to receive(:touch)
       allow(FileUtils).to receive(:rm_f)
     end

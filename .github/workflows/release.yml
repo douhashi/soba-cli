@@ -1,0 +1,57 @@
+name: Release
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Ruby
+      uses: ruby/setup-ruby@v1
+      with:
+        ruby-version: '3.3'
+        bundler-cache: true
+
+    - name: Extract version from tag
+      id: extract_version
+      run: |
+        # タグからバージョンを抽出 (例: v1.2.3 -> 1.2.3)
+        VERSION=${GITHUB_REF#refs/tags/v}
+        echo "version=${VERSION}" >> $GITHUB_OUTPUT
+        echo "Extracted version: ${VERSION}"
+
+    - name: Update version file
+      run: |
+        # version.rb を動的に更新
+        sed -i "s/VERSION = \".*\"/VERSION = \"${{ steps.extract_version.outputs.version }}\"/" lib/soba/version.rb
+        echo "Updated version.rb:"
+        cat lib/soba/version.rb
+
+    - name: Run tests
+      run: |
+        bundle exec rspec
+        bundle exec rubocop
+
+    - name: Build gem
+      run: |
+        gem build soba-cli.gemspec
+        echo "Built gem:"
+        ls -la *.gem
+
+    - name: Publish to RubyGems
+      env:
+        GEM_HOST_API_KEY: ${{ secrets.RUBYGEMS_AUTH_TOKEN }}
+      run: |
+        gem push *.gem
+        echo "Successfully published to RubyGems!"
+
+    - name: Create release artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: gem-${{ steps.extract_version.outputs.version }}
+        path: "*.gem"

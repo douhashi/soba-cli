@@ -263,7 +263,7 @@ module Soba
         errors = []
 
         # Validate auth_method if specified
-        if config.github.auth_method && ['gh', 'env'].exclude?(config.github.auth_method)
+        if config.github.auth_method && !['gh', 'env'].include?(config.github.auth_method)
           errors << "Invalid auth_method: #{config.github.auth_method}. Must be 'gh', 'env', or nil"
         end
 

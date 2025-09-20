@@ -158,7 +158,8 @@ module Soba
           config['github']['token'] = '${GITHUB_TOKEN}'
           puts "✅ Using environment variable authentication"
         else
-          # Keep default token field
+          # Keep default token field for backward compatibility
+          config['github']['token'] = '${GITHUB_TOKEN}'
           puts "⚠️  No authentication method detected. Please configure manually."
         end
 
@@ -458,7 +459,10 @@ module Soba
         # Add token/auth_method based on selection
         if auth_method
           config['github']['auth_method'] = auth_method
-          config['github']['token'] = token if token
+          # For env auth method, we still need the token field
+          if auth_method == 'env' || token
+            config['github']['token'] = token
+          end
         else
           config['github']['token'] = token
         end

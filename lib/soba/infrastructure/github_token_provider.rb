@@ -56,7 +56,7 @@ module Soba
       end
 
       def last_command_status
-        $CHILD_STATUS
+        $CHILD_STATUS || $LAST_CHILD_STATUS
       end
 
       def fetch_from_env

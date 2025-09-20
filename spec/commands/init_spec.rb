@@ -543,6 +543,12 @@ RSpec.describe Soba::Commands::Init do
       end
 
       it "uses default values when empty input" do
+        # Mock GitHubTokenProvider to ensure consistent behavior
+        token_provider = instance_double(Soba::Infrastructure::GitHubTokenProvider)
+        allow(Soba::Infrastructure::GitHubTokenProvider).to receive(:new).and_return(token_provider)
+        allow(token_provider).to receive(:gh_available?).and_return(false)
+        allow(token_provider).to receive(:detect_best_method).and_return(nil)
+
         input = build_interactive_input(token_option: "", interval: "")
         allow($stdin).to receive(:gets) { input.gets }
 
@@ -840,6 +846,11 @@ RSpec.describe Soba::Commands::Init do
 
     context "when config file does not exist" do
       it "creates a configuration file with default values including phase configuration" do
+        # Mock GitHubTokenProvider to ensure consistent behavior
+        token_provider = instance_double(Soba::Infrastructure::GitHubTokenProvider)
+        allow(Soba::Infrastructure::GitHubTokenProvider).to receive(:new).and_return(token_provider)
+        allow(token_provider).to receive(:detect_best_method).and_return(nil)
+
         allow(Dir).to receive(:exist?).with('.git').and_return(true)
         allow(command).to receive(:`).with('git config --get remote.origin.url 2>/dev/null').and_return("https://github.com/douhashi/soba.git\n")
 

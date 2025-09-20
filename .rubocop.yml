@@ -48,6 +48,10 @@ Style/GlobalVars:
   Exclude:
     - 'bin/soba'
 
+# This is not a Rails application
+Rails/NegateInclude:
+  Enabled: false
+
 # For RSpec
 RSpec/MultipleExpectations:
   Max: 3

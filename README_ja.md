@@ -114,6 +114,14 @@ workflow:
   # tmuxペインへのコマンド遅延（秒）（デフォルト: 3）
   tmux_command_delay: 3
 
+# Slack通知設定
+slack:
+  # Slack通知用のWebhook URL
+  # Webhook URLの取得方法: https://api.slack.com/messaging/webhooks
+  webhook_url: ${SLACK_WEBHOOK_URL}
+  # フェーズ開始時の通知を有効化（デフォルト: false）
+  notifications_enabled: false
+
 # Git設定
 git:
   # git worktreeのベースパス

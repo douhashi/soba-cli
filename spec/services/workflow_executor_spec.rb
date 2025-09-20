@@ -728,13 +728,13 @@ RSpec.describe Soba::Services::WorkflowExecutor do
       context 'when Slack notifications are enabled' do
         before do
           config = double('config')
-          workflow = double('workflow', slack_notifications_enabled: true)
-          allow(config).to receive(:workflow).and_return(workflow)
-          allow(Soba::ConfigLoader).to receive(:config).and_return(config)
+          slack = double('slack', notifications_enabled: true)
+          allow(config).to receive(:slack).and_return(slack)
+          allow(Soba::Configuration).to receive(:config).and_return(config)
         end
 
         it 'sends notification when phase starts' do
-          expect(Soba::Services::SlackNotifier).to receive(:from_env).and_return(slack_notifier)
+          expect(Soba::Services::SlackNotifier).to receive(:from_config).and_return(slack_notifier)
           expect(slack_notifier).to receive(:enabled?).and_return(true)
           expect(slack_notifier).to receive(:notify_phase_start).with(
             hash_including(
@@ -763,7 +763,7 @@ RSpec.describe Soba::Services::WorkflowExecutor do
         end
 
         it 'continues execution even if notification fails' do
-          expect(Soba::Services::SlackNotifier).to receive(:from_env).and_return(slack_notifier)
+          expect(Soba::Services::SlackNotifier).to receive(:from_config).and_return(slack_notifier)
           expect(slack_notifier).to receive(:enabled?).and_return(true)
           expect(slack_notifier).to receive(:notify_phase_start).and_return(false)
 
@@ -787,7 +787,7 @@ RSpec.describe Soba::Services::WorkflowExecutor do
         end
 
         it 'does not send notification if webhook URL is not configured' do
-          expect(Soba::Services::SlackNotifier).to receive(:from_env).and_return(slack_notifier)
+          expect(Soba::Services::SlackNotifier).to receive(:from_config).and_return(slack_notifier)
           expect(slack_notifier).to receive(:enabled?).and_return(false)
           expect(slack_notifier).not_to receive(:notify_phase_start)
 
@@ -814,9 +814,9 @@ RSpec.describe Soba::Services::WorkflowExecutor do
       context 'when Slack notifications are disabled' do
         before do
           config = double('config')
-          workflow = double('workflow', slack_notifications_enabled: false)
-          allow(config).to receive(:workflow).and_return(workflow)
-          allow(Soba::ConfigLoader).to receive(:config).and_return(config)
+          slack = double('slack', notifications_enabled: false)
+          allow(config).to receive(:slack).and_return(slack)
+          allow(Soba::Configuration).to receive(:config).and_return(config)
         end
 
         it 'does not send notification' do

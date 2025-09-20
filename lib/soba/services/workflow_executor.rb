@@ -167,16 +167,24 @@ module Soba
       private
 
       def send_slack_notification(issue_number, issue_title, phase_name)
-        return unless ConfigLoader.config.workflow.slack_notifications_enabled
+        return unless Configuration.config.slack.notifications_enabled
 
-        notifier = SlackNotifier.from_env
-        return unless notifier.enabled?
+        notifier = SlackNotifier.from_config
+        return unless notifier&.enabled?
 
-        notifier.notify_phase_start(
+        Soba.logger.debug "Sending Slack notification for phase '#{phase_name}' of issue ##{issue_number}"
+
+        result = notifier.notify_phase_start(
           number: issue_number,
           title: issue_title || "Issue ##{issue_number}",
           phase: phase_name
         )
+
+        if result
+          Soba.logger.debug "Successfully sent Slack notification for phase '#{phase_name}'"
+        else
+          Soba.logger.debug "Failed to send Slack notification for phase '#{phase_name}'"
+        end
       rescue StandardError => e
         Soba.logger.warn "Failed to send Slack notification: #{e.message}"
       end

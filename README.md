@@ -114,6 +114,14 @@ workflow:
   # Command delay for tmux panes in seconds (default: 3)
   tmux_command_delay: 3
 
+# Slack notifications
+slack:
+  # Webhook URL for Slack notifications
+  # Get your webhook URL from: https://api.slack.com/messaging/webhooks
+  webhook_url: ${SLACK_WEBHOOK_URL}
+  # Enable notifications for phase starts (default: false)
+  notifications_enabled: false
+
 # Git settings
 git:
   # Base path for git worktrees

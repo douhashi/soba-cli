@@ -214,9 +214,13 @@ module Soba
             closed_issue_cleanup_interval: 300
             # Delay in seconds before sending commands to new tmux panes/windows (default: 3)
             tmux_command_delay: 3
+
+          slack:
+            # Slack webhook URL for sending notifications
+            # Can use environment variable: ${SLACK_WEBHOOK_URL}
+            webhook_url: ${SLACK_WEBHOOK_URL}
             # Enable Slack notifications for phase starts (default: false)
-            # Requires SLACK_WEBHOOK_URL environment variable
-            slack_notifications_enabled: false
+            notifications_enabled: false
 
           git:
             # Base path for git worktrees

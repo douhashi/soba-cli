@@ -38,7 +38,7 @@ RSpec.describe Soba::Services::QueueingService do
         result = service.queue_next_issue(repository)
 
         expect(result).to be_nil
-        expect(logger).to have_received(:info).with("キューイング処理をスキップします: Issue #2 が soba:planning のため、新しいワークフローの開始をスキップしました")
+        expect(logger).to have_received(:info).with("Skipping queueing process: Issue #2 が soba:planning のため、新しいワークフローの開始をスキップしました")
       end
     end
 
@@ -65,7 +65,7 @@ RSpec.describe Soba::Services::QueueingService do
           result = service.queue_next_issue(repository)
 
           expect(result).to be_nil
-          expect(logger).to have_received(:info).with("キューイング対象のIssueが見つかりませんでした")
+          expect(logger).to have_received(:info).with("No issues found for queueing")
         end
       end
 
@@ -79,7 +79,7 @@ RSpec.describe Soba::Services::QueueingService do
 
           expect(result).to eq(todo_issue)
           expect(github_client).to have_received(:update_issue_labels).with("owner/repo", 1, from: "soba:todo", to: "soba:queued")
-          expect(logger).to have_received(:info).with("Issue #1 を soba:queued に遷移させました: Todo Issue")
+          expect(logger).to have_received(:info).with("Transitioned Issue #1 to soba:queued: Todo Issue")
         end
 
         context "when another issue becomes active before label update" do
@@ -99,7 +99,7 @@ RSpec.describe Soba::Services::QueueingService do
 
             expect(result).to be_nil
             expect(github_client).not_to have_received(:update_issue_labels)
-            expect(logger).to have_received(:warn).with(match(/競合状態を検出しました/))
+            expect(logger).to have_received(:warn).with(match(/Race condition detected/))
           end
         end
       end
@@ -143,7 +143,7 @@ RSpec.describe Soba::Services::QueueingService do
 
           expect(result).to eq(todo_issue_2)
           expect(github_client).to have_received(:update_issue_labels).with("owner/repo", 1, from: "soba:todo", to: "soba:queued")
-          expect(logger).to have_received(:info).with("Issue #1 を soba:queued に遷移させました: Todo Issue 1")
+          expect(logger).to have_received(:info).with("Transitioned Issue #1 to soba:queued: Todo Issue 1")
         end
       end
 
@@ -155,7 +155,7 @@ RSpec.describe Soba::Services::QueueingService do
 
         it "logs error and re-raises exception" do
           expect { service.queue_next_issue(repository) }.to raise_error(StandardError, "GitHub API error")
-          expect(logger).to have_received(:error).with("Issue #1 のラベル更新に失敗しました: GitHub API error")
+          expect(logger).to have_received(:error).with("Failed to update labels for Issue #1: GitHub API error")
         end
       end
     end
@@ -241,7 +241,7 @@ RSpec.describe Soba::Services::QueueingService do
 
         expect(result).to be_nil
         expect(github_client).not_to have_received(:update_issue_labels)
-        expect(logger).to have_received(:info).with("キューイング処理をスキップします: Issue #1 が soba:done のため、新しいワークフローの開始をスキップしました")
+        expect(logger).to have_received(:info).with("Skipping queueing process: Issue #1 が soba:done のため、新しいワークフローの開始をスキップしました")
       end
     end
 
@@ -279,7 +279,7 @@ RSpec.describe Soba::Services::QueueingService do
 
         expect(result).to be_nil
         expect(github_client).not_to have_received(:update_issue_labels)
-        expect(logger).to have_received(:info).with("キューイング処理をスキップします: Issue #1 が soba:merged のため、新しいワークフローの開始をスキップしました")
+        expect(logger).to have_received(:info).with("Skipping queueing process: Issue #1 が soba:merged のため、新しいワークフローの開始をスキップしました")
       end
     end
   end
@@ -556,7 +556,7 @@ RSpec.describe Soba::Services::QueueingService do
 
         expect(result).to be true
         expect(github_client).to have_received(:update_issue_labels).with("owner/repo", 1, from: "soba:todo", to: "soba:queued")
-        expect(logger).to have_received(:info).with("Issue #1 を soba:queued に遷移させました: Todo Issue")
+        expect(logger).to have_received(:info).with("Transitioned Issue #1 to soba:queued: Todo Issue")
       end
     end
 
@@ -568,7 +568,7 @@ RSpec.describe Soba::Services::QueueingService do
 
       it "logs error and re-raises exception" do
         expect { service.send(:transition_to_queued, issue, repository) }.to raise_error(StandardError, "GitHub API error")
-        expect(logger).to have_received(:error).with("Issue #1 のラベル更新に失敗しました: GitHub API error")
+        expect(logger).to have_received(:error).with("Failed to update labels for Issue #1: GitHub API error")
       end
     end
 
@@ -585,8 +585,8 @@ RSpec.describe Soba::Services::QueueingService do
 
         expect(result).to be_nil
         expect(github_client).not_to have_received(:update_issue_labels)
-        expect(logger).to have_received(:warn).with("競合状態を検出しました: Issue #2 が soba:planning のため、新しいワークフローの開始をスキップしました")
-        expect(logger).to have_received(:warn).with("Issue #1 のキューイングをスキップします")
+        expect(logger).to have_received(:warn).with("Race condition detected: Issue #2 が soba:planning のため、新しいワークフローの開始をスキップしました")
+        expect(logger).to have_received(:warn).with("Skipping queueing for Issue #1")
       end
     end
   end

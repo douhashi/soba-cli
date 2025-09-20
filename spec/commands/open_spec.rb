@@ -43,7 +43,7 @@ RSpec.describe Soba::Commands::Open do
         it 'outputs success message' do
           allow(tmux_client).to receive(:attach_to_window)
           expect { command.execute(issue_number) }.
-            to output(/Issue #74 のセッションにアタッチします/).to_stdout
+            to output(/Attaching to Issue #74 session/).to_stdout
         end
       end
 
@@ -58,7 +58,7 @@ RSpec.describe Soba::Commands::Open do
         it 'raises an error with helpful message' do
           expect { command.execute(issue_number) }.to raise_error(
             Soba::Commands::Open::SessionNotFoundError,
-            /Issue #74 のセッションが見つかりません/
+            /Issue #74 session not found/
           )
         end
       end
@@ -82,7 +82,7 @@ RSpec.describe Soba::Commands::Open do
           and_return(sessions)
 
         expect { command.execute(nil, list: true) }.
-          to output(/アクティブなIssueセッション/).to_stdout
+          to output(/Active Issue sessions/).to_stdout
         expect { command.execute(nil, list: true) }.
           to output(/74.*soba open コマンドの作成/).to_stdout
         expect { command.execute(nil, list: true) }.
@@ -95,7 +95,7 @@ RSpec.describe Soba::Commands::Open do
           and_return([])
 
         expect { command.execute(nil, list: true) }.
-          to output(/アクティブなIssueセッションがありません/).to_stdout
+          to output(/No active Issue sessions/).to_stdout
       end
     end
 
@@ -110,7 +110,7 @@ RSpec.describe Soba::Commands::Open do
       it 'raises TmuxNotInstalledError' do
         expect { command.execute(issue_number) }.to raise_error(
           Soba::Infrastructure::TmuxNotInstalled,
-          /tmuxがインストールされていません/
+          /tmux is not installed/
         )
       end
     end
@@ -147,7 +147,7 @@ RSpec.describe Soba::Commands::Open do
         it 'outputs success message' do
           allow(tmux_client).to receive(:attach_to_session)
           expect { command.execute(nil) }.
-            to output(/リポジトリのセッション soba-test-repo にアタッチします/).to_stdout
+            to output(/Attaching to repository session soba-test-repo/).to_stdout
         end
       end
 
@@ -173,7 +173,7 @@ RSpec.describe Soba::Commands::Open do
         it 'outputs success message' do
           allow(tmux_client).to receive(:attach_to_session)
           expect { command.execute(nil) }.
-            to output(/リポジトリのセッション soba-test-repo-12345 にアタッチします/).to_stdout
+            to output(/Attaching to repository session soba-test-repo-12345/).to_stdout
         end
       end
 
@@ -194,7 +194,7 @@ RSpec.describe Soba::Commands::Open do
         it 'raises an error with helpful message' do
           expect { command.execute(nil) }.to raise_error(
             Soba::Commands::Open::SessionNotFoundError,
-            /リポジトリのセッションが見つかりません/
+            /Repository session not found/
           )
         end
       end

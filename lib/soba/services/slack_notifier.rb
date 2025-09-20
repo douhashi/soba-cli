@@ -71,8 +71,20 @@ module Soba
       end
 
       def build_message(issue_data)
+        issue_url = if issue_data[:repository]
+                      "https://github.com/#{issue_data[:repository]}/issues/#{issue_data[:number]}"
+                    else
+                      "##{issue_data[:number]}"
+                    end
+
+        issue_value = if issue_data[:repository]
+                        "<#{issue_url}|##{issue_data[:number]}>"
+                      else
+                        "##{issue_data[:number]}"
+                      end
+
         {
-          text: "🚀 Soba Workflow Phase Started: Issue ##{issue_data[:number]}",
+          text: "🚀 Soba started #{issue_data[:phase]} phase: Issue ##{issue_data[:number]}",
           attachments: [
             {
               color: "good",
@@ -80,18 +92,13 @@ module Soba
               fields: [
                 {
                   title: "Issue",
-                  value: "##{issue_data[:number]}",
+                  value: issue_value,
                   short: true,
                 },
                 {
                   title: "Phase",
                   value: issue_data[:phase],
                   short: true,
-                },
-                {
-                  title: "Title",
-                  value: issue_data[:title],
-                  short: false,
                 },
               ],
               footer: "Soba CLI",

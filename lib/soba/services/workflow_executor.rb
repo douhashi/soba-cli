@@ -177,7 +177,8 @@ module Soba
         result = notifier.notify_phase_start(
           number: issue_number,
           title: issue_title || "Issue ##{issue_number}",
-          phase: phase_name
+          phase: phase_name,
+          repository: Configuration.config.github.repository
         )
 
         if result

@@ -15,18 +15,18 @@ module Soba
       end
 
       def queue_next_issue(repository)
-        logger.info("キューイング処理を開始します: #{repository}")
+        logger.info("Starting queueing process: #{repository}")
 
         if has_active_issue?(repository)
           issues = github_client.issues(repository, state: "open")
           reason = blocking_checker.blocking_reason(repository, issues: issues)
-          logger.info("キューイング処理をスキップします: #{reason}")
+          logger.info("Skipping queueing process: #{reason}")
           return nil
         end
 
         candidate = find_next_candidate_from_repository(repository)
         if candidate.nil?
-          logger.info("キューイング対象のIssueが見つかりませんでした")
+          logger.info("No issues found for queueing")
           return nil
         end
 
@@ -35,7 +35,7 @@ module Soba
 
         candidate
       rescue => e
-        logger.error("キューイング処理でエラーが発生しました: #{e.message} (repository: #{repository})")
+        logger.error("Error during queueing process: #{e.message} (repository: #{repository})")
         raise
       end
 
@@ -78,19 +78,19 @@ module Soba
         current_issues = github_client.issues(repository, state: "open")
         if blocking_checker.blocking?(repository, issues: current_issues)
           reason = blocking_checker.blocking_reason(repository, issues: current_issues)
-          logger.warn("競合状態を検出しました: #{reason}")
-          logger.warn("Issue ##{issue.number} のキューイングをスキップします")
+          logger.warn("Race condition detected: #{reason}")
+          logger.warn("Skipping queueing for Issue ##{issue.number}")
           return nil
         end
 
-        logger.debug("Issue ##{issue.number} のラベルを更新します: #{TODO_LABEL} -> #{QUEUED_LABEL}")
+        logger.debug("Updating labels for Issue ##{issue.number}: #{TODO_LABEL} -> #{QUEUED_LABEL}")
 
         github_client.update_issue_labels(repository, issue.number, from: TODO_LABEL, to: QUEUED_LABEL)
 
-        logger.info("Issue ##{issue.number} を soba:queued に遷移させました: #{issue.title}")
+        logger.info("Transitioned Issue ##{issue.number} to soba:queued: #{issue.title}")
         true  # 成功を示すために true を返す
       rescue => e
-        logger.error("Issue ##{issue.number} のラベル更新に失敗しました: #{e.message}")
+        logger.error("Failed to update labels for Issue ##{issue.number}: #{e.message}")
         raise
       end
     end

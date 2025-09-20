@@ -68,7 +68,7 @@ RSpec.describe 'Open Command Integration', integration: true do
       allow(tmux_client).to receive(:attach_to_session).with(session_name)
 
       # Execute should find the session
-      expect { open_command.execute(nil) }.to output(/リポジトリのセッション #{session_name} にアタッチします/).to_stdout
+      expect { open_command.execute(nil) }.to output(/Attaching to repository session #{session_name}/).to_stdout
 
       # Verify session exists
       expect(tmux_client.session_exists?(session_name)).to be true
@@ -89,7 +89,7 @@ RSpec.describe 'Open Command Integration', integration: true do
       # Execute should not find the session and raise error
       expect { open_command.execute(nil) }.to raise_error(
         Soba::Commands::Open::SessionNotFoundError,
-        /リポジトリのセッションが見つかりません/
+        /Repository session not found/
       )
 
       # Verify PID file was cleaned up
@@ -113,7 +113,7 @@ RSpec.describe 'Open Command Integration', integration: true do
       allow(tmux_client).to receive(:attach_to_session).with(session2)
 
       # Execute should find the correct session
-      expect { open_command.execute(nil) }.to output(/リポジトリのセッション #{session2} にアタッチします/).to_stdout
+      expect { open_command.execute(nil) }.to output(/Attaching to repository session #{session2}/).to_stdout
 
       # Verify session exists
       expect(tmux_client.session_exists?(session2)).to be true
@@ -139,7 +139,7 @@ RSpec.describe 'Open Command Integration', integration: true do
       allow(tmux_client).to receive(:attach_to_session).with(session_name)
 
       # Execute should find the session through standard search
-      expect { open_command.execute(nil) }.to output(/リポジトリのセッション #{session_name} にアタッチします/).to_stdout
+      expect { open_command.execute(nil) }.to output(/Attaching to repository session #{session_name}/).to_stdout
 
       # Verify session exists
       expect(tmux_client.session_exists?(session_name)).to be true

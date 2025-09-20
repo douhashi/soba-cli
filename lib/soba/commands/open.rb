@@ -30,7 +30,7 @@ module Soba
 
       def validate_tmux_installation!
         unless @tmux_client.tmux_installed?
-          raise Infrastructure::TmuxNotInstalled, 'tmuxがインストールされていません。インストールしてから再度お試しください'
+          raise Infrastructure::TmuxNotInstalled, 'tmux is not installed. Please install tmux and try again'
         end
       end
 
@@ -52,7 +52,7 @@ module Soba
 
         if result[:exists]
           session_name = result[:session_name]
-          puts "リポジトリのセッション #{session_name} にアタッチします..."
+          puts "Attaching to repository session #{session_name}..."
           @tmux_client.attach_to_session(session_name)
         else
           # Fallback to find repository session by PID (for backward compatibility)
@@ -60,16 +60,16 @@ module Soba
 
           if pid_result[:exists]
             session_name = pid_result[:session_name]
-            puts "リポジトリのセッション #{session_name} にアタッチします... (旧形式)"
+            puts "Attaching to repository session #{session_name}... (legacy format)"
             @tmux_client.attach_to_session(session_name)
           else
             raise SessionNotFoundError, <<~MESSAGE
-              リポジトリのセッションが見つかりません。
+              Repository session not found.
 
-              ワークフローを開始すると自動的にセッションが作成されます:
+              A session will be created automatically when you start the workflow:
                 soba start
 
-              またはアクティブなセッションを確認できます:
+              Or check active sessions:
                 soba open --list
             MESSAGE
           end
@@ -89,16 +89,16 @@ module Soba
         window_id = @tmux_session_manager.find_issue_window(repository_name, issue_number)
 
         if window_id
-          puts "Issue ##{issue_number} のセッションにアタッチします..."
+          puts "Attaching to Issue ##{issue_number} session..."
           @tmux_client.attach_to_window(window_id)
         else
           raise SessionNotFoundError, <<~MESSAGE
-            Issue ##{issue_number} のセッションが見つかりません。
+            Issue ##{issue_number} session not found.
 
-            セッションを開始するには:
+            To start a session:
               soba start #{issue_number}
 
-            アクティブなセッションを確認するには:
+            To check active sessions:
               soba open --list
           MESSAGE
         end
@@ -117,20 +117,20 @@ module Soba
         sessions = @tmux_session_manager.list_issue_windows(repository_name)
 
         if sessions.empty?
-          puts 'アクティブなIssueセッションがありません'
+          puts 'No active Issue sessions'
           puts
-          puts 'セッションを開始するには:'
+          puts 'To start a session:'
           puts '  soba start <issue-number>'
         else
-          puts 'アクティブなIssueセッション:'
+          puts 'Active Issue sessions:'
           puts
           sessions.each do |session|
             issue_number = extract_issue_number(session[:window])
-            title = session[:title] || '(タイトル取得中...)'
+            title = session[:title] || '(fetching title...)'
             puts "  ##{issue_number.ljust(6)} #{title}"
           end
           puts
-          puts 'セッションを開くには:'
+          puts 'To open a session:'
           puts '  soba open <issue-number>'
         end
       end

@@ -209,9 +209,7 @@ module Soba
           delay = 3
         end
 
-        if delay && delay > 0
-          sleep(delay)
-        end
+        sleep(delay) if delay && delay > 0
       end
     end
   end

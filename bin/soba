@@ -45,7 +45,10 @@ command :start do |c|
   c.desc "Disable tmux execution"
   c.switch ["no-tmux"]
 
-  c.desc "Run in foreground mode (default is daemon mode)"
+  c.desc "Run in daemon mode (default is foreground mode)"
+  c.switch [:d, :daemon]
+
+  c.desc "[DEPRECATED] Run in foreground mode (now default)"
   c.switch [:f, :foreground]
 
   c.action do |global_options, options, args|

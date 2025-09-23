@@ -1,6 +1,6 @@
 # **This repository has been archived.**
 
-The functionality of osoba has been integrated into the new project [soba](https://github.com/douhashi/soba/), which is a superset.  
+The functionality of soba-cli has been integrated into the new project [soba](https://github.com/douhashi/soba/), which is a superset.  
 
 Please consider using soba.
 
